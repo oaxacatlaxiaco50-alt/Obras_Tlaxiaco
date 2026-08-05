@@ -11,6 +11,7 @@ import { UserResponse } from '../../core/models/user.model';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
+import * as L from 'leaflet';
 
 @Component({
   selector: 'app-obras-list',
@@ -137,16 +138,27 @@ import * as XLSX from 'xlsx';
       <!-- Modal Nueva Obra -->
       @if (mostrarModalNuevaObra()) {
       <div class="modal-overlay animate-fade-in">
-        <div class="modal-content animate-slide-in">
+        <div class="modal-content animate-slide-in" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
           <div class="modal-header">
             <h2 class="modal-title">🏗️ Crear Nueva Obra</h2>
-            <button class="btn-close" (click)="mostrarModalNuevaObra.set(false)">✕</button>
+            <button class="btn-close" (click)="cerrarModalNuevaObra()">✕</button>
           </div>
           <form class="modal-form" (submit)="crearObra($event)">
             <div class="form-group">
               <label class="form-label">Nombre del Proyecto *</label>
               <input type="text" name="nombre" class="form-input" placeholder="Ej. Pavimentación Calle Juárez" required>
             </div>
+
+            <!-- Mapa para seleccionar ubicación con cursor -->
+            <div class="form-group">
+              <label class="form-label">📍 Seleccionar Ubicación en el Mapa (Haz clic o arrastra el marcador)</label>
+              <div id="modal-map" style="width: 100%; height: 220px; border-radius: 10px; margin-top: 6px; border: 1px solid var(--border); overflow: hidden; background: #0b131e;"></div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--accent); margin-top: 6px; background: rgba(0,0,0,0.25); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);">
+                <span>Latitud: <strong>{{ latitudSeleccionada() ?? 17.266108 }}</strong></span>
+                <span>Longitud: <strong>{{ longitudSeleccionada() ?? -97.676773 }}</strong></span>
+              </div>
+            </div>
+
             <div class="form-group">
               <label class="form-label">Ubicación / Dirección</label>
               <input type="text" name="direccion" class="form-input" placeholder="Ej. Sector Sur, Tlaxiaco">
@@ -181,7 +193,7 @@ import * as XLSX from 'xlsx';
               <textarea name="descripcion" class="form-input" rows="3" placeholder="Detalles de la obra..."></textarea>
             </div>
             <div class="modal-actions">
-              <button type="button" class="btn btn-secondary" (click)="mostrarModalNuevaObra.set(false)">Cancelar</button>
+              <button type="button" class="btn btn-secondary" (click)="cerrarModalNuevaObra()">Cancelar</button>
               <button type="submit" class="btn btn-primary">💾 Guardar Proyecto</button>
             </div>
           </form>
@@ -467,12 +479,71 @@ export class ObrasListComponent implements OnInit {
     this.router.navigate(['/obras', id]);
   }
 
+  latitudSeleccionada = signal<number | null>(17.266108);
+  longitudSeleccionada = signal<number | null>(-97.676773);
+  private modalMap?: L.Map;
+  private modalMarker?: L.Marker;
+
   abrirModal(tipo: 'obra' | 'expediente'): void {
     if (tipo === 'obra') {
       this.mostrarModalNuevaObra.set(true);
+      this.initModalMap();
     } else {
       this.mostrarModalNuevoExpediente.set(true);
     }
+  }
+
+  cerrarModalNuevaObra(): void {
+    if (this.modalMap) {
+      this.modalMap.remove();
+      this.modalMap = undefined;
+    }
+    this.mostrarModalNuevaObra.set(false);
+  }
+
+  initModalMap(): void {
+    setTimeout(() => {
+      const container = document.getElementById('modal-map');
+      if (!container) return;
+      if (this.modalMap) {
+        this.modalMap.remove();
+        this.modalMap = undefined;
+      }
+      const initialLat = 17.266108;
+      const initialLng = -97.676773;
+      this.latitudSeleccionada.set(initialLat);
+      this.longitudSeleccionada.set(initialLng);
+
+      this.modalMap = L.map('modal-map', { center: [initialLat, initialLng], zoom: 14 });
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
+      }).addTo(this.modalMap);
+
+      const icon = L.divIcon({
+        html: `<div style="width:30px;height:30px;background:#10B981;border:2px solid #fff;border-radius:50%;box-shadow:0 0 12px rgba(16,185,129,0.8);display:flex;align-items:center;justify-content:center;font-size:14px;color:white;font-weight:bold;">📍</div>`,
+        className: '', iconSize: [30, 30], iconAnchor: [15, 15]
+      });
+
+      this.modalMarker = L.marker([initialLat, initialLng], { icon, draggable: true }).addTo(this.modalMap);
+
+      this.modalMap.on('click', (e: L.LeafletMouseEvent) => {
+        const lat = Number(e.latlng.lat.toFixed(6));
+        const lng = Number(e.latlng.lng.toFixed(6));
+        this.latitudSeleccionada.set(lat);
+        this.longitudSeleccionada.set(lng);
+        if (this.modalMarker) {
+          this.modalMarker.setLatLng([lat, lng]);
+        }
+      });
+
+      this.modalMarker.on('dragend', () => {
+        if (this.modalMarker) {
+          const pos = this.modalMarker.getLatLng();
+          this.latitudSeleccionada.set(Number(pos.lat.toFixed(6)));
+          this.longitudSeleccionada.set(Number(pos.lng.toFixed(6)));
+        }
+      });
+    }, 150);
   }
 
   crearObra(e: Event) {
@@ -487,8 +558,10 @@ export class ObrasListComponent implements OnInit {
     const monto = parseFloat(formData.get('monto') as string) || 1000;
     const responsableId = Number(formData.get('responsableId')) || (this.responsables()[0]?.id ?? 1);
     const descripcion = (formData.get('descripcion') as string)?.trim() || '';
+    const latitud = this.latitudSeleccionada() ?? 17.266108;
+    const longitud = this.longitudSeleccionada() ?? -97.676773;
 
-    // Generar código válido
+    // Generar código único válido
     const codigo = 'OBR-' + Date.now().toString().slice(-6);
 
     this.svc.createObra({
@@ -500,12 +573,14 @@ export class ObrasListComponent implements OnInit {
       fechaFin,
       estatus: 'PLANIFICADA',
       responsableId,
-      direccion
+      direccion,
+      latitud,
+      longitud
     }).subscribe({
       next: (nueva) => {
         this.todasLasObras.update(list => [nueva, ...list]);
-        this.toastSvc.show('¡Obra creada exitosamente!', 'success');
-        this.mostrarModalNuevaObra.set(false);
+        this.toastSvc.show('¡Obra creada exitosamente con su ubicación GPS!', 'success');
+        this.cerrarModalNuevaObra();
       },
       error: (err) => {
         console.error('Error al crear obra:', err);

@@ -137,15 +137,15 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   private refreshMapMarkers(): void {
     if (!this.map) return;
     this.obras().forEach((obra, i) => {
-      const lat = this.DEFAULT_CENTER.lat + (i * 0.001);
-      const lng = this.DEFAULT_CENTER.lng + (i * 0.001);
+      const lat = obra.latitud ?? (this.DEFAULT_CENTER.lat + (i * 0.002));
+      const lng = obra.longitud ?? (this.DEFAULT_CENTER.lng + (i * 0.002));
       const color = this.getColor(obra);
       const icon = L.divIcon({
-        html: `<div style="width:28px;height:28px;background:${color};border:2px solid #fff;border-radius:50%;box-shadow:0 0 10px ${color}88;display:flex;align-items:center;justify-content:center;font-size:12px;color:white;font-weight:bold;">O</div>`,
+        html: `<div style="width:28px;height:28px;background:${color};border:2px solid #fff;border-radius:50%;box-shadow:0 0 10px ${color}88;display:flex;align-items:center;justify-content:center;font-size:12px;color:white;font-weight:bold;">📍</div>`,
         className: '', iconSize: [28, 28], iconAnchor: [14, 14]
       });
       const marker = L.marker([lat, lng], { icon })
-        .bindPopup(`<b style="color:#1a1a1a">${obra.nombre}</b><br>Estatus: ${this.getStatusText(obra)}`)
+        .bindPopup(`<b style="color:#1a1a1a">${obra.nombre}</b><br>Estatus: ${this.getStatusText(obra)}<br>📍 ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
         .addTo(this.map!);
       marker.on('click', () => this.seleccionarObra(obra));
       this.markersData.push({ marker, estatus: obra.estatus });
@@ -171,8 +171,9 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   seleccionarObra(obra: ObraResponse): void {
     this.obraSeleccionada.set(obra);
     this.clearActiveRoute();
-    // Sin coordenadas en backend aun: centrar en el default
-    this.map?.flyTo([this.DEFAULT_CENTER.lat, this.DEFAULT_CENTER.lng], 16, { duration: 1 });
+    const lat = obra.latitud ?? this.DEFAULT_CENTER.lat;
+    const lng = obra.longitud ?? this.DEFAULT_CENTER.lng;
+    this.map?.flyTo([lat, lng], 16, { duration: 1 });
   }
 
   deseleccionarObra(): void {
