@@ -145,30 +145,40 @@ import * as XLSX from 'xlsx';
           <form class="modal-form" (submit)="crearObra($event)">
             <div class="form-group">
               <label class="form-label">Nombre del Proyecto *</label>
-              <input type="text" class="form-input" placeholder="Ej. Pavimentación Calle Juárez" required>
+              <input type="text" name="nombre" class="form-input" placeholder="Ej. Pavimentación Calle Juárez" required>
             </div>
             <div class="form-group">
-              <label class="form-label">Ubicación / Coordenadas *</label>
-              <input type="text" class="form-input" placeholder="Ej. Sector Sur, Zona Industrial" required>
+              <label class="form-label">Ubicación / Dirección</label>
+              <input type="text" name="direccion" class="form-input" placeholder="Ej. Sector Sur, Tlaxiaco">
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label class="form-label">Presupuesto Asignado</label>
-                <input type="number" class="form-input" placeholder="$ 0.00" required>
+                <label class="form-label">Fecha Inicio *</label>
+                <input type="date" name="fechaInicio" class="form-input" required>
               </div>
               <div class="form-group">
-                <label class="form-label">Responsable a Cargo</label>
-                <select class="form-input" name="responsable" required>
-                  <option value="" disabled>— Selecciona un responsable —</option>
+                <label class="form-label">Fecha Fin *</label>
+                <input type="date" name="fechaFin" class="form-input" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Presupuesto Asignado ($) *</label>
+                <input type="number" name="monto" class="form-input" placeholder="0.00" min="1" step="0.01" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Responsable a Cargo *</label>
+                <select class="form-input" name="responsableId" required>
+                  <option value="" disabled selected>— Selecciona un responsable —</option>
                   @for (u of responsables(); track u.id) {
-                    <option [value]="u.id">{{ u.firstName }} {{ u.lastName }}</option>
+                    <option [value]="u.id">{{ u.firstName }} {{ u.lastName }} (ID: {{ u.id }})</option>
                   }
                 </select>
               </div>
             </div>
             <div class="form-group" style="margin-bottom: 24px;">
               <label class="form-label">Descripción Breve</label>
-              <textarea class="form-input" rows="3" placeholder="Detalles de la obra..."></textarea>
+              <textarea name="descripcion" class="form-input" rows="3" placeholder="Detalles de la obra..."></textarea>
             </div>
             <div class="modal-actions">
               <button type="button" class="btn btn-secondary" (click)="mostrarModalNuevaObra.set(false)">Cancelar</button>
@@ -468,28 +478,40 @@ export class ObrasListComponent implements OnInit {
   crearObra(e: Event) {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
-    const inputs = form.querySelectorAll('input, select, textarea');
-    const nombre       = (inputs[0] as HTMLInputElement).value;
-    const fechaInicio  = (inputs[1] as HTMLInputElement).value;
-    const fechaFin     = (inputs[2] as HTMLInputElement).value;
-    const monto        = parseFloat((inputs[3] as HTMLInputElement).value) || 0;
-    const responsableId = Number((inputs[4] as HTMLSelectElement).value) || 1;
-    const descripcion  = (inputs[5] as HTMLTextAreaElement).value;
+    const formData = new FormData(form);
+
+    const nombre = (formData.get('nombre') as string)?.trim() || '';
+    const direccion = (formData.get('direccion') as string)?.trim() || '';
+    const fechaInicio = (formData.get('fechaInicio') as string) || new Date().toISOString().slice(0, 10);
+    const fechaFin = (formData.get('fechaFin') as string) || new Date().toISOString().slice(0, 10);
+    const monto = parseFloat(formData.get('monto') as string) || 1000;
+    const responsableId = Number(formData.get('responsableId')) || (this.responsables()[0]?.id ?? 1);
+    const descripcion = (formData.get('descripcion') as string)?.trim() || '';
+
+    // Generar código válido
+    const codigo = 'OBR-' + Date.now().toString().slice(-6);
 
     this.svc.createObra({
-      codigo: nombre.slice(0, 6).toUpperCase().replace(/ /g, '-'),
-      nombre, descripcion, monto,
-      fechaInicio: fechaInicio || new Date().toISOString().slice(0,10),
-      fechaFin: fechaFin || new Date().toISOString().slice(0,10),
+      codigo,
+      nombre,
+      descripcion,
+      monto,
+      fechaInicio,
+      fechaFin,
       estatus: 'PLANIFICADA',
-      responsableId
+      responsableId,
+      direccion
     }).subscribe({
       next: (nueva) => {
         this.todasLasObras.update(list => [nueva, ...list]);
-        this.toastSvc.show('Obra creada exitosamente.', 'success');
+        this.toastSvc.show('¡Obra creada exitosamente!', 'success');
         this.mostrarModalNuevaObra.set(false);
       },
-      error: () => this.toastSvc.show('Error al crear obra. Verifica los datos.', 'error')
+      error: (err) => {
+        console.error('Error al crear obra:', err);
+        const detail = err.error?.message || err.error?.detail || err.statusText || 'Error inesperado';
+        this.toastSvc.show(`Error al crear obra: ${detail}`, 'error');
+      }
     });
   }
 

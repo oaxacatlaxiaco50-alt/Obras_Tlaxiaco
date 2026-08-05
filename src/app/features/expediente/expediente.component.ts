@@ -3,7 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { ObrasService } from '../../core/services/obras.service';
 import { AvancesService } from '../../core/services/avances.service';
 import { AuthService } from '../../core/services/auth.service';
-import { ObraResponse, ObraAvance, ESTATUS_LABEL, ESTATUS_COLOR } from '../../core/models/obra.model';
+import { ObraResponse, ObraAvance, ObraEstatus, ESTATUS_LABEL, ESTATUS_COLOR } from '../../core/models/obra.model';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -184,12 +184,12 @@ import html2canvas from 'html2canvas';
             <form class="modal-form" (submit)="guardarEdicion($event)">
               <div class="form-group">
                 <label class="form-label">Nombre del Proyecto</label>
-                <input type="text" class="form-input" [value]="obra()!.nombre" required>
+                <input type="text" name="nombre" class="form-input" [value]="obra()!.nombre" required>
               </div>
               <div class="form-row">
                 <div class="form-group">
                   <label class="form-label">Estatus</label>
-                  <select class="form-input" [value]="obra()!.estatus">
+                  <select name="estatus" class="form-input" [value]="obra()!.estatus">
                     <option value="PLANIFICADA">Planificada</option>
                     <option value="EN_PROCESO">En Proceso</option>
                     <option value="COMPLETADA">Completada</option>
@@ -199,12 +199,12 @@ import html2canvas from 'html2canvas';
                 </div>
                 <div class="form-group">
                   <label class="form-label">Porcentaje de Avance (%)</label>
-                  <input type="number" class="form-input" min="0" max="100" [value]="ultimoPorcentaje()" required>
+                  <input type="number" name="porcentaje" class="form-input" min="0" max="100" [value]="ultimoPorcentaje()" required>
                 </div>
               </div>
               <div class="form-group" style="margin-bottom: 24px;">
                 <label class="form-label">Descripción o Notas</label>
-                <textarea class="form-input" rows="4">{{ obra()!.descripcion }}</textarea>
+                <textarea name="descripcion" class="form-input" rows="4">{{ obra()!.descripcion }}</textarea>
               </div>
               <div class="form-group" style="margin-bottom: 24px;">
                 <label class="form-label">📷 Fotografía del Expediente</label>
@@ -430,11 +430,46 @@ export class ExpedienteComponent implements OnInit {
 
   guardarEdicion(e: Event) {
     e.preventDefault();
-    const fotoMsg = this.fotoEdicionFile() ? ` | Foto adjunta: ${this.fotoEdicionNombre()}` : '';
-    alert(`✅ Cambios guardados en el expediente correctamente (Simulado)${fotoMsg}`);
-    // Limpiar foto al guardar
-    this.quitarFotoEdicion();
-    this.mostrarModalEdicion.set(false);
+    const current = this.obra();
+    if (!current) return;
+
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+
+    const nombre = (formData.get('nombre') as string)?.trim() || current.nombre;
+    const estatus = (formData.get('estatus') as ObraEstatus) || current.estatus;
+    const descripcion = (formData.get('descripcion') as string)?.trim() || current.descripcion;
+    const porcentaje = Number(formData.get('porcentaje')) || 0;
+
+    this.svc.updateObra(current.id, { nombre, descripcion }).subscribe({
+      next: (updated) => {
+        this.obra.set(updated);
+        if (estatus !== current.estatus) {
+          this.svc.cambiarEstatus(current.id, estatus).subscribe({
+            next: (ob) => this.obra.set(ob),
+            error: (err) => console.error('Error al cambiar estatus', err)
+          });
+        }
+        if (porcentaje > 0 && porcentaje !== this.ultimoPorcentaje()) {
+          this.avancesSvc.registrarAvance(current.id, {
+            titulo: `Actualización a ${porcentaje}%`,
+            fechaAvance: new Date().toISOString().slice(0, 10),
+            porcentaje,
+            observaciones: descripcion
+          }).subscribe({
+            next: () => this.ultimoPorcentaje.set(porcentaje),
+            error: () => {}
+          });
+        }
+        alert('✅ Cambios guardados correctamente');
+        this.quitarFotoEdicion();
+        this.mostrarModalEdicion.set(false);
+      },
+      error: (err) => {
+        console.error('Error actualizando obra:', err);
+        alert('❌ Error al actualizar la obra.');
+      }
+    });
   }
 
   onFotoEdicionSelect(e: Event): void {
