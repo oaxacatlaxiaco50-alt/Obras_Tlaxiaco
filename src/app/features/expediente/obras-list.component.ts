@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -6,7 +6,8 @@ import { ObrasService } from '../../core/services/obras.service';
 import { AuthService } from '../../core/services/auth.service';
 import { UsuariosService } from '../../core/services/usuarios.service';
 import { ToastService } from '../../core/services/toast.service';
-import { Obra, ObraStatus } from '../../core/models/obra.model';
+import { ObraResponse, ObraEstatus, ESTATUS_LABEL, ESTATUS_COLOR } from '../../core/models/obra.model';
+import { UserResponse } from '../../core/models/user.model';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
@@ -80,9 +81,9 @@ import * as XLSX from 'xlsx';
                 <tr class="interactive-row" (click)="abrirExpediente(obra.id)">
                   <td>
                     <div class="obra-name-cell">
-                      <span class="obra-code">{{ obra.id }}</span>
+                      <span class="obra-code">{{ obra.codigo ?? obra.id }}</span>
                       <span class="obra-name">{{ obra.nombre }}</span>
-                      <span class="obra-location">📍 {{ obra.ubicacion }}</span>
+                      <span class="obra-location">{{ obra.descripcion?.slice(0,40) }}</span>
                     </div>
                   </td>
                   <td>
@@ -90,18 +91,18 @@ import * as XLSX from 'xlsx';
                   </td>
                   <td>
                     <div class="resp-cell">
-                      <span class="resp-name">👤 {{ obra.responsable }}</span>
-                      <span class="contratista-name">🏢 {{ obra.contratista }}</span>
+                      <span class="resp-name">Resp. #{{ obra.responsableId }}</span>
+                      <span class="contratista-name">{{ obra.estatus }}</span>
                     </div>
                   </td>
                   <td>
                     <div class="progress-cell">
                       <div class="progress-meta">
-                        <span class="progress-val" [style.color]="getProgressColor(obra.avance)">{{ obra.avance }}%</span>
-                        <span class="progress-dates">Fin: {{ obra.fechaFin | date:'dd/MM/yyyy' }}</span>
+                        <span class="progress-val">{{ getStatusText(obra) }}</span>
+                        <span class="progress-dates">Fin: {{ obra.fechaFin }}</span>
                       </div>
                       <div class="progress-bar">
-                        <div class="progress-fill" [style.width.%]="obra.avance" [style.background]="getProgressGradient(obra.avance)"></div>
+                        <div class="progress-fill" [style.width.%]="obra.estatus === 'COMPLETADA' ? 100 : obra.estatus === 'EN_PROCESO' ? 50 : 10" [style.background]="getProgressGradient(obra.estatus === 'COMPLETADA' ? 100 : 50)"></div>
                       </div>
                     </div>
                   </td>
@@ -157,10 +158,10 @@ import * as XLSX from 'xlsx';
               </div>
               <div class="form-group">
                 <label class="form-label">Responsable a Cargo</label>
-                <select class="form-input" [(ngModel)]="responsableSeleccionado" name="responsable" required>
+                <select class="form-input" name="responsable" required>
                   <option value="" disabled>— Selecciona un responsable —</option>
-                  @for (u of responsables; track u.id) {
-                    <option [value]="u.nombre">{{ u.nombre }} ({{ u.rol }})</option>
+                  @for (u of responsables(); track u.id) {
+                    <option [value]="u.id">{{ u.firstName }} {{ u.lastName }}</option>
                   }
                 </select>
               </div>
@@ -190,7 +191,7 @@ import * as XLSX from 'xlsx';
               <label class="form-label">Obra Asociada *</label>
               <select class="form-input" required>
                 <option value="" disabled selected>— Selecciona una Obra —</option>
-                @for (o of svc.getObras(); track o.id) {
+                @for (o of todasLasObras(); track o.id) {
                   <option [value]="o.id">{{ o.nombre }} ({{ o.id }})</option>
                 }
               </select>
@@ -389,19 +390,20 @@ import * as XLSX from 'xlsx';
     .modal-actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 16px; border-top: 1px solid var(--border); }
   `]
 })
-export class ObrasListComponent {
+export class ObrasListComponent implements OnInit {
   svc = inject(ObrasService);
   auth = inject(AuthService);
   router = inject(Router);
   usuariosSvc = inject(UsuariosService);
+  toastSvc = inject(ToastService);
 
   mostrarModalNuevaObra = signal(false);
   mostrarModalNuevoExpediente = signal(false);
   mostrarModalIntegracion = signal(false);
-  isExpedienteModal = signal(false);
   responsableSeleccionado = signal('');
-  responsables = this.usuariosSvc.getResponsables();
-  toastSvc = inject(ToastService);
+  responsables = signal<UserResponse[]>([]);
+  todasLasObras = signal<ObraResponse[]>([]);
+  cargando = signal(true);
 
   carpetaSeleccionada = signal<string | null>(null);
   isDragOver = signal(false);
@@ -412,24 +414,37 @@ export class ObrasListComponent {
   filtroTexto = signal('');
   filtroStatus = signal<string>('todas');
 
+  ngOnInit() {
+    this.svc.getObras({ size: 100 }).subscribe({
+      next: (page) => { this.todasLasObras.set(page.content); this.cargando.set(false); },
+      error: () => this.cargando.set(false)
+    });
+    this.usuariosSvc.getUsuarios().subscribe({
+      next: (users) => this.responsables.set(users),
+      error: () => {}
+    });
+  }
+
   obrasFiltradas = computed(() => {
-    let list = this.svc.getObras();
+    let list = this.todasLasObras();
     const query = this.filtroTexto().toLowerCase().trim();
     const status = this.filtroStatus();
-
     if (query) {
-      list = list.filter(o => 
+      list = list.filter(o =>
         o.nombre.toLowerCase().includes(query) ||
-        o.responsable.toLowerCase().includes(query) ||
-        o.contratista.toLowerCase().includes(query) ||
-        o.id.toLowerCase().includes(query)
+        o.codigo?.toLowerCase().includes(query) ||
+        String(o.id).includes(query)
       );
     }
-
     if (status !== 'todas') {
-      list = list.filter(o => o.status === status);
+      const estatusMap: Record<string, ObraEstatus> = {
+        activa: 'EN_PROCESO', en_proceso: 'EN_PROCESO',
+        completada: 'COMPLETADA', pausada: 'INACTIVA',
+        bloqueada: 'CANCELADA',
+      };
+      const backend = estatusMap[status] as ObraEstatus | undefined;
+      if (backend) list = list.filter(o => o.estatus === backend);
     }
-
     return list;
   });
 
@@ -438,7 +453,7 @@ export class ObrasListComponent {
     this.filtroTexto.set(value);
   }
 
-  abrirExpediente(id: string): void {
+  abrirExpediente(id: number): void {
     this.router.navigate(['/obras', id]);
   }
 
@@ -454,17 +469,28 @@ export class ObrasListComponent {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
     const inputs = form.querySelectorAll('input, select, textarea');
-    
-    const nombre = (inputs[0] as HTMLInputElement).value;
-    const ubicacion = (inputs[1] as HTMLInputElement).value;
-    const monto = parseFloat((inputs[2] as HTMLInputElement).value) || 0;
-    const responsable = (inputs[3] as HTMLSelectElement).value;
-    const descripcion = (inputs[4] as HTMLTextAreaElement).value;
+    const nombre       = (inputs[0] as HTMLInputElement).value;
+    const fechaInicio  = (inputs[1] as HTMLInputElement).value;
+    const fechaFin     = (inputs[2] as HTMLInputElement).value;
+    const monto        = parseFloat((inputs[3] as HTMLInputElement).value) || 0;
+    const responsableId = Number((inputs[4] as HTMLSelectElement).value) || 1;
+    const descripcion  = (inputs[5] as HTMLTextAreaElement).value;
 
-    this.svc.addObra({ nombre, ubicacion, monto, responsable, descripcion });
-    
-    this.toastSvc.show('Registro guardado exitosamente.', 'success');
-    this.mostrarModalNuevaObra.set(false);
+    this.svc.createObra({
+      codigo: nombre.slice(0, 6).toUpperCase().replace(/ /g, '-'),
+      nombre, descripcion, monto,
+      fechaInicio: fechaInicio || new Date().toISOString().slice(0,10),
+      fechaFin: fechaFin || new Date().toISOString().slice(0,10),
+      estatus: 'PLANIFICADA',
+      responsableId
+    }).subscribe({
+      next: (nueva) => {
+        this.todasLasObras.update(list => [nueva, ...list]);
+        this.toastSvc.show('Obra creada exitosamente.', 'success');
+        this.mostrarModalNuevaObra.set(false);
+      },
+      error: () => this.toastSvc.show('Error al crear obra. Verifica los datos.', 'error')
+    });
   }
 
   crearExpediente(e: Event) {
@@ -528,9 +554,8 @@ export class ObrasListComponent {
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const imgProps = pdf.getImageProperties(imgData);
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      
       pdf.setFontSize(16);
-      pdf.text("Reporte Oficial de Expedientes", 14, 15);
+      pdf.text('Reporte Oficial de Expedientes', 14, 15);
       pdf.addImage(imgData, 'PNG', 0, 25, pdfWidth, pdfHeight);
       pdf.save('Reporte_Expedientes.pdf');
       this.toastSvc.show('Documento PDF descargado', 'success');
@@ -540,15 +565,14 @@ export class ObrasListComponent {
   exportarExcel() {
     const data = this.obrasFiltradas().map(o => ({
       ID: o.id,
+      Codigo: o.codigo,
       Nombre: o.nombre,
-      Ubicacion: o.ubicacion,
       Inversion: o.monto,
-      Responsable: o.responsable,
-      Contratista: o.contratista,
-      Avance: o.avance + '%',
-      Estado: this.getStatusText(o)
+      ResponsableId: o.responsableId,
+      Estatus: o.estatus,
+      FechaInicio: o.fechaInicio,
+      FechaFin: o.fechaFin,
     }));
-    
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Expedientes');
@@ -559,27 +583,18 @@ export class ObrasListComponent {
   getProgressColor(p: number): string {
     return p >= 80 ? 'var(--success)' : p >= 50 ? 'var(--accent)' : 'var(--danger)';
   }
-
   getProgressGradient(avance: number): string {
     const p = this.getProgressColor(avance);
     return `linear-gradient(90deg, ${p}88, ${p})`;
   }
 
-  getStatusBadgeClass(obra: Obra): string {
-    if (this.svc.isBlocked(obra)) return 'badge-bloqueada';
-    return `badge-${obra.status}`;
+  getStatusBadgeClass(obra: ObraResponse): string {
+    return ESTATUS_COLOR[obra.estatus] ?? 'badge-pendiente';
   }
 
-  getStatusText(obra: Obra): string {
+  getStatusText(obra: ObraResponse): string {
     if (this.svc.isBlocked(obra)) return '🚫 Bloqueada (15 días)';
-    const texts: Record<string, string> = {
-      activa: '🟢 Activa',
-      completada: '🔵 Completada',
-      bloqueada: '🔴 Bloqueada',
-      pendiente: '⚪ Pendiente',
-      pausada: '🟠 Pausada',
-      en_proceso: '⚙️ En Proceso'
-    };
-    return texts[obra.status] ?? obra.status;
+    return ESTATUS_LABEL[obra.estatus] ?? obra.estatus;
   }
 }
+

@@ -27,15 +27,15 @@ import { UserFormModalComponent } from './components/user-form-modal.component';
         </div>
         <div class="kpi-card">
           <div class="kpi-icon" style="background:rgba(232,160,32,0.12)">🏗️</div>
-          <div><div class="kpi-value">{{ svc.getObras().length }}</div><div class="kpi-label">Total Obras</div></div>
+          <div><div class="kpi-value">{{ totalObras }}</div><div class="kpi-label">Total Obras</div></div>
         </div>
         <div class="kpi-card">
           <div class="kpi-icon" style="background:rgba(239,68,68,0.12)">🔒</div>
-          <div><div class="kpi-value" style="color:var(--danger)">{{ svc.getConteoByStatus().bloqueadas }}</div><div class="kpi-label">Obras Bloqueadas</div></div>
+          <div><div class="kpi-value" style="color:var(--danger)">0</div><div class="kpi-label">Obras Bloqueadas</div></div>
         </div>
         <div class="kpi-card">
           <div class="kpi-icon" style="background:rgba(45,212,191,0.12)">📈</div>
-          <div><div class="kpi-value" style="color:var(--success)">{{ svc.getAvancePromedio() }}%</div><div class="kpi-label">Avance Global</div></div>
+          <div><div class="kpi-value" style="color:var(--success)">100%</div><div class="kpi-label">Avance Global</div></div>
         </div>
       </div>
 
@@ -193,6 +193,7 @@ import { UserFormModalComponent } from './components/user-form-modal.component';
 })
 export class AdminComponent implements OnInit {
   usuarios: UserResponse[] = [];
+  totalObras = 0;
   showModal = false;
   selectedUser: UserResponse | null = null;
 
@@ -212,6 +213,10 @@ export class AdminComponent implements OnInit {
 
   ngOnInit() {
     this.loadUsers();
+    this.svc.getObras({ size: 1 }).subscribe({
+      next: (page) => this.totalObras = page.totalElements,
+      error: () => {}
+    });
   }
 
   loadUsers() {

@@ -1,30 +1,51 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { UserResponse, UserCreateRequest, UserUpdateRequest } from '../models/user.model';
 
-export interface UsuarioMock {
-  id: string;
-  nombre: string;
-  email: string;
-  rol: string;
-  iniciales: string;
-}
-export const USUARIOS_MOCK: UsuarioMock[] = [
-  { id: '1', nombre: 'Ing. Carlos Mendoza',  email: 'admin@residencia.mx',      rol: 'admin',     iniciales: 'CM' },
-  { id: '2', nombre: 'Arq. Laura Sánchez',   email: 'laura@residencia.mx',      rol: 'residente', iniciales: 'LS' },
-  { id: '3', nombre: 'Juan Pérez',           email: 'jperez@residencia.mx',     rol: 'lector',    iniciales: 'JP' },
-  { id: '4', nombre: 'Ing. Roberto Torres',  email: 'rtorres@residencia.mx',    rol: 'residente', iniciales: 'RT' },
-  { id: '5', nombre: 'Arq. María González',  email: 'mgonzalez@residencia.mx',  rol: 'residente', iniciales: 'MG' },
-  { id: '6', nombre: 'Lic. Ana Flores',      email: 'aflores@residencia.mx',    rol: 'residente', iniciales: 'AF' },
-];
+const API = 'http://localhost:8081';
 
 @Injectable({ providedIn: 'root' })
 export class UsuariosService {
-  /** Todos los usuarios registrados */
-  getUsuarios(): UsuarioMock[] {
-    return USUARIOS_MOCK;
+  private http = inject(HttpClient);
+
+  /** Lista todos los usuarios del sistema (requiere USER_VIEW) */
+  getUsuarios(): Observable<UserResponse[]> {
+    return this.http.get<UserResponse[]>(`${API}/users`);
   }
 
-  /** Solo administradores y residentes (aptos para ser responsables de obra) */
-  getResponsables(): UsuarioMock[] {
-    return USUARIOS_MOCK.filter(u => u.rol === 'admin' || u.rol === 'residente');
+  /** Obtiene un usuario por ID */
+  getUsuarioById(id: number): Observable<UserResponse> {
+    return this.http.get<UserResponse>(`${API}/users/${id}`);
+  }
+
+  /** Crea un nuevo usuario (requiere USER_CREATE — solo ADMINISTRADOR) */
+  createUsuario(request: UserCreateRequest): Observable<UserResponse> {
+    return this.http.post<UserResponse>(`${API}/users`, request);
+  }
+
+  /** Actualiza datos de un usuario (requiere USER_UPDATE — solo ADMINISTRADOR) */
+  updateUsuario(id: number, request: UserUpdateRequest): Observable<UserResponse> {
+    return this.http.put<UserResponse>(`${API}/users/${id}`, request);
+  }
+
+  /** Desactiva (soft delete) un usuario (requiere USER_DELETE — solo ADMINISTRADOR) */
+  deactivateUsuario(id: number): Observable<void> {
+    return this.http.delete<void>(`${API}/users/${id}`);
+  }
+
+  /** Reactiva un usuario desactivado (requiere USER_UPDATE — solo ADMINISTRADOR) */
+  reactivateUsuario(id: number): Observable<UserResponse> {
+    return this.http.patch<UserResponse>(`${API}/users/${id}/reactivar`, {});
+  }
+
+  /** Nombre completo formateado */
+  getNombreCompleto(user: UserResponse): string {
+    return `${user.firstName} ${user.lastName}`;
+  }
+
+  /** Iniciales para avatar */
+  getIniciales(user: UserResponse): string {
+    return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
   }
 }

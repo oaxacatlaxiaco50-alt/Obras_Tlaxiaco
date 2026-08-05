@@ -1,71 +1,64 @@
-import { Injectable, signal } from '@angular/core';
-import { EntradaBitacora, AccionBitacora } from '../models/bitacora.model';
+import { Injectable, inject } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable, map } from 'rxjs';
+import { Page } from '../models/obra.model';
+import { EntradaBitacora, BitacoraEntry } from '../models/bitacora.model';
 
-const hoy = new Date();
-const hace = (h: number, m = 0) => new Date(hoy.getTime() - h * 3600000 - m * 60000);
-
-// Semana actual: inicio lunes
-const inicioSemana = (() => {
-  const d = new Date(hoy);
-  const day = d.getDay();
-  const diff = (day === 0 ? -6 : 1 - day);
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-})();
-
-const MOCK_BITACORA: EntradaBitacora[] = [
-  { id: 'b01', fecha: hace(1, 10),  usuario: 'Ing. Carlos Mendoza', rol: 'admin',     accion: 'Editar',   modulo: 'Expediente', descripcion: 'Actualizó avance al 72%',          obraId: 'obra-001', obraNombre: 'Pavimentación Av. Central' },
-  { id: 'b02', fecha: hace(2, 30),  usuario: 'Arq. Laura Sánchez',  rol: 'residente', accion: 'Subir',    modulo: 'Expediente', descripcion: 'Subió 2 imágenes fase "durante"',  obraId: 'obra-001', obraNombre: 'Pavimentación Av. Central' },
-  { id: 'b03', fecha: hace(3),      usuario: 'Juan Pérez',           rol: 'lector',    accion: 'Ver',      modulo: 'Dashboard',  descripcion: 'Consultó el panel principal' },
-  { id: 'b04', fecha: hace(5, 45),  usuario: 'Ing. Carlos Mendoza', rol: 'admin',     accion: 'Eliminar', modulo: 'Expediente', descripcion: 'Eliminó archivo duplicado',         obraId: 'obra-003', obraNombre: 'Rehabilitación Red Hidráulica' },
-  { id: 'b05', fecha: hace(8),      usuario: 'Ing. Roberto Torres',  rol: 'residente', accion: 'Crear',    modulo: 'Obras',      descripcion: 'Registró nueva obra',              obraId: 'obra-002', obraNombre: 'Construcción Escuela Primaria' },
-  { id: 'b06', fecha: hace(10),     usuario: 'Arq. Laura Sánchez',  rol: 'residente', accion: 'Ver',      modulo: 'Mapa',       descripcion: 'Consultó geolocalización de obra', obraId: 'obra-004', obraNombre: 'Parque Urbano "El Mirador"' },
-  { id: 'b07', fecha: hace(14),     usuario: 'Ing. Carlos Mendoza', rol: 'admin',     accion: 'Editar',   modulo: 'Expediente', descripcion: 'Cambió estatus a "En Proceso"',    obraId: 'obra-003', obraNombre: 'Rehabilitación Red Hidráulica' },
-  { id: 'b08', fecha: hace(20),     usuario: 'Juan Pérez',           rol: 'lector',    accion: 'Ver',      modulo: 'Expediente', descripcion: 'Consultó expediente de obra',      obraId: 'obra-005', obraNombre: 'Modernización Mercado Municipal' },
-  { id: 'b09', fecha: hace(24),     usuario: 'Arq. María González',  rol: 'residente', accion: 'Subir',    modulo: 'Expediente', descripcion: 'Subió planos estructurales PDF',   obraId: 'obra-002', obraNombre: 'Construcción Escuela Primaria' },
-  { id: 'b10', fecha: hace(28),     usuario: 'Ing. Carlos Mendoza', rol: 'admin',     accion: 'Editar',   modulo: 'Admin',      descripcion: 'Modificó permisos de usuario' },
-  { id: 'b11', fecha: hace(36),     usuario: 'Ing. Roberto Torres',  rol: 'residente', accion: 'Ver',      modulo: 'Obras',      descripcion: 'Revisó listado de expedientes' },
-  { id: 'b12', fecha: hace(48),     usuario: 'Ing. Carlos Mendoza', rol: 'admin',     accion: 'Eliminar', modulo: 'Obras',      descripcion: 'Eliminó obra duplicada',           obraId: 'obra-001', obraNombre: 'Pavimentación Av. Central' },
-  { id: 'b13', fecha: hace(52),     usuario: 'Arq. Laura Sánchez',  rol: 'residente', accion: 'Editar',   modulo: 'Expediente', descripcion: 'Actualizó descripción del proyecto', obraId: 'obra-004', obraNombre: 'Parque Urbano "El Mirador"' },
-  { id: 'b14', fecha: hace(72),     usuario: 'Lic. Ana Flores',      rol: 'residente', accion: 'Crear',    modulo: 'Obras',      descripcion: 'Creó nuevo expediente de obra',    obraId: 'obra-004', obraNombre: 'Parque Urbano "El Mirador"' },
-  { id: 'b15', fecha: hace(96),     usuario: 'Juan Pérez',           rol: 'lector',    accion: 'Ver',      modulo: 'Dashboard',  descripcion: 'Accedió al panel de control' },
-  { id: 'b16', fecha: hace(120),    usuario: 'Ing. Carlos Mendoza', rol: 'admin',     accion: 'Editar',   modulo: 'Expediente', descripcion: 'Ajustó porcentaje de avance al 30%', obraId: 'obra-004', obraNombre: 'Parque Urbano "El Mirador"' },
-  { id: 'b17', fecha: hace(144),    usuario: 'Arq. María González',  rol: 'residente', accion: 'Ver',      modulo: 'Mapa',       descripcion: 'Consultó waypoints de obra' },
-  { id: 'b18', fecha: hace(168),    usuario: 'Ing. Carlos Mendoza', rol: 'admin',     accion: 'Eliminar', modulo: 'Expediente', descripcion: 'Eliminó foto de fase "antes"',     obraId: 'obra-002', obraNombre: 'Construcción Escuela Primaria' },
-];
-
-const ACCIONES_CAMBIO: AccionBitacora[] = ['Editar', 'Eliminar'];
+const API = 'http://localhost:8081';
 
 @Injectable({ providedIn: 'root' })
 export class BitacoraService {
-  private _entradas = signal<EntradaBitacora[]>(MOCK_BITACORA);
+  private http = inject(HttpClient);
 
-  /** Todas las entradas de bitácora ordenadas por fecha descendente */
-  getHistorialGeneral(): EntradaBitacora[] {
-    return [...this._entradas()].sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
+  /**
+   * Consulta paginada — devuelve el Page<BitacoraEntry> tal cual del backend.
+   */
+  getBitacoras(obraId?: number, page = 0, size = 20): Observable<Page<BitacoraEntry>> {
+    let params = new HttpParams()
+      .set('page', page)
+      .set('size', size)
+      .set('sort', 'timestamp,desc');
+    if (obraId != null) params = params.set('obraId', obraId);
+    return this.http.get<Page<BitacoraEntry>>(`${API}/bitacoras`, { params });
   }
 
   /**
-   * Bitácora de cambios: sólo acciones de Editar/Eliminar dentro de la semana actual.
-   * Pensada para uso exclusivo del rol 'admin'.
+   * Historial general mapeado al formato que usan los componentes de UI.
+   * Devuelve Observable<EntradaBitacora[]> con la primera página (50 items).
    */
-  getBitacoraCambiosSemana(): EntradaBitacora[] {
-    return this._entradas()
-      .filter(e =>
-        ACCIONES_CAMBIO.includes(e.accion) &&
-        e.fecha >= inicioSemana
-      )
-      .sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
+  getHistorialGeneral(page = 0, size = 50): Observable<EntradaBitacora[]> {
+    return this.getBitacoras(undefined, page, size).pipe(
+      map(p => p.content.map(e => this.mapToEntrada(e)))
+    );
   }
 
-  /** Registra una nueva entrada (uso programático futuro) */
-  registrar(entrada: Omit<EntradaBitacora, 'id' | 'fecha'>): void {
-    const nueva: EntradaBitacora = {
-      ...entrada,
-      id: 'b' + Date.now(),
-      fecha: new Date(),
+  /**
+   * Bitácora de una obra específica mapeada al formato UI.
+   */
+  getBitacoraDeObra(obraId: number, page = 0, size = 50): Observable<EntradaBitacora[]> {
+    return this.getBitacoras(obraId, page, size).pipe(
+      map(p => p.content.map(e => this.mapToEntrada(e)))
+    );
+  }
+
+  // ─── Mapeo backend → UI ──────────────────────────────────────────────────
+  private mapToEntrada(e: BitacoraEntry): EntradaBitacora {
+    // El campo description del backend tiene formato "ACCION | MODULO | Detalle"
+    // o simplemente la descripción libre. Intentamos parsearlo.
+    const parts = e.description?.split(' | ') ?? [];
+    const accion  = parts.length >= 1 ? parts[0] : 'Ver';
+    const modulo  = parts.length >= 2 ? parts[1] : 'Sistema';
+    const detalle = parts.length >= 3 ? parts.slice(2).join(' | ') : (e.description ?? '');
+
+    return {
+      id: e.id,
+      fecha: new Date(e.timestamp),
+      usuario: e.userId ? `Usuario #${e.userId}` : 'Sistema',
+      rol: e.status ?? 'user',
+      accion,
+      modulo,
+      descripcion: detalle || e.description,
+      obraId: e.obraId ?? undefined,
     };
-    this._entradas.update(list => [nueva, ...list]);
   }
 }

@@ -1,8 +1,9 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { ObrasService } from '../../core/services/obras.service';
+import { AvancesService } from '../../core/services/avances.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Obra, FaseFoto } from '../../core/models/obra.model';
+import { ObraResponse, ObraAvance, ESTATUS_LABEL, ESTATUS_COLOR } from '../../core/models/obra.model';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -22,9 +23,9 @@ import html2canvas from 'html2canvas';
             <div class="exp-badges">
               <span class="badge" [class]="statusClass()">{{ statusLabel() }}</span>
               @if (svc.isBlocked(obra()!)) {
-                <span class="badge badge-danger">🔒 Edición bloqueada ({{ svc.diasSinEditar(obra()!) }} días)</span>
+                <span class="badge badge-danger">🔒 Sin actualizaciones recientes</span>
               }
-              <span class="badge badge-info">🔗 /obras/{{ obra()!.urlUnica }}</span>
+              <span class="badge badge-info">ID: {{ obra()!.id }}</span>
             </div>
           </div>
           <div style="display:flex; gap:12px">
@@ -47,7 +48,7 @@ import html2canvas from 'html2canvas';
             <div class="strip-sep"></div>
             <div class="strip-item">
               <span class="strip-label">📈 Avance</span>
-              <span class="strip-val" [style.color]="progressColor()">{{ obra()!.avance }}%</span>
+              <span class="strip-val" [style.color]="progressColor()">{{ ultimoPorcentaje() }}%</span>
             </div>
             <div class="strip-sep"></div>
             <div class="strip-item">
@@ -62,18 +63,18 @@ import html2canvas from 'html2canvas';
             <div class="strip-sep"></div>
             <div class="strip-item">
               <span class="strip-label">👤 Responsable</span>
-              <span class="strip-val">{{ obra()!.responsable }}</span>
+              <span class="strip-val">Resp. #{{ obra()!.responsableId }}</span>
             </div>
             <div class="strip-sep"></div>
             <div class="strip-item">
               <span class="strip-label">🏢 Contratista</span>
-              <span class="strip-val">{{ obra()!.contratista }}</span>
+              <span class="strip-val">{{ obra()!.estatus }}</span>
             </div>
           </div>
           <!-- Progress bar -->
           <div class="exp-progress-wrap">
             <div class="progress-bar" style="height:12px">
-              <div class="progress-fill" [style.width.%]="obra()!.avance"></div>
+              <div class="progress-fill" [style.width.%]="ultimoPorcentaje()"></div>
             </div>
           </div>
         }
@@ -82,7 +83,7 @@ import html2canvas from 'html2canvas';
         <div class="card exp-desc-card">
           <h3 class="sec-title">📝 Descripción del Proyecto</h3>
           <p>{{ obra()!.descripcion }}</p>
-          <p style="margin-top:10px;color:var(--text-muted);font-size:0.82rem">📍 {{ obra()!.ubicacion }}</p>
+          <p style="margin-top:10px;color:var(--text-muted);font-size:0.82rem">{{ obra()!.descripcion }}</p>
         </div>
 
         @if (auth.hasRole('admin', 'residente')) {
@@ -101,10 +102,10 @@ import html2canvas from 'html2canvas';
               <div class="foto-grid">
                 @for (foto of fotosPorFase(faseActiva()); track foto.id) {
                   <div class="foto-thumb">
-                    <img [src]="foto.url" [alt]="foto.nombre" loading="lazy" />
+                    <img [src]="foto.archivoUrl" [alt]="foto.descripcion" loading="lazy" />
                     <div class="foto-overlay">
-                      <span>{{ foto.nombre }}</span>
-                      <span>{{ fmtBytes(foto.tamanoBytes) }}</span>
+                      <span>{{ foto.descripcion }}</span>
+                      <span>{{ foto.tipo }}</span>
                     </div>
                   </div>
                 }
@@ -118,13 +119,14 @@ import html2canvas from 'html2canvas';
             <div class="card">
               <h3 class="sec-title">📋 Áreas del Proyecto</h3>
               <div class="areas-list">
-                @for (area of obra()!.areas; track area.nombre) {
-                  <div class="area-item" [class.done]="area.entregada">
-                    <span class="area-icon">{{ area.entregada ? '✅' : '⏳' }}</span>
-                    <span class="area-name">{{ area.nombre }}</span>
-                    <span class="badge" [class]="area.entregada ? 'badge-success' : 'badge-warning'">
-                      {{ area.entregada ? 'Entregada' : 'Pendiente' }}
-                    </span>
+                @if (avances().length === 0) {
+                  <div class="empty-state">Sin registros de avance aun</div>
+                }
+                @for (avance of avances(); track avance.id) {
+                  <div class="area-item">
+                    <span class="area-icon">📊</span>
+                    <span class="area-name">{{ avance.titulo }} — {{ avance.porcentaje }}%</span>
+                    <span class="badge badge-success">{{ avance.fechaAvance }}</span>
                   </div>
                 }
               </div>
@@ -157,14 +159,12 @@ import html2canvas from 'html2canvas';
                 Sube archivos con los nombres (acta, oficio, planos, bitacora) para comprobar que marcan el estatus.
               </p>
               <div class="docs-list">
-                @for (doc of documentosRequeridos(); track doc.id) {
-                  <div class="doc-item" [class.entregado]="doc.entregado">
-                    <div class="doc-icon">
-                      {{ doc.entregado ? '✅' : '📄' }}
-                    </div>
+                @for (avance of avances(); track avance.id) {
+                  <div class="doc-item entregado">
+                    <div class="doc-icon">📊</div>
                     <div class="doc-info">
-                      <span class="doc-name">{{ doc.nombre }}</span>
-                      <span class="doc-status">{{ doc.entregado ? 'Archivo Subido' : 'Pendiente de Subir' }}</span>
+                      <span class="doc-name">{{ avance.titulo }}</span>
+                      <span class="doc-status">{{ avance.porcentaje }}% — {{ avance.fechaAvance }}</span>
                     </div>
                   </div>
                 }
@@ -189,16 +189,17 @@ import html2canvas from 'html2canvas';
               <div class="form-row">
                 <div class="form-group">
                   <label class="form-label">Estatus</label>
-                  <select class="form-input" [value]="obra()!.status">
-                    <option value="activa">Activa</option>
-                    <option value="completada">Completada</option>
-                    <option value="bloqueada">Bloqueada</option>
-                    <option value="pendiente">Pendiente</option>
+                  <select class="form-input" [value]="obra()!.estatus">
+                    <option value="PLANIFICADA">Planificada</option>
+                    <option value="EN_PROCESO">En Proceso</option>
+                    <option value="COMPLETADA">Completada</option>
+                    <option value="CANCELADA">Cancelada</option>
+                    <option value="INACTIVA">Inactiva</option>
                   </select>
                 </div>
                 <div class="form-group">
                   <label class="form-label">Porcentaje de Avance (%)</label>
-                  <input type="number" class="form-input" min="0" max="100" [value]="obra()!.avance" required>
+                  <input type="number" class="form-input" min="0" max="100" [value]="ultimoPorcentaje()" required>
                 </div>
               </div>
               <div class="form-group" style="margin-bottom: 24px;">
@@ -362,60 +363,66 @@ import html2canvas from 'html2canvas';
     .modal-actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 16px; border-top: 1px solid var(--border); }
   `]
 })
-export class ExpedienteComponent {
-  obra = signal<Obra | undefined>(undefined);
-  faseActiva = signal<FaseFoto>('antes');
+export class ExpedienteComponent implements OnInit {
+  faseActiva = signal<string>('ANTES');
   uploadMsg = signal('');
   uploadError = signal(false);
   mostrarModalEdicion = signal(false);
   generandoPDF = signal(false);
-  // Foto del expediente (modal edición)
   fotoEdicionPreview = signal<string | null>(null);
   fotoEdicionNombre  = signal<string | null>(null);
   fotoEdicionFile    = signal<File | null>(null);
   fases = [
-    { key: 'antes' as FaseFoto, icon: '🔵', label: 'Antes' },
-    { key: 'durante' as FaseFoto, icon: '🟡', label: 'Durante' },
-    { key: 'despues' as FaseFoto, icon: '🟢', label: 'Después' },
+    { key: 'ANTES', icon: '🔵', label: 'Antes' },
+    { key: 'DURANTE', icon: '🟡', label: 'Durante' },
+    { key: 'DESPUES', icon: '🟢', label: 'Después' },
   ];
 
-  documentosRequeridos = signal([
-    { id: 'acta', nombre: 'Acta de Inicio', entregado: false },
-    { id: 'oficio', nombre: 'Oficio de Aprobación', entregado: false },
-    { id: 'planos', nombre: 'Planos Estructurales', entregado: false },
-    { id: 'bitacora', nombre: 'Bitácora de Obra', entregado: false }
-  ]);
+  obra = signal<ObraResponse | null>(null);
+  avances = signal<ObraAvance[]>([]);
+  ultimoPorcentaje = signal(0);
+  cargando = signal(true);
 
-  constructor(public svc: ObrasService, public auth: AuthService, route: ActivatedRoute) {
-    route.params.subscribe(p => this.obra.set(svc.getObraById(p['id'])));
+  svc = inject(ObrasService);
+  avancesSvc = inject(AvancesService);
+  auth = inject(AuthService);
+  private route = inject(ActivatedRoute);
+
+  ngOnInit() {
+    this.route.params.subscribe(p => {
+      const id = Number(p['id']);
+      if (!isNaN(id)) {
+        this.svc.getObraById(id).subscribe({
+          next: (obra) => { this.obra.set(obra); this.cargando.set(false); },
+          error: () => this.cargando.set(false)
+        });
+        this.avancesSvc.getAvances(id).subscribe({
+          next: (list) => this.avances.set(list),
+          error: () => {}
+        });
+        this.avancesSvc.getUltimoPorcentaje(id).subscribe({
+          next: (p) => this.ultimoPorcentaje.set(p),
+          error: () => {}
+        });
+      }
+    });
   }
 
   async generarPDF() {
     this.generandoPDF.set(true);
-    // Agregamos un ligero delay para asegurar que los estilos de carga se pinten
     await new Promise(r => setTimeout(r, 100));
-
     const element = document.getElementById('pdfContent');
-    if (!element) {
-      this.generandoPDF.set(false);
-      return;
-    }
-    
+    if (!element) { this.generandoPDF.set(false); return; }
     try {
-      // Tomar una captura del HTML con alta calidad
       const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#111827' });
       const imgData = canvas.toDataURL('image/png');
-      
-      // Crear documento PDF en formato A4 (Vertical)
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Reporte_Obra_${this.obra()?.urlUnica}.pdf`);
+      pdf.save(`Reporte_Obra_${this.obra()?.id}.pdf`);
     } catch (error) {
       console.error('Error al generar PDF', error);
-      alert('Hubo un error al generar el PDF de la obra.');
     } finally {
       this.generandoPDF.set(false);
     }
@@ -456,32 +463,30 @@ export class ExpedienteComponent {
     this.fotoEdicionFile.set(null);
   }
 
-  fotosPorFase(fase: FaseFoto) {
-    return this.obra()?.archivos.filter(a => a.fase === fase && a.tipo === 'imagen') ?? [];
+  fotosPorFase(fase: string) {
+    // Con el nuevo backend usamos avances.evidencias filtradas por fase
+    return this.avances()
+      .flatMap(a => a.evidencias)
+      .filter(e => e.fase === fase.toUpperCase() && e.tipo === 'IMAGEN');
   }
 
-  areasEntregadas = computed(() => this.obra()?.areas.filter(a => a.entregada).length ?? 0);
-  areasPendientes = computed(() => this.obra()?.areas.filter(a => !a.entregada).length ?? 0);
+  areasEntregadas = computed(() => 0);
+  areasPendientes = computed(() => 0);
 
   statusClass(): string {
-    return `badge-${this.obra()?.status}`;
+    const obra = this.obra();
+    return obra ? (ESTATUS_COLOR[obra.estatus] ?? 'badge-pendiente') : '';
   }
   statusLabel(): string {
-    return ({
-      activa: '🟢 Activa',
-      completada: '🔵 Completada',
-      bloqueada: '🔴 Bloqueada',
-      pendiente: '⚪ Pendiente',
-      pausada: '🟠 Pausada',
-      en_proceso: '⚙️ En Proceso'
-    } as Record<string, string>)[this.obra()?.status ?? 'activa'] ?? '';
+    const obra = this.obra();
+    return obra ? (ESTATUS_LABEL[obra.estatus] ?? obra.estatus) : '';
   }
   progressColor(): string {
-    const p = this.obra()?.avance ?? 0;
+    const p = this.ultimoPorcentaje();
     return p >= 80 ? 'var(--success)' : p >= 50 ? 'var(--accent)' : 'var(--danger)';
   }
-  fmtDate(d: Date): string {
-    return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+  fmtDate(d: string): string {
+    return new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
   }
   fmtBytes(b: number): string {
     return (b / 1048576).toFixed(1) + ' MB';
@@ -496,17 +501,7 @@ export class ExpedienteComponent {
       this.uploadMsg.set(`❌ Archivos muy grandes: ${oversized.map(f => f.name).join(', ')} (máx. 30MB)`);
     } else {
       this.uploadError.set(false);
-      this.uploadMsg.set(`✅ ${files.length} archivo(s) listo(s) para subir`);
-      
-      // Lógica: buscar en el nombre del archivo si coincide con algun id de los documentos
-      const fileNames = Array.from(files).map(f => f.name.toLowerCase());
-      
-      this.documentosRequeridos.update(docs => docs.map(doc => {
-        // Si ya está entregado lo dejamos igual, o revisamos si los archivos subidos contienen la palabra clave.
-        // Simulamos que al contener la palabra "oficio", se marca ese requisito.
-        const matchFound = fileNames.some(name => name.includes(doc.id));
-        return (matchFound || doc.entregado) ? { ...doc, entregado: true } : doc;
-      }));
+      this.uploadMsg.set(`${files.length} archivo(s) listo(s) para subir`);
     }
   }
   onDrop(e: DragEvent): void {

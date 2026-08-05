@@ -1,4 +1,4 @@
-import { Component, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BitacoraService } from '../../core/services/bitacora.service';
@@ -194,24 +194,32 @@ import { EntradaBitacora, AccionBitacora } from '../../core/models/bitacora.mode
     .pag-info { font-size: 0.83rem; color: var(--text-muted); }
   `]
 })
-export class HistorialGeneralComponent {
+export class HistorialGeneralComponent implements OnInit {
   private bitacoraService = inject(BitacoraService);
 
   filtroTexto  = signal('');
   filtroAccion = signal('');
   filtroModulo = signal('');
   paginaActual = signal(1);
+  cargando     = signal(true);
   porPagina    = 10;
 
   modulos = ['Dashboard', 'Expediente', 'Obras', 'Mapa', 'Admin'];
 
-  private todasLasEntradas = computed(() => this.bitacoraService.getHistorialGeneral());
+  private _todas = signal<EntradaBitacora[]>([]);
+
+  ngOnInit() {
+    this.bitacoraService.getHistorialGeneral().subscribe({
+      next: (data) => { this._todas.set(data); this.cargando.set(false); },
+      error: () => this.cargando.set(false)
+    });
+  }
 
   entradasFiltradas = computed(() => {
     const txt = this.filtroTexto().toLowerCase().trim();
     const acc = this.filtroAccion() as AccionBitacora | '';
     const mod = this.filtroModulo();
-    return this.todasLasEntradas().filter(e =>
+    return this._todas().filter(e =>
       (!txt || e.usuario.toLowerCase().includes(txt) || e.descripcion.toLowerCase().includes(txt) || e.modulo.toLowerCase().includes(txt)) &&
       (!acc || e.accion === acc) &&
       (!mod || e.modulo === mod)

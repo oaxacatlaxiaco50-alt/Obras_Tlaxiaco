@@ -7,7 +7,7 @@ export interface UserResponse {
   email: string;
   username: string;
   active: boolean;
-  roles: string[];
+  roles: string[];         // backend devuelve Set<String>
   permissions: string[];
   createdAt: string;
   updatedAt: string;
@@ -18,14 +18,14 @@ export interface UserCreateRequest {
   lastName: string;
   email: string;
   username: string;
-  password?: string;
-  roles: string[];
+  password: string;
+  roles: string[];         // e.g. ["ADMINISTRADOR"]
 }
 
 export interface UserUpdateRequest {
-  firstName: string;
-  lastName: string;
-  email: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
   password?: string;
   roles?: string[];
 }

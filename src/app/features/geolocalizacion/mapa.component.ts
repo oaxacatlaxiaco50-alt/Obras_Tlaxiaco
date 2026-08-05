@@ -1,13 +1,14 @@
-import { Component, AfterViewInit, OnDestroy, signal, inject } from '@angular/core';
+import { Component, AfterViewInit, OnInit, OnDestroy, signal, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { DecimalPipe } from '@angular/common';
 import { ObrasService } from '../../core/services/obras.service';
-import { Obra, Waypoint } from '../../core/models/obra.model';
+import { ObraResponse, ESTATUS_LABEL, ESTATUS_COLOR } from '../../core/models/obra.model';
 import * as L from 'leaflet';
 
 @Component({
   selector: 'app-mapa',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, DecimalPipe],
   template: `
     <div class="mapa-page animate-fade-in">
       <div class="mapa-header">
@@ -28,19 +29,16 @@ import * as L from 'leaflet';
           <div class="list-search-info">
             <span>🔍 Selecciona una obra para ver su ruta interactiva GPS</span>
           </div>
-          @for (obra of obras; track obra.id) {
-            @if (activeFilters().has(obra.status) || (svc.isBlocked(obra) && activeFilters().has('bloqueada'))) {
+          @for (obra of obras(); track obra.id) {
+            @if (activeFilters().has(obra.estatus) || (svc.isBlocked(obra) && activeFilters().has('CANCELADA'))) {
               <div class="mapa-obra-card" [class.selected]="obraSeleccionada()?.id === obra.id" (click)="seleccionarObra(obra)">
                 <div class="mapa-obra-top">
                   <span class="mapa-dot" [style.background]="getColor(obra)"></span>
                   <span class="mapa-obra-nombre">{{ obra.nombre }}</span>
                 </div>
-                <div class="progress-bar" style="margin:8px 0">
-                  <div class="progress-fill" [style.width.%]="obra.avance"></div>
-                </div>
                 <div class="mapa-obra-meta">
-                  <span>{{ obra.avance }}% avance</span>
                   <span class="status-lbl">{{ getStatusText(obra) }}</span>
+                  <span>{{ obra.monto | number }}</span>
                 </div>
               </div>
             }
@@ -55,32 +53,10 @@ import * as L from 'leaflet';
                 <button (click)="deseleccionarObra()">✕</button>
               </div>
               <p class="popup-desc">{{ truncate(obraSeleccionada()!.descripcion) }}</p>
-              
-              <!-- Info de la Ruta -->
-              @if (currentRouteWaypoints().length > 0) {
-                <div class="route-info-box">
-                  <div class="route-title">📍 Ruta GPS (Waypoints JSON)</div>
-                  <div class="route-list-items">
-                    @for (wp of currentRouteWaypoints(); track wp.lat + '-' + wp.lng; let idx = $index) {
-                      <div class="route-item-wp">
-                        <span class="wp-num">{{ idx + 1 }}</span>
-                        <div class="wp-details">
-                          <span class="wp-label">{{ wp.label || 'Waypoint' }}</span>
-                          <span class="wp-coords">{{ wp.lat.toFixed(4) }}, {{ wp.lng.toFixed(4) }}</span>
-                        </div>
-                      </div>
-                    }
-                  </div>
-                </div>
-              } @else {
-                <div class="route-info-box empty">
-                  ⚠️ No hay waypoints de ruta disponibles para esta obra.
-                </div>
-              }
-
+              <!-- Info de la Obra -->
               <div class="popup-meta" style="margin-top: 12px;">
-                <span>📈 Avance: {{ obraSeleccionada()!.avance }}%</span>
-                <span>📍 Dirección: {{ obraSeleccionada()!.ubicacion }}</span>
+                <span>Estatus: {{ obraSeleccionada()!.estatus }}</span>
+                <span>Monto: {{ obraSeleccionada()!.monto | number }}</span>
               </div>
               <a [routerLink]="['/obras', obraSeleccionada()!.id]" class="btn btn-primary btn-sm" style="margin-top:12px;display:block;text-align:center">Ver Expediente</a>
             </div>
@@ -118,7 +94,6 @@ import * as L from 'leaflet';
     .popup-meta { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 10px; }
     .route-info-box { background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; border: 1px solid var(--border); font-size: 0.75rem; margin-top: 10px; }
     .route-info-box.empty { color: var(--text-muted); text-align: center; font-style: italic; }
-    .route-title { font-weight: 700; color: var(--accent); margin-bottom: 6px; }
     .route-list-items { display: flex; flex-direction: column; gap: 6px; max-height: 120px; overflow-y: auto; padding-right: 4px; }
     .route-item-wp { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 4px; }
     .wp-num { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: #0F1923; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; flex-shrink: 0; }
@@ -127,20 +102,21 @@ import * as L from 'leaflet';
     .wp-coords { font-size: 0.65rem; color: var(--text-muted); }
   `]
 })
-export class MapaComponent implements AfterViewInit, OnDestroy {
+export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   svc = inject(ObrasService);
-  obras: Obra[];
-  obraSeleccionada = signal<Obra | null>(null);
-  currentRouteWaypoints = signal<Waypoint[]>([]);
-  activeFilters = signal<Set<string>>(new Set(['activa', 'en_proceso', 'pausada', 'completada', 'bloqueada']));
-  
-  private map?: L.Map;
-  private markersData: { marker: L.Marker, status: string }[] = [];
-  private activeRouteLine?: L.Polyline;
-  private activeWaypointMarkers: L.CircleMarker[] = [];
+  obras = signal<ObraResponse[]>([]);
+  obraSeleccionada = signal<ObraResponse | null>(null);
+  activeFilters = signal<Set<string>>(new Set(['EN_PROCESO', 'PLANIFICADA', 'INACTIVA', 'COMPLETADA', 'CANCELADA']));
 
-  constructor() {
-    this.obras = this.svc.getObras();
+  private map?: L.Map;
+  private markersData: { marker: L.Marker; estatus: string }[] = [];
+  private readonly DEFAULT_CENTER = { lat: 17.2661075, lng: -97.676773 };
+
+  ngOnInit() {
+    this.svc.getObras({ size: 100 }).subscribe({
+      next: (page) => { this.obras.set(page.content); this.refreshMapMarkers(); },
+      error: () => {}
+    });
   }
 
   ngAfterViewInit(): void {
@@ -152,27 +128,27 @@ export class MapaComponent implements AfterViewInit, OnDestroy {
   }
 
   private initMap(): void {
-    const center = this.obras[0]?.coordenadas ?? { lat: 17.2661075, lng: -97.676773 };
-    this.map = L.map('leaflet-map', { center: [center.lat, center.lng], zoom: 14 });
-    
-    // Modern tile layout from CartoDB
+    this.map = L.map('leaflet-map', { center: [this.DEFAULT_CENTER.lat, this.DEFAULT_CENTER.lng], zoom: 14 });
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
     }).addTo(this.map);
+  }
 
-    // Place main site markers
-    this.obras.forEach(obra => {
+  private refreshMapMarkers(): void {
+    if (!this.map) return;
+    this.obras().forEach((obra, i) => {
+      const lat = this.DEFAULT_CENTER.lat + (i * 0.001);
+      const lng = this.DEFAULT_CENTER.lng + (i * 0.001);
       const color = this.getColor(obra);
       const icon = L.divIcon({
-        html: `<div style="width:28px;height:28px;background:${color};border:2px solid #ffffff;border-radius:50%;box-shadow:0 0 10px ${color}88;display:flex;align-items:center;justify-content:center;font-size:12px;color:white;font-weight:bold;">🏗️</div>`,
+        html: `<div style="width:28px;height:28px;background:${color};border:2px solid #fff;border-radius:50%;box-shadow:0 0 10px ${color}88;display:flex;align-items:center;justify-content:center;font-size:12px;color:white;font-weight:bold;">O</div>`,
         className: '', iconSize: [28, 28], iconAnchor: [14, 14]
       });
-      const marker = L.marker([obra.coordenadas.lat, obra.coordenadas.lng], { icon })
-        .bindPopup(`<b style="color:#1a1a1a">${obra.nombre}</b><br>Avance: ${obra.avance}%<br>Estatus: ${this.getStatusText(obra)}`)
+      const marker = L.marker([lat, lng], { icon })
+        .bindPopup(`<b style="color:#1a1a1a">${obra.nombre}</b><br>Estatus: ${this.getStatusText(obra)}`)
         .addTo(this.map!);
-      
       marker.on('click', () => this.seleccionarObra(obra));
-      this.markersData.push({ marker, status: this.svc.isBlocked(obra) ? 'bloqueada' : obra.status });
+      this.markersData.push({ marker, estatus: obra.estatus });
     });
   }
 
@@ -184,7 +160,7 @@ export class MapaComponent implements AfterViewInit, OnDestroy {
     
     // Update markers on map
     this.markersData.forEach(m => {
-      if (next.has(m.status)) {
+      if (next.has(m.estatus)) {
         if (!this.map?.hasLayer(m.marker)) m.marker.addTo(this.map!);
       } else {
         if (this.map?.hasLayer(m.marker)) m.marker.remove();
@@ -192,96 +168,40 @@ export class MapaComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  seleccionarObra(obra: Obra): void {
+  seleccionarObra(obra: ObraResponse): void {
     this.obraSeleccionada.set(obra);
-    
-    // Clear previous active route
     this.clearActiveRoute();
-
-    // Get Independent JSON waypoints
-    const waypoints = this.svc.getWaypointsByObraId(obra.id);
-    this.currentRouteWaypoints.set(waypoints);
-
-    if (waypoints && waypoints.length > 0) {
-      const latlngs = waypoints.map(w => [w.lat, w.lng] as L.LatLngExpression);
-      const color = this.getColor(obra);
-      
-      // Draw smooth solid route polyline in real-time
-      this.activeRouteLine = L.polyline(latlngs, {
-        color: color,
-        weight: 6,
-        opacity: 0.9,
-        lineCap: 'round',
-        lineJoin: 'round',
-        dashArray: undefined
-      }).addTo(this.map!);
-
-      // Draw custom waypoint nodes along the route
-      waypoints.forEach((wp, idx) => {
-        const wpMarker = L.circleMarker([wp.lat, wp.lng], {
-          radius: 5,
-          fillColor: '#FFFFFF',
-          color: color,
-          weight: 3,
-          fillOpacity: 1
-        })
-        .bindPopup(`<b>${wp.label || `Hito ${idx + 1}`}</b><br>${wp.timestamp ? new Date(wp.timestamp).toLocaleString('es-MX') : ''}`)
-        .addTo(this.map!);
-
-        this.activeWaypointMarkers.push(wpMarker);
-      });
-
-      // Fit map bounds to show route perfectly
-      const bounds = L.latLngBounds(latlngs);
-      this.map?.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
-    } else {
-      // Just fly to center if no waypoints
-      this.map?.flyTo([obra.coordenadas.lat, obra.coordenadas.lng], 16, { duration: 1 });
-    }
+    // Sin coordenadas en backend aun: centrar en el default
+    this.map?.flyTo([this.DEFAULT_CENTER.lat, this.DEFAULT_CENTER.lng], 16, { duration: 1 });
   }
 
   deseleccionarObra(): void {
     this.obraSeleccionada.set(null);
-    this.currentRouteWaypoints.set([]);
     this.clearActiveRoute();
   }
 
   private clearActiveRoute(): void {
-    if (this.activeRouteLine) {
-      this.map?.removeLayer(this.activeRouteLine);
-      this.activeRouteLine = undefined;
-    }
-    this.activeWaypointMarkers.forEach(m => this.map?.removeLayer(m));
-    this.activeWaypointMarkers = [];
+    // No hay rutas activas en esta version (backend sin geolocalizacion)
   }
 
   truncate(text: string, len = 90): string {
     return text.length > len ? text.slice(0, len) + '...' : text;
   }
 
-  getColor(obra: Obra): string {
-    if (this.svc.isBlocked(obra)) return '#EF4444'; // Red
+  getColor(obra: ObraResponse): string {
+    if (this.svc.isBlocked(obra)) return '#EF4444';
     const colors: Record<string, string> = {
-      activa: '#2DD4BF',     // Teal
-      completada: '#3B82F6', // Blue
-      bloqueada: '#EF4444',  // Red
-      pendiente: '#94A3B8',  // Slate
-      pausada: '#F59E0B',    // Amber
-      en_proceso: '#6366F1'  // Indigo
+      EN_PROCESO: '#2DD4BF',
+      COMPLETADA: '#3B82F6',
+      CANCELADA: '#EF4444',
+      INACTIVA: '#F59E0B',
+      PLANIFICADA: '#6366F1'
     };
-    return colors[obra.status] ?? '#94A3B8';
+    return colors[obra.estatus] ?? '#94A3B8';
   }
 
-  getStatusText(obra: Obra): string {
+  getStatusText(obra: ObraResponse): string {
     if (this.svc.isBlocked(obra)) return 'Bloqueada';
-    const texts: Record<string, string> = {
-      activa: 'Activa',
-      completada: 'Completada',
-      bloqueada: 'Bloqueada',
-      pendiente: 'Pendiente',
-      pausada: 'Pausada',
-      en_proceso: 'En Proceso'
-    };
-    return texts[obra.status] ?? obra.status;
+    return ESTATUS_LABEL[obra.estatus] ?? obra.estatus;
   }
 }

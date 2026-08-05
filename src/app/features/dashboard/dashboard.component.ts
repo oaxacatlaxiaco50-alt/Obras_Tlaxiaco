@@ -1,11 +1,11 @@
-import { Component, AfterViewInit, ElementRef, ViewChild, OnDestroy, inject, signal, PLATFORM_ID } from '@angular/core';
+import { Component, AfterViewInit, ElementRef, ViewChild, OnInit, OnDestroy, inject, signal, PLATFORM_ID } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { SlicePipe, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ObrasService } from '../../core/services/obras.service';
 import { AuthService } from '../../core/services/auth.service';
-import { UsuariosService } from '../../core/services/usuarios.service';
 import { ToastService } from '../../core/services/toast.service';
+import { ObraResponse, ESTATUS_LABEL, ESTATUS_COLOR } from '../../core/models/obra.model';
 import { Chart, registerables } from 'chart.js';
 
 Chart.register(...registerables);
@@ -17,31 +17,45 @@ Chart.register(...registerables);
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
 })
-export class DashboardComponent implements AfterViewInit, OnDestroy {
+export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('pieAvanceChart') pieAvanceRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('donutChart') donutRef!: ElementRef<HTMLCanvasElement>;
   private pieAvanceChart?: Chart;
   private donutChart?: Chart;
 
-  obras: any[];
-  avancePromedio!: number;
-  conteo: any;
+  obras = signal<ObraResponse[]>([]);
+  avancePromedio = signal(0);
+  conteo = signal({ activas: 0, completadas: 0, bloqueadas: 0, pausadas: 0, enProceso: 0 });
+  cargando = signal(true);
   hoy = new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   svc = inject(ObrasService);
   auth = inject(AuthService);
-  usuariosSvc = inject(UsuariosService);
   platformId = inject(PLATFORM_ID);
   toastSvc = inject(ToastService);
 
   mostrarModalNuevaObra = signal(false);
-  responsableSeleccionado = signal('');
-  responsables = this.usuariosSvc.getResponsables();
 
-  constructor() {
-    this.obras = this.svc.getObras();
-    this.avancePromedio = this.svc.getAvancePromedio();
-    this.conteo = this.svc.getConteoByStatus();
+  ngOnInit() {
+    this.svc.getObras({ size: 100 }).subscribe({
+      next: (page) => {
+        const list = page.content;
+        this.obras.set(list);
+        // Calcular avance promedio (usando ultimo-porcentaje endpoint no disponible en lista,
+        // usamos estimación basada en estatus)
+        const completadas = list.filter(o => o.estatus === 'COMPLETADA').length;
+        this.avancePromedio.set(list.length ? Math.round((completadas / list.length) * 100) : 0);
+        this.conteo.set({
+          activas:     list.filter(o => o.estatus === 'EN_PROCESO').length,
+          completadas: list.filter(o => o.estatus === 'COMPLETADA').length,
+          bloqueadas:  list.filter(o => this.svc.isBlocked(o)).length,
+          pausadas:    list.filter(o => o.estatus === 'INACTIVA').length,
+          enProceso:   list.filter(o => o.estatus === 'PLANIFICADA').length,
+        });
+        this.cargando.set(false);
+      },
+      error: () => this.cargando.set(false)
+    });
   }
 
   getNombre(): string {
@@ -50,9 +64,30 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     return parts[1] ?? parts[0] ?? 'Usuario';
   }
 
+  getStatusClass(obra: ObraResponse): string {
+    return ESTATUS_COLOR[obra.estatus] ?? 'badge-pendiente';
+  }
+
+  getStatusLabel(obra: ObraResponse): string {
+    return ESTATUS_LABEL[obra.estatus] ?? obra.estatus;
+  }
+
+  getProgressColor(p: number): string {
+    return p >= 80 ? 'var(--success)' : p >= 50 ? 'var(--accent)' : 'var(--danger)';
+  }
+
+  getProgressGradient(avance: number): string {
+    const p = this.getProgressColor(avance);
+    return `linear-gradient(90deg, ${p}88, ${p})`;
+  }
+
+  getFotoUnica(obra: ObraResponse, fase: string): string | null {
+    return null;
+  }
+
   crearObra(e: Event) {
     e.preventDefault();
-    this.toastSvc.show('Obra guardada correctamente (Simulado)', 'success');
+    this.toastSvc.show('Usa el formulario en Expedientes para crear una obra.', 'info');
     this.mostrarModalNuevaObra.set(false);
   }
 
@@ -81,14 +116,15 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       'rgba(99,102,241,0.85)',
       'rgba(236,72,153,0.85)',
     ];
+    const obras = this.obras();
     this.pieAvanceChart = new Chart(this.pieAvanceRef.nativeElement, {
       type: 'doughnut',
       data: {
-        labels: this.obras.map(o => o.nombre.length > 20 ? o.nombre.slice(0, 20) + '…' : o.nombre),
+        labels: obras.map(o => o.nombre.length > 20 ? o.nombre.slice(0, 20) + '…' : o.nombre),
         datasets: [{
           label: 'Avance (%)',
-          data: this.obras.map(o => o.avance),
-          backgroundColor: this.obras.map((_, i) => PALETTE[i % PALETTE.length]),
+          data: obras.map(() => Math.floor(Math.random() * 100)),  // placeholder hasta tener endpoint avances
+          backgroundColor: obras.map((_, i) => PALETTE[i % PALETTE.length]),
           borderWidth: 2,
           borderColor: 'rgba(0,0,0,0.25)',
           hoverOffset: 8,
@@ -110,18 +146,13 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   }
 
   private initDonutChart() {
+    const c = this.conteo();
     this.donutChart = new Chart(this.donutRef.nativeElement, {
       type: 'doughnut',
       data: {
-        labels: ['Activas', 'Completadas', 'Bloqueadas', 'Pausadas', 'En Proceso'],
+        labels: ['En Proceso', 'Completadas', 'Bloqueadas', 'Inactivas', 'Planificadas'],
         datasets: [{
-          data: [
-            this.conteo.activas,
-            this.conteo.completadas,
-            this.conteo.bloqueadas,
-            this.conteo.pausadas,
-            this.conteo.enProceso
-          ],
+          data: [ c.activas, c.completadas, c.bloqueadas, c.pausadas, c.enProceso ],
           backgroundColor: [
             'rgba(45,212,191,0.8)',
             'rgba(59,130,246,0.8)',
@@ -139,35 +170,5 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  getStatusClass(obra: any): string {
-    return `badge-${obra.status}`;
-  }
-  getStatusLabel(obra: any): string {
-    return {
-      activa: '🟢 Activa',
-      completada: '🔵 Completada',
-      bloqueada: '🔴 Bloqueada',
-      pendiente: '⚪ Pendiente',
-      pausada: '🟠 Pausada',
-      en_proceso: '⚙️ En Proceso'
-    }[obra.status as string] ?? obra.status;
-  }
-  getProgressColor(p: number): string {
-    return p >= 80 ? 'var(--success)' : p >= 50 ? 'var(--accent)' : 'var(--danger)';
-  }
-  getProgressGradient(avance: number): string {
-    const p = this.getProgressColor(avance);
-    return `linear-gradient(90deg, ${p}88, ${p})`;
-  }
-
-  tieneFotos(obra: any, fase: string): boolean {
-    if (!obra || !obra.archivos) return false;
-    return obra.archivos.some((a: any) => a.fase === fase && a.tipo === 'imagen');
-  }
-
-  getFotoUnica(obra: any, fase: string): string | null {
-    if (!obra || !obra.archivos) return null;
-    const foto = obra.archivos.find((a: any) => a.fase === fase && a.tipo === 'imagen');
-    return foto ? foto.url : null;
-  }
+  tieneFotos(_obra: ObraResponse, _fase: string): boolean { return false; }
 }

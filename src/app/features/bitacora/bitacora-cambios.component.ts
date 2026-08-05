@@ -1,4 +1,4 @@
-import { Component, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BitacoraService } from '../../core/services/bitacora.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -208,16 +208,38 @@ import { EntradaBitacora } from '../../core/models/bitacora.model';
     .bc-acceso-denegado strong { color: var(--accent); }
   `]
 })
-export class BitacoraCambiosComponent {
+export class BitacoraCambiosComponent implements OnInit {
   private bitacoraService = inject(BitacoraService);
   auth = inject(AuthService);
 
-  entradas = computed(() => this.bitacoraService.getBitacoraCambiosSemana());
+  private _todas = signal<EntradaBitacora[]>([]);
 
-  totalCambios      = computed(() => this.entradas().length);
-  totalEdiciones    = computed(() => this.entradas().filter(e => e.accion === 'Editar').length);
+  // Filtra acciones de tipo Editar o Eliminar de la semana actual
+  entradas = computed(() => {
+    const inicioSemana = (() => {
+      const d = new Date();
+      const day = d.getDay();
+      d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+      d.setHours(0, 0, 0, 0);
+      return d;
+    })();
+    return this._todas().filter(e =>
+      ['Editar', 'Eliminar'].includes(e.accion) && e.fecha >= inicioSemana
+    );
+  });
+
+  ngOnInit() {
+    // Cargar con tamaño grande para poder filtrar en frontend por semana
+    this.bitacoraService.getHistorialGeneral(0, 200).subscribe({
+      next: (data) => this._todas.set(data),
+      error: (err) => console.error('Error cargando bitácora de cambios', err)
+    });
+  }
+
+  totalCambios       = computed(() => this.entradas().length);
+  totalEdiciones     = computed(() => this.entradas().filter(e => e.accion === 'Editar').length);
   totalEliminaciones = computed(() => this.entradas().filter(e => e.accion === 'Eliminar').length);
-  usuariosActivos   = computed(() => new Set(this.entradas().map(e => e.usuario)).size);
+  usuariosActivos    = computed(() => new Set(this.entradas().map(e => e.usuario)).size);
 
   rangoSemana(): string {
     const hoy = new Date();
