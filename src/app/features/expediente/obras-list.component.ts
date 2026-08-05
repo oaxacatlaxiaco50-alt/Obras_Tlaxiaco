@@ -1,0 +1,585 @@
+import { Component, inject, signal, computed } from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
+import { DatePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { ObrasService } from '../../core/services/obras.service';
+import { AuthService } from '../../core/services/auth.service';
+import { UsuariosService } from '../../core/services/usuarios.service';
+import { ToastService } from '../../core/services/toast.service';
+import { Obra, ObraStatus } from '../../core/models/obra.model';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import * as XLSX from 'xlsx';
+
+@Component({
+  selector: 'app-obras-list',
+  standalone: true,
+  imports: [RouterLink, DatePipe, FormsModule],
+  template: `
+    <div class="list-page animate-fade-in">
+      <div class="list-header">
+        <div>
+          <h1 class="list-title">📁 Expedientes de Obra</h1>
+          <p class="list-subtitle">Consulta y gestiona la información detallada de cada proyecto municipal</p>
+        </div>
+        @if (auth.hasRole('admin', 'residente')) {
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <button class="btn" style="background: linear-gradient(135deg, #10B981, #059669); color: white; border: none; box-shadow: 0 4px 12px rgba(16,185,129,0.3);" (click)="abrirModal('obra')">+ Nueva Obra</button>
+            <button class="btn" style="background: linear-gradient(135deg, #10B981, #059669); color: white; border: none; box-shadow: 0 4px 12px rgba(16,185,129,0.3);" (click)="mostrarModalIntegracion.set(true)">📂 Integración de Expedientes</button>
+            <button class="btn" style="background: linear-gradient(135deg, #10B981, #059669); color: white; border: none; box-shadow: 0 4px 12px rgba(16,185,129,0.3);" (click)="abrirModal('expediente')">+ Nuevo Expediente</button>
+          </div>
+        }
+      </div>
+
+      <!-- Buscador y Filtros -->
+      <div class="card filter-card">
+        <div class="filter-row">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input 
+              type="text" 
+              placeholder="Buscar por nombre de obra, responsable o contratista..." 
+              class="form-input search-input"
+              [value]="filtroTexto()"
+              (input)="updateFiltroTexto($event)"
+            />
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" (click)="exportarPDF()">📄 Exportar PDF</button>
+            <button class="btn btn-secondary" style="border-color: #10B981; color: #10B981;" (click)="exportarExcel()">📊 Exportar Excel</button>
+          </div>
+        </div>
+        <div class="filter-row" style="margin-top: 16px;">
+          <div class="status-tabs">
+            <button class="tab-btn" [class.active]="filtroStatus() === 'todas'" (click)="filtroStatus.set('todas')">Todas</button>
+            <button class="tab-btn" [class.active]="filtroStatus() === 'activa'" (click)="filtroStatus.set('activa')">🟢 Activas</button>
+            <button class="tab-btn" [class.active]="filtroStatus() === 'en_proceso'" (click)="filtroStatus.set('en_proceso')">⚙️ En Proceso</button>
+            <button class="tab-btn" [class.active]="filtroStatus() === 'pausada'" (click)="filtroStatus.set('pausada')">🟠 Pausadas</button>
+            <button class="tab-btn" [class.active]="filtroStatus() === 'completada'" (click)="filtroStatus.set('completada')">🔵 Completadas</button>
+            <button class="tab-btn" [class.active]="filtroStatus() === 'bloqueada'" (click)="filtroStatus.set('bloqueada')">🔴 Bloqueadas</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de Expedientes -->
+      <div class="card table-card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Código / Nombre del Proyecto</th>
+                <th>Inversión Autorizada</th>
+                <th>Responsable / Contratista</th>
+                <th>Porcentaje de Avance</th>
+                <th>Estado del Proyecto</th>
+                <th style="text-align: right;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (obra of obrasFiltradas(); track obra.id) {
+                <tr class="interactive-row" (click)="abrirExpediente(obra.id)">
+                  <td>
+                    <div class="obra-name-cell">
+                      <span class="obra-code">{{ obra.id }}</span>
+                      <span class="obra-name">{{ obra.nombre }}</span>
+                      <span class="obra-location">📍 {{ obra.ubicacion }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="investment-val">{{ svc.formatMonto(obra.monto) }}</span>
+                  </td>
+                  <td>
+                    <div class="resp-cell">
+                      <span class="resp-name">👤 {{ obra.responsable }}</span>
+                      <span class="contratista-name">🏢 {{ obra.contratista }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="progress-cell">
+                      <div class="progress-meta">
+                        <span class="progress-val" [style.color]="getProgressColor(obra.avance)">{{ obra.avance }}%</span>
+                        <span class="progress-dates">Fin: {{ obra.fechaFin | date:'dd/MM/yyyy' }}</span>
+                      </div>
+                      <div class="progress-bar">
+                        <div class="progress-fill" [style.width.%]="obra.avance" [style.background]="getProgressGradient(obra.avance)"></div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="badge" [class]="getStatusBadgeClass(obra)">
+                      {{ getStatusText(obra) }}
+                    </span>
+                  </td>
+                  <td style="text-align: right;" (click)="$event.stopPropagation()">
+                    <div class="actions-cell">
+                      <a [routerLink]="['/obras', obra.id]" class="btn btn-secondary btn-sm table-btn">
+                        📂 Abrir
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="6" class="empty-table-cell">
+                    <div class="empty-state">
+                      <span class="empty-icon">📁</span>
+                      <p class="empty-text">No se encontraron expedientes con los criterios seleccionados.</p>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal Nueva Obra -->
+      @if (mostrarModalNuevaObra()) {
+      <div class="modal-overlay animate-fade-in">
+        <div class="modal-content animate-slide-in">
+          <div class="modal-header">
+            <h2 class="modal-title">🏗️ Crear Nueva Obra</h2>
+            <button class="btn-close" (click)="mostrarModalNuevaObra.set(false)">✕</button>
+          </div>
+          <form class="modal-form" (submit)="crearObra($event)">
+            <div class="form-group">
+              <label class="form-label">Nombre del Proyecto *</label>
+              <input type="text" class="form-input" placeholder="Ej. Pavimentación Calle Juárez" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Ubicación / Coordenadas *</label>
+              <input type="text" class="form-input" placeholder="Ej. Sector Sur, Zona Industrial" required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Presupuesto Asignado</label>
+                <input type="number" class="form-input" placeholder="$ 0.00" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Responsable a Cargo</label>
+                <select class="form-input" [(ngModel)]="responsableSeleccionado" name="responsable" required>
+                  <option value="" disabled>— Selecciona un responsable —</option>
+                  @for (u of responsables; track u.id) {
+                    <option [value]="u.nombre">{{ u.nombre }} ({{ u.rol }})</option>
+                  }
+                </select>
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 24px;">
+              <label class="form-label">Descripción Breve</label>
+              <textarea class="form-input" rows="3" placeholder="Detalles de la obra..."></textarea>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="btn btn-secondary" (click)="mostrarModalNuevaObra.set(false)">Cancelar</button>
+              <button type="submit" class="btn btn-primary">💾 Guardar Proyecto</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      }
+      <!-- Modal Nuevo Expediente -->
+      @if (mostrarModalNuevoExpediente()) {
+      <div class="modal-overlay animate-fade-in">
+        <div class="modal-content animate-slide-in">
+          <div class="modal-header">
+            <h2 class="modal-title">📂 Crear Nuevo Expediente</h2>
+            <button class="btn-close" (click)="mostrarModalNuevoExpediente.set(false)">✕</button>
+          </div>
+          <form class="modal-form" (submit)="crearExpediente($event)">
+            <div class="form-group">
+              <label class="form-label">Obra Asociada *</label>
+              <select class="form-input" required>
+                <option value="" disabled selected>— Selecciona una Obra —</option>
+                @for (o of svc.getObras(); track o.id) {
+                  <option [value]="o.id">{{ o.nombre }} ({{ o.id }})</option>
+                }
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Número de Licitación / Expediente</label>
+                <input type="text" class="form-input" placeholder="Ej. LIC-2026-001" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Empresa Contratista</label>
+                <input type="text" class="form-input" placeholder="Ej. Constructora del Sur SA" required>
+              </div>
+            </div>
+            <div class="form-row" style="margin-bottom: 24px;">
+              <div class="form-group">
+                <label class="form-label">Fecha de Firma (Contrato)</label>
+                <input type="date" class="form-input" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Fecha Estimada de Término</label>
+                <input type="date" class="form-input" required>
+              </div>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="btn btn-secondary" (click)="mostrarModalNuevoExpediente.set(false)">Cancelar</button>
+              <button type="submit" class="btn btn-primary">📁 Integrar Expediente</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      }
+      <!-- Modal Integracion de Expedientes -->
+      @if (mostrarModalIntegracion()) {
+      <div class="modal-overlay animate-fade-in">
+        <div class="modal-content animate-slide-in" style="max-width: 650px;">
+          <div class="modal-header">
+            <h2 class="modal-title">🗂️ Integración de Expedientes</h2>
+            <button class="btn-close" (click)="mostrarModalIntegracion.set(false)">✕</button>
+          </div>
+          <div class="modal-body" style="padding: 24px;">
+            @if (!carpetaSeleccionada()) {
+              <p style="margin-bottom: 20px; color: var(--text-muted); font-size: 0.9rem;">
+                Selecciona una categoría para gestionar los documentos del expediente.
+              </p>
+              <div class="folders-grid">
+                <div class="folder-card" (click)="abrirCarpeta('Legal')">
+                  <span class="folder-icon">⚖️</span>
+                  <span class="folder-name">Legal</span>
+                  <span class="folder-count">{{ archivosSubidos()['Legal'].length }} archivos</span>
+                </div>
+                <div class="folder-card" (click)="abrirCarpeta('Social')">
+                  <span class="folder-icon">👥</span>
+                  <span class="folder-name">Social</span>
+                  <span class="folder-count">{{ archivosSubidos()['Social'].length }} archivos</span>
+                </div>
+                <div class="folder-card" (click)="abrirCarpeta('Técnicos')">
+                  <span class="folder-icon">📐</span>
+                  <span class="folder-name">Técnicos</span>
+                  <span class="folder-count">{{ archivosSubidos()['Técnicos'].length }} archivos</span>
+                </div>
+                <div class="folder-card" (click)="abrirCarpeta('Anexo Fotográfico')">
+                  <span class="folder-icon">📸</span>
+                  <span class="folder-name">Anexo Fotográfico</span>
+                  <span class="folder-count">{{ archivosSubidos()['Anexo Fotográfico'].length }} archivos</span>
+                </div>
+              </div>
+            } @else {
+              <!-- Vista interna de carpeta con Drag & Drop -->
+              <button class="btn btn-secondary btn-sm" style="margin-bottom: 16px;" (click)="carpetaSeleccionada.set(null)">
+                ⬅ Volver a las categorías
+              </button>
+              <h3 style="margin-bottom: 16px; color: var(--accent);">Carpeta: {{ carpetaSeleccionada() }}</h3>
+              
+              <div 
+                class="drag-drop-zone" 
+                [class.dragover]="isDragOver()"
+                (dragover)="onDragOver($event)" 
+                (dragleave)="onDragLeave($event)" 
+                (drop)="onDrop($event)">
+                <div class="drop-icon">📤</div>
+                <p>Arrastra tus archivos aquí o <strong>haz clic para seleccionar</strong></p>
+                <input type="file" multiple class="file-input-hidden" (change)="onFileSelect($event)">
+              </div>
+
+              <div class="file-list">
+                @for (file of archivosSubidos()[carpetaSeleccionada()!]; track file.name) {
+                  <div class="file-item">
+                    <span class="file-icon">📄</span>
+                    <span class="file-name">{{ file.name }}</span>
+                    <span class="file-size">{{ (file.size / 1024).toFixed(1) }} KB</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+      }
+    </div>
+  `,
+  styles: [`
+    .list-page { display: flex; flex-direction: column; gap: 24px; }
+    .list-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; }
+    .list-title { font-size: 1.4rem; font-weight: 800; margin-bottom: 4px; }
+    .list-subtitle { font-size: 0.85rem; color: var(--text-muted); }
+    
+    .filter-card { padding: 18px 24px; }
+    .filter-row { display: flex; flex-direction: column; gap: 16px; }
+    
+    @media (min-width: 1024px) {
+      .filter-row { flex-direction: row; align-items: center; justify-content: space-between; }
+    }
+
+    .search-box { position: relative; flex: 1; min-width: 280px; }
+    .search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 1.1rem; color: var(--text-muted); }
+    .search-input { padding-left: 48px; width: 100%; }
+    
+    .status-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tab-btn {
+      background: var(--bg-dark); border: 1px solid var(--border);
+      color: var(--text-secondary); padding: 8px 16px; border-radius: 8px;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: var(--transition);
+    }
+    .tab-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+    .tab-btn.active { background: rgba(232, 160, 32, 0.12); color: var(--accent); border-color: var(--accent); }
+
+    .table-card { padding: 0; overflow: hidden; border-color: var(--border-light); }
+    .interactive-row { cursor: pointer; transition: var(--transition); }
+    .interactive-row:hover td { background: rgba(255, 255, 255, 0.03) !important; }
+    
+    .obra-name-cell { display: flex; flex-direction: column; gap: 2px; }
+    .obra-code { font-size: 0.72rem; font-weight: 700; color: var(--accent); letter-spacing: 0.05em; text-transform: uppercase; }
+    .obra-name { font-size: 0.9rem; font-weight: 700; color: var(--text-primary); }
+    .obra-location { font-size: 0.76rem; color: var(--text-muted); }
+    
+    .investment-val { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
+    
+    .resp-cell { display: flex; flex-direction: column; gap: 2px; }
+    .resp-name { font-size: 0.82rem; font-weight: 500; color: var(--text-primary); }
+    .contratista-name { font-size: 0.76rem; color: var(--text-muted); }
+    
+    .progress-cell { display: flex; flex-direction: column; gap: 6px; min-width: 140px; }
+    .progress-meta { display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem; }
+    .progress-val { font-weight: 700; }
+    .progress-dates { color: var(--text-muted); }
+    
+    .badge-activa { background: var(--success-bg); color: var(--success); }
+    .badge-en_proceso { background: rgba(99, 102, 241, 0.12); color: #818CF8; }
+    .badge-pausada { background: var(--warning-bg); color: var(--warning); }
+    .badge-completada { background: var(--info-bg); color: var(--info); }
+    .badge-bloqueada { background: var(--danger-bg); color: var(--danger); }
+    
+    .actions-cell { display: flex; justify-content: flex-end; }
+    .table-btn { font-size: 0.78rem; font-weight: 600; padding: 6px 14px; }
+    
+    .empty-table-cell { padding: 48px 0; }
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+    .empty-icon { font-size: 2.5rem; filter: grayscale(1); }
+    .empty-text { font-size: 0.88rem; color: var(--text-muted); }
+    
+    .folders-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 20px; }
+    .folder-card { 
+      background: var(--bg-dark); border: 1px solid var(--border); border-radius: 12px; 
+      padding: 24px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; 
+      cursor: pointer; transition: all 0.3s ease; 
+    }
+    .folder-card:hover { 
+      transform: translateY(-4px); border-color: var(--accent); 
+      box-shadow: 0 8px 24px rgba(232, 160, 32, 0.15); 
+    }
+    .folder-icon { font-size: 2.5rem; line-height: 1; }
+    .folder-name { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); text-align: center; }
+    .folder-count { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* Drag and Drop Styles */
+    .drag-drop-zone { border: 2px dashed var(--border); border-radius: 12px; padding: 40px 20px; text-align: center; background: rgba(0,0,0,0.1); cursor: pointer; transition: all 0.3s; position: relative; overflow: hidden; }
+    .drag-drop-zone:hover { border-color: var(--accent); background: rgba(232, 160, 32, 0.05); }
+    .drag-drop-zone.dragover { border-color: var(--success); background: rgba(45, 212, 191, 0.1); transform: scale(1.02); }
+    .drop-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.8; }
+    .file-input-hidden { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+    .file-list { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
+    .file-item { display: flex; align-items: center; gap: 12px; background: var(--bg-surface); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-light); }
+    .file-name { flex: 1; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-size { font-size: 0.75rem; color: var(--text-muted); }
+
+    /* Modal Overlay Styles */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-content { background: var(--bg-surface); width: 90%; max-width: 500px; border-radius: var(--radius-lg); border: 1px solid var(--border-light); box-shadow: var(--shadow-lg); overflow: hidden; display: flex; flex-direction: column; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+    .modal-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
+    .btn-close { background: transparent; border: none; font-size: 1.2rem; color: var(--text-muted); cursor: pointer; transition: var(--transition); }
+    .btn-close:hover { color: var(--danger); transform: scale(1.1); }
+    .modal-form { padding: 24px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 16px; border-top: 1px solid var(--border); }
+  `]
+})
+export class ObrasListComponent {
+  svc = inject(ObrasService);
+  auth = inject(AuthService);
+  router = inject(Router);
+  usuariosSvc = inject(UsuariosService);
+
+  mostrarModalNuevaObra = signal(false);
+  mostrarModalNuevoExpediente = signal(false);
+  mostrarModalIntegracion = signal(false);
+  isExpedienteModal = signal(false);
+  responsableSeleccionado = signal('');
+  responsables = this.usuariosSvc.getResponsables();
+  toastSvc = inject(ToastService);
+
+  carpetaSeleccionada = signal<string | null>(null);
+  isDragOver = signal(false);
+  archivosSubidos = signal<Record<string, any[]>>({
+    'Legal': [], 'Social': [], 'Técnicos': [], 'Anexo Fotográfico': []
+  });
+
+  filtroTexto = signal('');
+  filtroStatus = signal<string>('todas');
+
+  obrasFiltradas = computed(() => {
+    let list = this.svc.getObras();
+    const query = this.filtroTexto().toLowerCase().trim();
+    const status = this.filtroStatus();
+
+    if (query) {
+      list = list.filter(o => 
+        o.nombre.toLowerCase().includes(query) ||
+        o.responsable.toLowerCase().includes(query) ||
+        o.contratista.toLowerCase().includes(query) ||
+        o.id.toLowerCase().includes(query)
+      );
+    }
+
+    if (status !== 'todas') {
+      list = list.filter(o => o.status === status);
+    }
+
+    return list;
+  });
+
+  updateFiltroTexto(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.filtroTexto.set(value);
+  }
+
+  abrirExpediente(id: string): void {
+    this.router.navigate(['/obras', id]);
+  }
+
+  abrirModal(tipo: 'obra' | 'expediente'): void {
+    if (tipo === 'obra') {
+      this.mostrarModalNuevaObra.set(true);
+    } else {
+      this.mostrarModalNuevoExpediente.set(true);
+    }
+  }
+
+  crearObra(e: Event) {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const inputs = form.querySelectorAll('input, select, textarea');
+    
+    const nombre = (inputs[0] as HTMLInputElement).value;
+    const ubicacion = (inputs[1] as HTMLInputElement).value;
+    const monto = parseFloat((inputs[2] as HTMLInputElement).value) || 0;
+    const responsable = (inputs[3] as HTMLSelectElement).value;
+    const descripcion = (inputs[4] as HTMLTextAreaElement).value;
+
+    this.svc.addObra({ nombre, ubicacion, monto, responsable, descripcion });
+    
+    this.toastSvc.show('Registro guardado exitosamente.', 'success');
+    this.mostrarModalNuevaObra.set(false);
+  }
+
+  crearExpediente(e: Event) {
+    e.preventDefault();
+    this.toastSvc.show('¡Expediente integrado exitosamente!', 'success');
+    this.mostrarModalNuevoExpediente.set(false);
+  }
+
+  abrirCarpeta(nombre: string): void {
+    this.carpetaSeleccionada.set(nombre);
+  }
+
+  onDragOver(e: DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.isDragOver.set(true);
+  }
+
+  onDragLeave(e: DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.isDragOver.set(false);
+  }
+
+  onDrop(e: DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.isDragOver.set(false);
+    if (e.dataTransfer?.files) {
+      this.handleFiles(Array.from(e.dataTransfer.files));
+    }
+  }
+
+  onFileSelect(e: Event) {
+    const input = e.target as HTMLInputElement;
+    if (input.files) {
+      this.handleFiles(Array.from(input.files));
+    }
+  }
+
+  private handleFiles(files: File[]) {
+    const carpeta = this.carpetaSeleccionada();
+    if (!carpeta) return;
+    
+    const actuales = this.archivosSubidos();
+    const nuevos = files.map(f => ({ name: f.name, size: f.size }));
+    this.archivosSubidos.set({
+      ...actuales,
+      [carpeta]: [...actuales[carpeta], ...nuevos]
+    });
+    this.toastSvc.show(`Se subieron ${files.length} archivo(s) a ${carpeta}`, 'success');
+  }
+
+  exportarPDF() {
+    this.toastSvc.show('Generando PDF, por favor espera...', 'info');
+    const element = document.querySelector('.table-card') as HTMLElement;
+    if (!element) return;
+    html2canvas(element, { scale: 2, backgroundColor: '#1E2D3D' }).then(canvas => {
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('l', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      
+      pdf.setFontSize(16);
+      pdf.text("Reporte Oficial de Expedientes", 14, 15);
+      pdf.addImage(imgData, 'PNG', 0, 25, pdfWidth, pdfHeight);
+      pdf.save('Reporte_Expedientes.pdf');
+      this.toastSvc.show('Documento PDF descargado', 'success');
+    });
+  }
+
+  exportarExcel() {
+    const data = this.obrasFiltradas().map(o => ({
+      ID: o.id,
+      Nombre: o.nombre,
+      Ubicacion: o.ubicacion,
+      Inversion: o.monto,
+      Responsable: o.responsable,
+      Contratista: o.contratista,
+      Avance: o.avance + '%',
+      Estado: this.getStatusText(o)
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Expedientes');
+    XLSX.writeFile(wb, 'Reporte_Expedientes.xlsx');
+    this.toastSvc.show('Reporte Excel (.xlsx) descargado', 'success');
+  }
+
+  getProgressColor(p: number): string {
+    return p >= 80 ? 'var(--success)' : p >= 50 ? 'var(--accent)' : 'var(--danger)';
+  }
+
+  getProgressGradient(avance: number): string {
+    const p = this.getProgressColor(avance);
+    return `linear-gradient(90deg, ${p}88, ${p})`;
+  }
+
+  getStatusBadgeClass(obra: Obra): string {
+    if (this.svc.isBlocked(obra)) return 'badge-bloqueada';
+    return `badge-${obra.status}`;
+  }
+
+  getStatusText(obra: Obra): string {
+    if (this.svc.isBlocked(obra)) return '🚫 Bloqueada (15 días)';
+    const texts: Record<string, string> = {
+      activa: '🟢 Activa',
+      completada: '🔵 Completada',
+      bloqueada: '🔴 Bloqueada',
+      pendiente: '⚪ Pendiente',
+      pausada: '🟠 Pausada',
+      en_proceso: '⚙️ En Proceso'
+    };
+    return texts[obra.status] ?? obra.status;
+  }
+}

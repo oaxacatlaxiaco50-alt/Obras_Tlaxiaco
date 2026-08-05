@@ -1,0 +1,65 @@
+.dashboard { display: flex; flex-direction: column; gap: 24px; }
+.dash-header {
+  display: flex; justify-content: space-between;
+  align-items: flex-start; flex-wrap: wrap; gap: 16px;
+}
+.dash-title { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+.dash-subtitle { font-size: 0.85rem; color: var(--text-muted); }
+.kpi-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.kpi-row .kpi-card { flex: 1; min-width: 160px; }
+.dash-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+.chart-card, .donut-card { overflow: hidden; }
+.section-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 16px; }
+.obras-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+.obra-card {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
+  display: flex; flex-direction: column; transition: var(--transition);
+}
+.obra-card:hover {
+  border-color: rgba(232,160,32,0.4);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  transform: translateY(-3px);
+}
+.obra-card.blocked { border-color: rgba(239,68,68,0.3); }
+.obra-card-top { padding: 20px 20px 12px; flex: 1; }
+.obra-status-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.obra-name { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+.obra-desc { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; }
+.obra-card-body { padding: 12px 20px; background: rgba(0,0,0,0.15); }
+.obra-progress-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.progress-label { font-size: 0.78rem; color: var(--text-muted); }
+.progress-pct { font-size: 0.85rem; font-weight: 700; }
+.obra-meta {
+  display: flex; flex-direction: column; gap: 4px;
+  margin-top: 12px; font-size: 0.75rem; color: var(--text-muted);
+}
+.obra-card-link {
+  display: block; padding: 12px 20px; text-align: center;
+  background: rgba(232,160,32,0.08); color: var(--accent);
+  font-size: 0.85rem; font-weight: 600; text-decoration: none;
+  border-top: 1px solid var(--border); transition: var(--transition);
+}
+.obra-card-link:hover { background: rgba(232,160,32,0.15); }
+.badge-activa { background: var(--success-bg); color: var(--success); }
+.badge-completada { background: var(--info-bg); color: var(--info); }
+.badge-bloqueada { background: var(--danger-bg); color: var(--danger); }
+.badge-pendiente { background: rgba(100,116,139,0.15); color: var(--text-secondary); }
+
+.obra-fases { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px; }
+.mini-foto-wrap { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.mini-foto-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; }
+.mini-foto { width: 100%; height: 50px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); transition: transform 0.3s; }
+.mini-foto:hover { transform: scale(1.1); box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 10; cursor: pointer; }
+.mini-foto-empty { width: 100%; height: 50px; background: rgba(0,0,0,0.2); border-radius: 6px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: var(--text-muted); opacity: 0.5; }
+
+/* Modal Overlay Styles */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-content { background: var(--bg-surface); width: 90%; max-width: 500px; border-radius: var(--radius-lg); border: 1px solid var(--border-light); box-shadow: var(--shadow-lg); overflow: hidden; display: flex; flex-direction: column; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+.modal-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
+.btn-close { background: transparent; border: none; font-size: 1.2rem; color: var(--text-muted); cursor: pointer; transition: var(--transition); }
+.btn-close:hover { color: var(--danger); transform: scale(1.1); }
+.modal-form { padding: 24px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 16px; border-top: 1px solid var(--border); }

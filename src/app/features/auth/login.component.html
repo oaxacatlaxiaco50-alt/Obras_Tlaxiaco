@@ -1,0 +1,56 @@
+<div class="login-page">
+  <div class="login-bg">
+    <div class="bg-circle bg-circle-1"></div>
+    <div class="bg-circle bg-circle-2"></div>
+    <div class="bg-circle bg-circle-3"></div>
+  </div>
+  <div class="login-card animate-fade-in-up">
+    <div class="login-header">
+      <div class="logo-mark">🏗️</div>
+      <h1 class="login-title">Residencia de Obra</h1>
+      <p class="login-subtitle">Sistema de Gestión Municipal</p>
+    </div>
+    <div class="login-divider"></div>
+    <p class="role-label">Ingresa tus credenciales para acceder</p>
+    
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+      <div class="form-group">
+        <label for="username">Usuario</label>
+        <input 
+          id="username" 
+          type="text" 
+          formControlName="username" 
+          class="form-control" 
+          placeholder="Ej: admin123"
+          [class.is-invalid]="loginForm.get('username')?.invalid && loginForm.get('username')?.touched">
+      </div>
+      
+      <div class="form-group" style="margin-top: 16px;">
+        <label for="password">Contraseña</label>
+        <input 
+          id="password" 
+          type="password" 
+          formControlName="password" 
+          class="form-control" 
+          placeholder="••••••••"
+          [class.is-invalid]="loginForm.get('password')?.invalid && loginForm.get('password')?.touched">
+      </div>
+
+      @if (errorMessage) {
+        <div class="error-message" style="color: var(--danger); font-size: 0.85rem; margin-top: 12px; text-align: center;">
+          {{ errorMessage }}
+        </div>
+      }
+
+      <button type="submit" class="btn btn-primary login-btn" [disabled]="loginForm.invalid || isLoading" style="width: 100%; margin-top: 24px; padding: 12px;">
+        @if (isLoading) {
+          <span>Iniciando...</span>
+        } @else {
+          <span>Ingresar al Sistema</span>
+        }
+      </button>
+    </form>
+    
+    <p class="login-footer-note">🔒 Acceso protegido · Sistema Municipal v1.0</p>
+  </div>
+</div>

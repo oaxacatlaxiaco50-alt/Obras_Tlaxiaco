@@ -1,0 +1,62 @@
+<aside class="sidebar" [class.collapsed]="collapsed()">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">
+      <span class="logo-icon">🏗️</span>
+      @if (!collapsed()) {
+        <div class="logo-text">
+          <span class="logo-main">ResidenciaObra</span>
+          <span class="logo-sub">Sistema Municipal</span>
+        </div>
+      }
+    </div>
+    <button class="collapse-btn" (click)="toggle()">
+      {{ collapsed() ? '▶' : '◀' }}
+    </button>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a routerLink="/dashboard" routerLinkActive="active" class="nav-item">
+      <span class="nav-icon">📊</span>
+      @if (!collapsed()) { <span class="nav-label">Dashboard</span> }
+    </a>
+    <a routerLink="/mapa" routerLinkActive="active" class="nav-item">
+      <span class="nav-icon">🗺️</span>
+      @if (!collapsed()) { <span class="nav-label">Geolocalización</span> }
+    </a>
+    @if (auth.hasRole('admin', 'residente')) {
+      <a routerLink="/obras" routerLinkActive="active" class="nav-item">
+        <span class="nav-icon">📁</span>
+        @if (!collapsed()) { <span class="nav-label">Expedientes</span> }
+      </a>
+    }
+    @if (auth.hasRole('admin')) {
+      <a routerLink="/bitacora/cambios" routerLinkActive="active" class="nav-item">
+        <span class="nav-icon">🔒</span>
+        @if (!collapsed()) { <span class="nav-label">Bitácora de Cambios</span> }
+      </a>
+    }
+    <a routerLink="/bitacora" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" class="nav-item">
+      <span class="nav-icon">📋</span>
+      @if (!collapsed()) { <span class="nav-label">Historial General</span> }
+    </a>
+    @if (auth.hasRole('admin')) {
+      <div class="nav-separator"></div>
+      <a routerLink="/admin" routerLinkActive="active" class="nav-item">
+        <span class="nav-icon">⚙️</span>
+        @if (!collapsed()) { <span class="nav-label">Administración</span> }
+      </a>
+    }
+  </nav>
+
+  @if (!collapsed()) {
+    <div class="sidebar-footer">
+      <div class="user-mini-card">
+        <div class="user-avatar">{{ (auth.usuario()?.username || 'U')[0].toUpperCase() }}</div>
+        <div class="user-info">
+          <div class="user-name">{{ auth.usuario()?.username }}</div>
+          <div class="user-role badge" [class]="getRolClass()">{{ auth.usuario()?.roles?.[0] || 'SIN ROL' }}</div>
+        </div>
+      </div>
+    </div>
+  }
+</aside>

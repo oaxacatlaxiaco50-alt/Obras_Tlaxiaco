@@ -1,0 +1,34 @@
+<header class="navbar">
+  <div class="navbar-left">
+    <div class="page-title">{{ pageTitle() }}</div>
+  </div>
+  <div class="navbar-right">
+    <!-- Botón para abrir el panel de personalización premium -->
+    <button class="btn-icon theme-btn" (click)="themeSvc.togglePanel()" title="Personalización y Temas" [class.active-theme]="themeSvc.panelOpen()">
+      🎨
+    </button>
+    <div class="navbar-divider"></div>
+    <div class="notif-wrap">
+      <button class="btn-icon notif-btn" (click)="toggleNotif()" [class.active]="showNotif()">
+        🔔
+        @if (notifSvc.noLeidas() > 0) {
+          <span class="notif-badge">{{ notifSvc.noLeidas() }}</span>
+        }
+      </button>
+      @if (showNotif()) {
+        <app-notif-panel (close)="showNotif.set(false)" />
+      }
+    </div>
+    <div class="navbar-divider"></div>
+    <div class="user-pill">
+      <div class="pill-avatar">{{ (auth.usuario()?.username || 'U')[0].toUpperCase() }}</div>
+      <div class="pill-info">
+        <span class="pill-name">{{ auth.usuario()?.username }}</span>
+        <span class="pill-role">{{ rolLabel() }}</span>
+      </div>
+    </div>
+    <button class="btn btn-secondary btn-sm logout-btn" (click)="auth.logout()">
+      ⏻ Salir
+    </button>
+  </div>
+</header>

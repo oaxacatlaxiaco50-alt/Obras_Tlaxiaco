@@ -1,0 +1,193 @@
+<div class="dashboard animate-fade-in">
+  <!-- Header -->
+  <div class="dash-header">
+    <div>
+      <h1 class="dash-title">Bienvenido, {{ getNombre() }} 👋</h1>
+      <p class="dash-subtitle">Resumen general del estado de obras · {{ hoy }}</p>
+    </div>
+    @if (auth.hasRole('admin', 'residente')) {
+    <button class="btn" style="background: linear-gradient(135deg, #10B981, #059669); color: white; border: none; box-shadow: 0 4px 12px rgba(16,185,129,0.3);" (click)="mostrarModalNuevaObra.set(true)">+ Nueva Obra</button>
+    }
+  </div>
+
+  <!-- KPI Row -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:rgba(26,60,94,0.5)">🏗️</div>
+      <div>
+        <div class="kpi-value">{{ obras.length }}</div>
+        <div class="kpi-label">Total de Obras</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:rgba(45,212,191,0.15)">✅</div>
+      <div>
+        <div class="kpi-value" style="color:var(--success)">{{ conteo.activas }}</div>
+        <div class="kpi-label">Obras Activas</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:rgba(232,160,32,0.12)">📈</div>
+      <div>
+        <div class="kpi-value" style="color:var(--accent)">{{ avancePromedio }}%</div>
+        <div class="kpi-label">Avance Promedio</div>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:rgba(245,158,11,0.12)">🟠</div>
+      <div>
+        <div class="kpi-value" style="color:var(--warning)">{{ conteo.pausadas }}</div>
+        <div class="kpi-label">Obras Pausadas</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:rgba(99,102,241,0.15)">⚙️</div>
+      <div>
+        <div class="kpi-value" style="color:#818CF8">{{ conteo.enProceso }}</div>
+        <div class="kpi-label">Obras en Proceso</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:rgba(239,68,68,0.12)">🔒</div>
+      <div>
+        <div class="kpi-value" style="color:var(--danger)">{{ conteo.bloqueadas }}</div>
+        <div class="kpi-label">Obras Bloqueadas</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts + Obras Grid -->
+  <div class="dash-grid">
+    <!-- Pie Chart Avance por Obra -->
+    <div class="card chart-card">
+      <h3 class="section-title">🍩 Avance por Obra</h3>
+      <canvas #pieAvanceChart></canvas>
+    </div>
+    <!-- Donut -->
+    <div class="card donut-card">
+      <h3 class="section-title">Estado General</h3>
+      <canvas #donutChart></canvas>
+    </div>
+  </div>
+
+  <!-- Obras List -->
+  <h2 class="section-title" style="margin-bottom:16px">📋 Listado de Obras</h2>
+  <div class="obras-grid">
+    @for (obra of obras; track obra.id) {
+    <div class="obra-card" [class.blocked]="svc.isBlocked(obra)">
+      <div class="obra-card-top">
+        <div class="obra-status-row">
+          <span class="badge" [class]="getStatusClass(obra)">{{ getStatusLabel(obra) }}</span>
+          @if (svc.isBlocked(obra)) {
+          <span class="badge badge-danger">🔒 Bloqueada</span>
+          }
+        </div>
+        <h3 class="obra-name">{{ obra.nombre }}</h3>
+        @if (auth.hasRole('admin', 'residente')) {
+        <p class="obra-desc">{{ obra.descripcion }}</p>
+        } @else {
+        <p class="obra-desc">{{ obra.descripcion | slice:0:80 }}...</p>
+        }
+      </div>
+      <div class="obra-card-body">
+        <div class="obra-progress-row">
+          <span class="progress-label">Avance</span>
+          <span class="progress-pct" [style.color]="getProgressColor(obra.avance)">{{ obra.avance }}%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="obra.avance"
+            [style.background]="getProgressGradient(obra.avance)"></div>
+        </div>
+        @if (auth.hasRole('admin', 'residente')) {
+        <div class="obra-meta">
+          <span>💰 {{ svc.formatMonto(obra.monto) }}</span>
+          <span>📍 {{ obra.ubicacion }}</span>
+          <span>👤 {{ obra.responsable }}</span>
+        </div>
+        }
+        <!-- Mini Galería Fotográfica ANTES / DURANTE / DESPUÉS -->
+        <div class="obra-fases">
+          <!-- ANTES -->
+          <div class="mini-foto-wrap">
+            <span class="mini-foto-label">Antes</span>
+            @if (getFotoUnica(obra, 'antes')) {
+            <img [src]="getFotoUnica(obra, 'antes')" class="mini-foto" alt="Antes">
+            } @else {
+            <div class="mini-foto-empty">🚫</div>
+            }
+          </div>
+          <!-- DURANTE -->
+          <div class="mini-foto-wrap">
+            <span class="mini-foto-label">Durante</span>
+            @if (getFotoUnica(obra, 'durante')) {
+            <img [src]="getFotoUnica(obra, 'durante')" class="mini-foto" alt="Durante">
+            } @else {
+            <div class="mini-foto-empty">🚫</div>
+            }
+          </div>
+          <!-- DESPUÉS -->
+          <div class="mini-foto-wrap">
+            <span class="mini-foto-label">Después</span>
+            @if (getFotoUnica(obra, 'despues')) {
+            <img [src]="getFotoUnica(obra, 'despues')" class="mini-foto" alt="Después">
+            } @else {
+            <div class="mini-foto-empty">🚫</div>
+            }
+          </div>
+        </div>
+      </div>
+      @if (auth.hasRole('admin', 'residente')) {
+      <a [routerLink]="['/obras', obra.id]" class="obra-card-link">
+        Ver Expediente →
+      </a>
+      }
+    </div>
+    }
+  </div>
+</div>
+
+<!-- Modal Nueva Obra -->
+@if (mostrarModalNuevaObra()) {
+<div class="modal-overlay animate-fade-in">
+  <div class="modal-content animate-slide-in">
+    <div class="modal-header">
+      <h2 class="modal-title">🏗️ Crear Nueva Obra</h2>
+      <button class="btn-close" (click)="mostrarModalNuevaObra.set(false)">✕</button>
+    </div>
+    <form class="modal-form" (submit)="crearObra($event)">
+      <div class="form-group">
+        <label class="form-label">Nombre del Proyecto *</label>
+        <input type="text" class="form-input" placeholder="Ej. Pavimentación Calle Juárez" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ubicación / Coordenadas *</label>
+        <input type="text" class="form-input" placeholder="Ej. Sector Sur, Zona Industrial" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Presupuesto Asignado</label>
+          <input type="number" class="form-input" placeholder="$ 0.00" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Responsable a Cargo</label>
+          <select class="form-input" [(ngModel)]="responsableSeleccionado" name="responsable" required>
+            <option value="" disabled>— Selecciona un responsable —</option>
+            @for (u of responsables; track u.id) {
+              <option [value]="u.nombre">{{ u.nombre }} ({{ u.rol }})</option>
+            }
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom: 24px;">
+        <label class="form-label">Descripción Breve</label>
+        <textarea class="form-input" rows="3" placeholder="Detalles de la obra..."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" (click)="mostrarModalNuevaObra.set(false)">Cancelar</button>
+        <button type="submit" class="btn btn-primary">💾 Guardar Proyecto</button>
+      </div>
+    </form>
+  </div>
+</div>
+}
