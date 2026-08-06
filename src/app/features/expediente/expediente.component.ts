@@ -479,7 +479,15 @@ export class ExpedienteComponent implements OnInit {
     const descripcion = (formData.get('descripcion') as string)?.trim() || current.descripcion;
     const porcentaje = Number(formData.get('porcentaje')) || 0;
 
-    this.svc.updateObra(current.id, { nombre, descripcion, categoria }).subscribe({
+    this.svc.updateObra(current.id, {
+      nombre,
+      descripcion,
+      categoria,
+      monto: current.monto,
+      fechaInicio: current.fechaInicio,
+      fechaFin: current.fechaFin,
+      responsableId: current.responsableId
+    }).subscribe({
       next: (updated) => {
         this.obra.set(updated);
         if (estatus !== current.estatus) {
