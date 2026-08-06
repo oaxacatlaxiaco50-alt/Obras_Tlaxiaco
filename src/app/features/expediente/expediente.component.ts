@@ -2,8 +2,9 @@ import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { ObrasService } from '../../core/services/obras.service';
 import { AvancesService } from '../../core/services/avances.service';
+import { ArchivosService } from '../../core/services/archivos.service';
 import { AuthService } from '../../core/services/auth.service';
-import { ObraResponse, ObraAvance, ObraEstatus, ESTATUS_LABEL, ESTATUS_COLOR } from '../../core/models/obra.model';
+import { ObraResponse, ObraAvance, ObraArchivo, ObraEstatus, ESTATUS_LABEL, ESTATUS_COLOR } from '../../core/models/obra.model';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -155,18 +156,22 @@ import html2canvas from 'html2canvas';
             </div>
 
             <div class="card docs-card">
-              <h3 class="sec-title">📑 Indicador de Documentación</h3>
-              <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:12px">
-                Sube archivos con los nombres (acta, oficio, planos, bitacora) para comprobar que marcan el estatus.
-              </p>
+              <h3 class="sec-title">📑 Archivos Subidos al Expediente ({{ archivosSubidos().length }})</h3>
               <div class="docs-list">
-                @for (avance of avances(); track avance.id) {
-                  <div class="doc-item entregado">
-                    <div class="doc-icon">📊</div>
-                    <div class="doc-info">
-                      <span class="doc-name">{{ avance.titulo }}</span>
-                      <span class="doc-status">{{ avance.porcentaje }}% — {{ avance.fechaAvance }}</span>
+                @for (arch of archivosSubidos(); track arch.id) {
+                  <div class="doc-item entregado" style="display:flex; align-items:center; gap:12px;">
+                    <div class="doc-icon">{{ arch.tipoArchivo === 'IMAGEN' ? '🖼️' : '📄' }}</div>
+                    <div class="doc-info" style="flex:1;">
+                      <span class="doc-name">{{ arch.nombreOriginal }}</span>
+                      <span class="doc-status">{{ arch.carpeta }} · {{ fmtBytes(arch.tamanioBytes) }}</span>
                     </div>
+                    <a [href]="'http://localhost:8081' + arch.archivoUrl" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none;">
+                      👁️ Ver / Descargar
+                    </a>
+                  </div>
+                } @empty {
+                  <div class="empty-state" style="font-size:0.85rem; color:var(--text-muted); text-align:center; padding:16px;">
+                    📁 Ningún archivo subido a este expediente todavía.
                   </div>
                 }
               </div>
@@ -397,8 +402,11 @@ export class ExpedienteComponent implements OnInit {
   ultimoPorcentaje = signal(0);
   cargando = signal(true);
 
+  archivosSubidos = signal<ObraArchivo[]>([]);
+
   svc = inject(ObrasService);
   avancesSvc = inject(AvancesService);
+  archivosSvc = inject(ArchivosService);
   auth = inject(AuthService);
   private route = inject(ActivatedRoute);
 
@@ -416,6 +424,10 @@ export class ExpedienteComponent implements OnInit {
         });
         this.avancesSvc.getUltimoPorcentaje(id).subscribe({
           next: (p) => this.ultimoPorcentaje.set(p),
+          error: () => {}
+        });
+        this.archivosSvc.getArchivos(id).subscribe({
+          next: (files) => this.archivosSubidos.set(files),
           error: () => {}
         });
       }
@@ -544,15 +556,40 @@ export class ExpedienteComponent implements OnInit {
   onFileSelect(e: Event): void {
     const files = (e.target as HTMLInputElement).files;
     if (!files?.length) return;
+    const currentObra = this.obra();
+    if (!currentObra) return;
+
     const MAX = 30 * 1024 * 1024;
     const oversized = Array.from(files).filter(f => f.size > MAX);
     if (oversized.length) {
       this.uploadError.set(true);
       this.uploadMsg.set(`❌ Archivos muy grandes: ${oversized.map(f => f.name).join(', ')} (máx. 30MB)`);
-    } else {
-      this.uploadError.set(false);
-      this.uploadMsg.set(`${files.length} archivo(s) listo(s) para subir`);
+      return;
     }
+
+    this.uploadError.set(false);
+    this.uploadMsg.set(`⏳ Subiendo ${files.length} archivo(s) al servidor...`);
+
+    let uploadedCount = 0;
+    Array.from(files).forEach(file => {
+      let carpeta: 'LEGAL' | 'SOCIAL' | 'TECNICOS' | 'FOTOGRAFICO' = 'TECNICOS';
+      if (file.type.startsWith('image/')) carpeta = 'FOTOGRAFICO';
+      else if (file.name.toLowerCase().includes('acta') || file.name.toLowerCase().includes('contrato')) carpeta = 'LEGAL';
+
+      this.archivosSvc.subirArchivo(currentObra.id, carpeta, file).subscribe({
+        next: (nuevoArchivo) => {
+          uploadedCount++;
+          this.archivosSubidos.update(prev => [nuevoArchivo, ...prev]);
+          if (uploadedCount === files.length) {
+            this.uploadMsg.set(`✅ ¡${uploadedCount} archivo(s) subido(s) exitosamente al servidor!`);
+          }
+        },
+        error: (err) => {
+          this.uploadError.set(true);
+          this.uploadMsg.set(`❌ Error subiendo ${file.name}: ${err.error?.message || 'Error de servidor'}`);
+        }
+      });
+    });
   }
   onDrop(e: DragEvent): void {
     e.preventDefault();
