@@ -50,19 +50,27 @@ import * as L from 'leaflet';
         <div class="mapa-container">
           <div id="leaflet-map" style="width:100%;height:100%;min-height:520px;border-radius:16px"></div>
           
-          <!-- Banner de estado cuando se está trazando -->
+          <!-- Floating Draggable Banner para Trazado Lineal -->
           @if (modoTrazar()) {
-            <div class="trazar-banner animate-slide-in">
+            <div class="trazar-banner animate-slide-in"
+                 [style.top.px]="bannerTop()"
+                 [style.left.px]="bannerLeft()"
+                 (mousedown)="startDrag($event)">
               <div class="trazar-header">
-                <span>📐 <strong>Modo Trazado Lineal Activo</strong> (Haz clic en el mapa para marcar puntos de la calle)</span>
-                <span class="dist-badge">Distancia: {{ distanciaTotal() }} m</span>
+                <span>📐 <strong>Modo Trazado Lineal</strong></span>
+                <span class="drag-handle">🖐️ Mover</span>
               </div>
-              <div class="trazar-inputs">
-                <input type="text" [(ngModel)]="nombreNuevaRuta" placeholder="Nombre de la ruta (ej. Tramo Calle Juárez)" class="form-input form-input-sm" style="flex:1">
-                <button class="btn btn-secondary btn-sm" (click)="deshacerUltimoPunto()" [disabled]="puntosTrazados().length === 0">⏮️ Deshacer</button>
-                <button class="btn btn-primary btn-sm" (click)="guardarRutaLineal()" [disabled]="puntosTrazados().length < 2 || !nombreNuevaRuta.trim()">💾 Guardar Ruta</button>
-                <button class="btn btn-danger btn-sm" (click)="cancelarTrazado()">✕ Cancelar</button>
+              <p class="trazar-hint">Haz clic sobre la calle en el mapa para marcar los vértices.</p>
+              <div class="trazar-meta">
+                <span class="dist-badge">📏 {{ distanciaTotal() }} m</span>
+                <span class="badge badge-info">📍 {{ puntosTrazados().length }} pts</span>
               </div>
+              <input type="text" [(ngModel)]="nombreNuevaRuta" (mousedown)="$event.stopPropagation()" placeholder="Nombre de la ruta (ej. Tramo Calle Juárez)" class="form-input form-input-sm">
+              <div class="trazar-actions">
+                <button class="btn btn-secondary btn-sm" (click)="deshacerUltimoPunto()" (mousedown)="$event.stopPropagation()" [disabled]="puntosTrazados().length === 0">⏮️ Deshacer</button>
+                <button class="btn btn-primary btn-sm" (click)="guardarRutaLineal()" (mousedown)="$event.stopPropagation()" [disabled]="puntosTrazados().length < 2 || !nombreNuevaRuta.trim()">💾 Guardar</button>
+              </div>
+              <button class="btn btn-danger btn-sm" (click)="cancelarTrazado()" (mousedown)="$event.stopPropagation()" style="width:100%">✕ Cancelar Trazado</button>
             </div>
           }
 
@@ -131,10 +139,14 @@ import * as L from 'leaflet';
     .popup-header button { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem; }
     .popup-desc { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 10px; }
     .popup-meta { display: flex; flex-direction: column; gap: 6px; font-size: 0.78rem; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 10px; }
-    .trazar-banner { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(20, 24, 33, 0.95); backdrop-filter: blur(8px); border: 1px solid var(--accent); border-radius: 12px; padding: 14px 20px; width: 90%; max-width: 600px; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 10px; }
-    .trazar-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--text-primary); }
-    .dist-badge { background: var(--accent); color: #000; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; }
-    .trazar-inputs { display: flex; gap: 8px; align-items: center; }
+    .trazar-banner { position: absolute; z-index: 1000; background: rgba(20, 24, 33, 0.96); backdrop-filter: blur(10px); border: 1.5px solid var(--accent); border-radius: 14px; padding: 16px; width: 330px; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 10px; cursor: grab; }
+    .trazar-banner:active { cursor: grabbing; }
+    .trazar-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; color: var(--text-primary); user-select: none; }
+    .drag-handle { font-size: 0.75rem; color: var(--accent); background: rgba(232,160,32,0.12); padding: 2px 8px; border-radius: 6px; font-weight: 600; }
+    .trazar-hint { font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; }
+    .trazar-meta { display: flex; gap: 8px; align-items: center; }
+    .dist-badge { background: var(--accent); color: #000; font-weight: 700; padding: 3px 10px; border-radius: 6px; font-size: 0.8rem; }
+    .trazar-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .rutas-lista-wrap { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
     .rutas-lista-title { font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); }
     .ruta-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; color: var(--text-primary); }
@@ -155,6 +167,31 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   distanciaTotal = signal(0);
   nombreNuevaRuta = '';
   rutasGuardadas = signal<RutaObraResponse[]>([]);
+
+  bannerTop = signal(16);
+  bannerLeft = signal(16);
+  private isDragging = false;
+  private dragOffset = { x: 0, y: 0 };
+
+  startDrag(e: MouseEvent) {
+    this.isDragging = true;
+    this.dragOffset = {
+      x: e.clientX - this.bannerLeft(),
+      y: e.clientY - this.bannerTop()
+    };
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!this.isDragging) return;
+      this.bannerLeft.set(Math.max(10, ev.clientX - this.dragOffset.x));
+      this.bannerTop.set(Math.max(10, ev.clientY - this.dragOffset.y));
+    };
+    const onMouseUp = () => {
+      this.isDragging = false;
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
 
   private map?: L.Map;
   private markersData: { marker: L.Marker; estatus: string }[] = [];
