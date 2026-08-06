@@ -3,6 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { ObrasService } from '../../core/services/obras.service';
 import { AvancesService } from '../../core/services/avances.service';
 import { ArchivosService } from '../../core/services/archivos.service';
+import { ExpedientesService, ExpedienteObraItem, EstadoDocumentoChecklist, SeccionExpedienteChecklist } from '../../core/services/expedientes.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ObraResponse, ObraAvance, ObraArchivo, ObraEstatus, ESTATUS_LABEL, ESTATUS_COLOR } from '../../core/models/obra.model';
 import jsPDF from 'jspdf';
@@ -186,6 +187,239 @@ import html2canvas from 'html2canvas';
                   </div>
                 }
               </div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN DE CHECKLIST UNITARIO OFICIAL (FORMATO TLAXIACO 2026) -->
+          <div class="card checklist-official-card" style="margin-top:24px; border:2px solid var(--border-light); background:var(--bg-surface);">
+            <div class="checklist-header" style="background:var(--bg-dark); padding:20px 24px; border-bottom:2px solid var(--border); display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div>
+                  <h2 style="font-size:1.1rem; font-weight:800; color:var(--text-primary); margin:0;">
+                    🏛️ INTEGRACIÓN DE EXPEDIENTE UNITARIO DE OBRA PÚBLICA EJERCICIO 2026
+                  </h2>
+                  <span style="font-size:0.8rem; color:var(--accent); font-weight:600;">
+                    H. AYUNTAMIENTO MUNICIPAL DE HEROICA CIUDAD DE TLAXIACO · REGIDURÍA DE OBRAS PÚBLICAS
+                  </span>
+                </div>
+                <div class="simbologia-strip" style="display:flex; gap:8px; align-items:center; background:rgba(0,0,0,0.3); padding:8px 14px; border-radius:8px; border:1px solid var(--border-light);">
+                  <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">SIMBOLOGÍA:</span>
+                  <span class="badge" style="background:#10B98122; color:#10B981; border:1px solid #10B98144; font-weight:700;">OK (Completo)</span>
+                  <span class="badge" style="background:#EF444422; color:#EF4444; border:1px solid #EF444444; font-weight:700;">F (Faltante)</span>
+                  <span class="badge" style="background:#F59E0B22; color:#F59E0B; border:1px solid #F59E0B44; font-weight:700;">C (A Corregir)</span>
+                  <span class="badge" style="background:#6B728022; color:#9CA3AF; border:1px solid #6B728044; font-weight:700;">N/A (No Aplica)</span>
+                </div>
+              </div>
+              <div style="display:flex; gap:20px; font-size:0.82rem; color:var(--text-muted); padding-top:8px; border-top:1px dashed var(--border);">
+                <span>📍 <strong>Obra:</strong> {{ obra()!.nombre }}</span>
+                <span>📌 <strong>Localidad:</strong> {{ obra()!.direccion || 'Heroica Ciudad de Tlaxiaco' }}</span>
+                <span>📄 <strong>Oficio Aprob.:</strong> {{ obra()!.codigo }}</span>
+              </div>
+            </div>
+
+            <!-- ACORDEONES POR SECCIÓN -->
+            <div class="checklist-sections" style="padding:20px 24px; display:flex; flex-direction:column; gap:24px;">
+              
+              <!-- I. PARTE SOCIAL -->
+              <div class="seccion-block" style="border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--bg-dark);">
+                <div class="seccion-header" style="background:rgba(232, 160, 32, 0.1); padding:12px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border);">
+                  <h3 style="font-size:0.95rem; font-weight:800; color:var(--accent); margin:0;">I. PARTE SOCIAL</h3>
+                  <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);">
+                    Avance: {{ getPorcentajeCompletadoSeccion('PARTE_SOCIAL') }}%
+                  </span>
+                </div>
+                <div class="table-responsive">
+                  <table class="table" style="margin:0; width:100%;">
+                    <thead>
+                      <tr style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">
+                        <th style="width:40px; text-align:center;">#</th>
+                        <th>Documento / Requisito Oficial</th>
+                        <th style="width:230px; text-align:center;">Estado (Simbología)</th>
+                        <th style="width:280px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (item of getItemsPorSeccion('PARTE_SOCIAL'); track item.id; let idx = $index) {
+                        <tr>
+                          <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
+                          <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">{{ item.documento.nombre }}</td>
+                          <td style="text-align:center;">
+                            <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
+                              <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
+                              <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
+                              <button type="button" class="btn-pill" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
+                              <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
+                            </div>
+                          </td>
+                          <td style="text-align:center;">
+                            @if (item.archivoUrl) {
+                              <a [href]="getFileUrl(item.archivoUrl)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                                📄 Ver Documento
+                              </a>
+                            } @else {
+                              <label class="btn btn-secondary btn-sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                                📤 Subir Archivo
+                                <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
+                              </label>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- II. PARTE TÉCNICA O PROYECTO EJECUTIVO -->
+              <div class="seccion-block" style="border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--bg-dark);">
+                <div class="seccion-header" style="background:rgba(59, 130, 246, 0.1); padding:12px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border);">
+                  <h3 style="font-size:0.95rem; font-weight:800; color:#60A5FA; margin:0;">II. PARTE TÉCNICA O PROYECTO EJECUTIVO</h3>
+                  <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);">
+                    Avance: {{ getPorcentajeCompletadoSeccion('PROYECTO_EJECUTIVO') }}%
+                  </span>
+                </div>
+                <div class="table-responsive">
+                  <table class="table" style="margin:0; width:100%;">
+                    <thead>
+                      <tr style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">
+                        <th style="width:40px; text-align:center;">#</th>
+                        <th>Documento / Requisito Oficial</th>
+                        <th style="width:230px; text-align:center;">Estado (Simbología)</th>
+                        <th style="width:280px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (item of getItemsPorSeccion('PROYECTO_EJECUTIVO'); track item.id; let idx = $index) {
+                        <tr>
+                          <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
+                          <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">{{ item.documento.nombre }}</td>
+                          <td style="text-align:center;">
+                            <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
+                              <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
+                              <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
+                              <button type="button" class="btn-pill" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
+                              <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
+                            </div>
+                          </td>
+                          <td style="text-align:center;">
+                            @if (item.archivoUrl) {
+                              <a [href]="getFileUrl(item.archivoUrl)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                                📄 Ver Documento
+                              </a>
+                            } @else {
+                              <label class="btn btn-secondary btn-sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                                📤 Subir Archivo
+                                <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
+                              </label>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- III. PROCESOS DE CONTRATACIÓN -->
+              <div class="seccion-block" style="border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--bg-dark);">
+                <div class="seccion-header" style="background:rgba(168, 85, 247, 0.1); padding:12px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border);">
+                  <h3 style="font-size:0.95rem; font-weight:800; color:#C084FC; margin:0;">III. PROCESOS DE CONTRATACIÓN</h3>
+                  <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);">
+                    Avance: {{ getPorcentajeCompletadoSeccion('PROCESOS_CONTRATACION') }}%
+                  </span>
+                </div>
+                <div class="table-responsive">
+                  <table class="table" style="margin:0; width:100%;">
+                    <thead>
+                      <tr style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">
+                        <th style="width:40px; text-align:center;">#</th>
+                        <th>Documento / Requisito Oficial</th>
+                        <th style="width:230px; text-align:center;">Estado (Simbología)</th>
+                        <th style="width:280px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (item of getItemsPorSeccion('PROCESOS_CONTRATACION'); track item.id; let idx = $index) {
+                        <tr>
+                          <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
+                          <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">{{ item.documento.nombre }}</td>
+                          <td style="text-align:center;">
+                            <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
+                              <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
+                              <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
+                              <button type="button" class="btn-pill" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
+                              <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
+                            </div>
+                          </td>
+                          <td style="text-align:center;">
+                            @if (item.archivoUrl) {
+                              <a [href]="getFileUrl(item.archivoUrl)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                                📄 Ver Documento
+                              </a>
+                            } @else {
+                              <label class="btn btn-secondary btn-sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                                📤 Subir Archivo
+                                <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
+                              </label>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- IV. DOCUMENTOS COMPROBATORIOS -->
+              <div class="seccion-block" style="border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--bg-dark);">
+                <div class="seccion-header" style="background:rgba(16, 185, 129, 0.1); padding:12px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border);">
+                  <h3 style="font-size:0.95rem; font-weight:800; color:#34D399; margin:0;">IV. DOCUMENTOS COMPROBATORIOS</h3>
+                  <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);">
+                    Avance: {{ getPorcentajeCompletadoSeccion('DOCUMENTOS_COMPROBATORIOS') }}%
+                  </span>
+                </div>
+                <div class="table-responsive">
+                  <table class="table" style="margin:0; width:100%;">
+                    <thead>
+                      <tr style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">
+                        <th style="width:40px; text-align:center;">#</th>
+                        <th>Documento / Requisito Oficial</th>
+                        <th style="width:230px; text-align:center;">Estado (Simbología)</th>
+                        <th style="width:280px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (item of getItemsPorSeccion('DOCUMENTOS_COMPROBATORIOS'); track item.id; let idx = $index) {
+                        <tr>
+                          <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
+                          <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">{{ item.documento.nombre }}</td>
+                          <td style="text-align:center;">
+                            <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
+                              <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
+                              <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
+                              <button type="button" class="btn-pill" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
+                              <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
+                            </div>
+                          </td>
+                          <td style="text-align:center;">
+                            @if (item.archivoUrl) {
+                              <a [href]="getFileUrl(item.archivoUrl)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                                📄 Ver Documento
+                              </a>
+                            } @else {
+                              <label class="btn btn-secondary btn-sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                                📤 Subir Archivo
+                                <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
+                              </label>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
             </div>
           </div>
         }
@@ -414,6 +648,8 @@ export class ExpedienteComponent implements OnInit {
   cargando = signal(true);
 
   archivosSubidos = signal<ObraArchivo[]>([]);
+  expedientesSvc = inject(ExpedientesService);
+  checklist = signal<ExpedienteObraItem[]>([]);
 
   svc = inject(ObrasService);
   avancesSvc = inject(AvancesService);
@@ -441,7 +677,48 @@ export class ExpedienteComponent implements OnInit {
           next: (files) => this.archivosSubidos.set(files),
           error: () => {}
         });
+        this.expedientesSvc.getExpedientePorObra(id).subscribe({
+          next: (items) => this.checklist.set(items),
+          error: (err) => console.error('Error cargando checklist:', err)
+        });
       }
+    });
+  }
+
+  getItemsPorSeccion(seccion: SeccionExpedienteChecklist): ExpedienteObraItem[] {
+    return this.checklist().filter(i => i.documento.seccion === seccion);
+  }
+
+  getPorcentajeCompletadoSeccion(seccion: SeccionExpedienteChecklist): number {
+    const items = this.getItemsPorSeccion(seccion);
+    if (items.length === 0) return 0;
+    const completados = items.filter(i => i.estado === 'OK').length;
+    return Math.round((completados / items.length) * 100);
+  }
+
+  cambiarEstadoItem(item: ExpedienteObraItem, estado: EstadoDocumentoChecklist): void {
+    const currentObra = this.obra();
+    if (!currentObra) return;
+    this.expedientesSvc.actualizarEstado(currentObra.id, item.id, estado, item.observaciones).subscribe({
+      next: (updated) => {
+        this.checklist.update(list => list.map(i => i.id === updated.id ? updated : i));
+      },
+      error: (err) => console.error('Error al cambiar estado de documento', err)
+    });
+  }
+
+  subirArchivoItem(item: ExpedienteObraItem, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    const currentObra = this.obra();
+    if (!file || !currentObra) return;
+
+    this.expedientesSvc.subirArchivoDocumento(currentObra.id, item.id, file).subscribe({
+      next: (updated) => {
+        this.checklist.update(list => list.map(i => i.id === updated.id ? updated : i));
+        alert('✅ Documento subido y registrado correctamente en el expediente');
+      },
+      error: (err) => alert('❌ Error al subir archivo de documento')
     });
   }
 
