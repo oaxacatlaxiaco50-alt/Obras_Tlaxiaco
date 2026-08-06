@@ -229,7 +229,7 @@ import html2canvas from 'html2canvas';
               <div class="form-row">
                 <div class="form-group">
                   <label class="form-label">Porcentaje de Avance (%)</label>
-                  <input type="number" name="porcentaje" class="form-input" min="0" max="100" [value]="ultimoPorcentaje()" required>
+                  <input type="number" name="porcentaje" class="form-input" min="0" max="100" [value]="ultimoPorcentaje()" (input)="validarMaximo100($event)" required>
                 </div>
               </div>
               <div class="form-group" style="margin-bottom: 24px;">
@@ -477,7 +477,8 @@ export class ExpedienteComponent implements OnInit {
     const estatus = (formData.get('estatus') as ObraEstatus) || current.estatus;
     const categoria = (formData.get('categoria') as string) || current.categoria || 'Infraestructura General';
     const descripcion = (formData.get('descripcion') as string)?.trim() || current.descripcion;
-    const porcentaje = Number(formData.get('porcentaje')) || 0;
+    const rawPorcentaje = Number(formData.get('porcentaje')) || 0;
+    const porcentaje = Math.max(0, Math.min(100, rawPorcentaje));
 
     this.svc.updateObra(current.id, {
       nombre,
@@ -516,6 +517,13 @@ export class ExpedienteComponent implements OnInit {
         alert('❌ Error al actualizar la obra.');
       }
     });
+  }
+
+  validarMaximo100(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    let val = Number(input.value);
+    if (val > 100) input.value = '100';
+    if (val < 0) input.value = '0';
   }
 
   onFotoEdicionSelect(e: Event): void {

@@ -108,11 +108,11 @@ import * as L from 'leaflet';
                   <td>
                     <div class="progress-cell">
                       <div class="progress-meta">
-                        <span class="progress-val">{{ getStatusText(obra) }}</span>
+                        <span class="progress-val">{{ obra.porcentajeAvance ?? (obra.estatus === 'COMPLETADA' || obra.estatus === 'FINALIZADA' ? 100 : 0) }}% avance</span>
                         <span class="progress-dates">Fin: {{ obra.fechaFin }}</span>
                       </div>
                       <div class="progress-bar">
-                        <div class="progress-fill" [style.width.%]="obra.estatus === 'COMPLETADA' ? 100 : obra.estatus === 'EN_PROCESO' ? 50 : 10" [style.background]="getProgressGradient(obra.estatus === 'COMPLETADA' ? 100 : 50)"></div>
+                        <div class="progress-fill" [style.width.%]="obra.porcentajeAvance ?? (obra.estatus === 'COMPLETADA' || obra.estatus === 'FINALIZADA' ? 100 : 0)" [style.background]="getProgressGradient(obra.porcentajeAvance ?? (obra.estatus === 'COMPLETADA' || obra.estatus === 'FINALIZADA' ? 100 : 0))"></div>
                       </div>
                     </div>
                   </td>

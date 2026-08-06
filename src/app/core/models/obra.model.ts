@@ -46,6 +46,7 @@ export interface ObraResponse {
   longitud?: number;
   direccion?: string;
   categoria?: string;
+  porcentajeAvance?: number;
   createdAt: string;
   updatedAt: string;
 }
