@@ -35,7 +35,10 @@ import html2canvas from 'html2canvas';
               <span class="badge badge-info">ID: {{ obra()!.id }}</span>
             </div>
           </div>
-          <div style="display:flex; gap:12px">
+          <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            <button class="btn btn-primary" style="background:#E8A020; border-color:#E8A020; color:#fff; font-weight:700; display:inline-flex; align-items:center; gap:6px;" (click)="irAIntegracionExpediente()">
+              🏛️ Integración del Expediente
+            </button>
             @if (auth.hasRole('admin', 'residente') && !svc.isBlocked(obra()!)) {
               <button class="btn btn-secondary" (click)="generarPDF()" [disabled]="generandoPDF()">
                 {{ generandoPDF() ? '⏳ Procesando PDF...' : '📄 Generar Reporte PDF' }}
@@ -86,28 +89,13 @@ import html2canvas from 'html2canvas';
           </div>
         }
 
-        <!-- PESTAÑAS PRINCIPALES DE LA OBRA -->
-        <div class="obra-main-tabs" style="display:flex; gap:10px; margin: 20px 0 10px 0; border-bottom:2px solid var(--border);">
-          <button type="button" class="tab-main-btn" [class.active]="tabPrincipalActiva() === 'CHECKLIST'" (click)="tabPrincipalActiva.set('CHECKLIST')">
-            🏛️ Integración del Expediente (4 Categorías Oficiales)
-          </button>
-          <button type="button" class="tab-main-btn" [class.active]="tabPrincipalActiva() === 'FOTOS'" (click)="tabPrincipalActiva.set('FOTOS')">
-            📸 Evidencia Fotográfica y Avances
-          </button>
-          <button type="button" class="tab-main-btn" [class.active]="tabPrincipalActiva() === 'INFO'" (click)="tabPrincipalActiva.set('INFO')">
-            📂 Archivos y Descripción del Proyecto
-          </button>
+        <!-- Description -->
+        <div class="card exp-desc-card">
+          <h3 class="sec-title">📝 Descripción del Proyecto</h3>
+          <p>{{ obra()!.descripcion }}</p>
         </div>
 
-        @if (tabPrincipalActiva() === 'INFO') {
-          <!-- Description -->
-          <div class="card exp-desc-card">
-            <h3 class="sec-title">📝 Descripción del Proyecto</h3>
-            <p>{{ obra()!.descripcion }}</p>
-          </div>
-        }
-
-        @if (tabPrincipalActiva() === 'FOTOS' && auth.hasRole('admin', 'residente')) {
+        @if (auth.hasRole('admin', 'residente')) {
           <div class="exp-grid">
             <!-- Timeline de Fotos -->
             <div class="card">
@@ -200,17 +188,17 @@ import html2canvas from 'html2canvas';
                     </div>
                   </div>
                 } @empty {
-                  <div class="empty-state" style="font-size:0.85rem; color:var(--text-muted); text-align:center; padding:16px;">
+                  <div class="empty-state" style="font-size:0.85rem; color:var(--text-muted); text-text-align:center; padding:16px;">
                     📁 Ningún archivo subido a este expediente todavía.
                   </div>
                 }
               </div>
             </div>
           </div>
+        }
 
-        @if (tabPrincipalActiva() === 'CHECKLIST') {
-          <!-- SECCIÓN DE CHECKLIST UNITARIO OFICIAL (FORMATO TLAXIACO 2026) -->
-          <div class="card checklist-official-card" style="margin-top:10px; border:2px solid var(--border-light); background:var(--bg-surface);">
+        <!-- SECCIÓN DE CHECKLIST UNITARIO OFICIAL (FORMATO TLAXIACO 2026) -->
+        <div class="card checklist-official-card" id="section-checklist" style="margin-top:24px; border:2px solid var(--border-light); background:var(--bg-surface);">
             <div class="checklist-header" style="background:var(--bg-dark); padding:20px 24px; border-bottom:2px solid var(--border); display:flex; flex-direction:column; gap:8px;">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                 <div>
@@ -457,9 +445,6 @@ import html2canvas from 'html2canvas';
 
             </div>
           </div>
-        }
-      }
-      </div>
 
       <!-- Modal Previsualizador de Documentos -->
       @if (mostrarModalVisor() && urlVisor()) {
@@ -643,6 +628,7 @@ import html2canvas from 'html2canvas';
           </div>
         </div>
       }
+      </div>
     } @else {
       <div class="not-found">
         <span style="font-size:3rem">🔍</span>
@@ -856,6 +842,13 @@ export class ExpedienteComponent implements OnInit {
         this.toastSvc.show('❌ Error al guardar comentario', 'error');
       }
     });
+  }
+
+  irAIntegracionExpediente(): void {
+    const el = document.getElementById('section-checklist');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }
 
   svc = inject(ObrasService);

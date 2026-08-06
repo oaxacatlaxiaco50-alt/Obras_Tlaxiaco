@@ -122,9 +122,12 @@ import * as L from 'leaflet';
                     </span>
                   </td>
                   <td style="text-align: right;" (click)="$event.stopPropagation()">
-                    <div class="actions-cell">
+                    <div class="actions-cell" style="display:inline-flex; gap:6px;">
                       <a [routerLink]="['/obras', obra.id]" class="btn btn-secondary btn-sm table-btn">
                         📂 Abrir
+                      </a>
+                      <a [routerLink]="['/obras', obra.id]" class="btn btn-primary btn-sm table-btn" style="background:#E8A020; border-color:#E8A020; color:#fff; font-weight:700;">
+                        🏛️ Expediente (4 Cat.)
                       </a>
                     </div>
                   </td>
