@@ -1,20 +1,23 @@
 import { Component, AfterViewInit, OnInit, OnDestroy, signal, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ObrasService } from '../../core/services/obras.service';
-import { ObraResponse, ESTATUS_LABEL, ESTATUS_COLOR } from '../../core/models/obra.model';
+import { RutasService } from '../../core/services/rutas.service';
+import { ObraResponse, ESTATUS_LABEL } from '../../core/models/obra.model';
+import { RutaObraResponse } from '../../core/models/ruta.model';
 import * as L from 'leaflet';
 
 @Component({
   selector: 'app-mapa',
   standalone: true,
-  imports: [RouterLink, DecimalPipe],
+  imports: [RouterLink, DecimalPipe, FormsModule],
   template: `
     <div class="mapa-page animate-fade-in">
       <div class="mapa-header">
         <div>
-          <h1 class="mapa-title">🗺️ Geolocalización de Obras</h1>
-          <p class="mapa-subtitle">Visualiza la ubicación geográfica y coordenadas GPS registradas en cada proyecto</p>
+          <h1 class="mapa-title">🗺️ Geolocalización y Rutas Lineales de Obras</h1>
+          <p class="mapa-subtitle">Visualiza la ubicación GPS y realiza trazados lineales reales (pavimentaciones, vialidades, redes de agua)</p>
         </div>
         <div class="leyenda">
           <button class="ley-item" [class.disabled]="!activeFilters().has('PLANIFICADA')" (click)="toggleFilter('PLANIFICADA')"><span class="ley-dot" style="background:#6366F1"></span>Planificada</button>
@@ -27,7 +30,7 @@ import * as L from 'leaflet';
       <div class="mapa-layout">
         <div class="mapa-list">
           <div class="list-search-info">
-            <span>🔍 Selecciona una obra para centrar en el mapa GPS</span>
+            <span>🔍 Selecciona una obra para ver sus trazados lineales o registrar nuevas rutas</span>
           </div>
           @for (obra of obras(); track obra.id) {
             @if (activeFilters().has(obra.estatus)) {
@@ -38,7 +41,7 @@ import * as L from 'leaflet';
                 </div>
                 <div class="mapa-obra-meta">
                   <span class="status-lbl">{{ getStatusText(obra) }}</span>
-                  <span>{{ svc.formatMonto(obra.monto) }}</span>
+                  <span class="badge badge-warning" style="font-size:0.7rem;">🏷️ {{ obra.categoria || 'General' }}</span>
                 </div>
               </div>
             }
@@ -46,7 +49,24 @@ import * as L from 'leaflet';
         </div>
         <div class="mapa-container">
           <div id="leaflet-map" style="width:100%;height:100%;min-height:520px;border-radius:16px"></div>
-          @if (obraSeleccionada()) {
+          
+          <!-- Banner de estado cuando se está trazando -->
+          @if (modoTrazar()) {
+            <div class="trazar-banner animate-slide-in">
+              <div class="trazar-header">
+                <span>📐 <strong>Modo Trazado Lineal Activo</strong> (Haz clic en el mapa para marcar puntos de la calle)</span>
+                <span class="dist-badge">Distancia: {{ distanciaTotal() }} m</span>
+              </div>
+              <div class="trazar-inputs">
+                <input type="text" [(ngModel)]="nombreNuevaRuta" placeholder="Nombre de la ruta (ej. Tramo Calle Juárez)" class="form-input form-input-sm" style="flex:1">
+                <button class="btn btn-secondary btn-sm" (click)="deshacerUltimoPunto()" [disabled]="puntosTrazados().length === 0">⏮️ Deshacer</button>
+                <button class="btn btn-primary btn-sm" (click)="guardarRutaLineal()" [disabled]="puntosTrazados().length < 2 || !nombreNuevaRuta.trim()">💾 Guardar Ruta</button>
+                <button class="btn btn-danger btn-sm" (click)="cancelarTrazado()">✕ Cancelar</button>
+              </div>
+            </div>
+          }
+
+          @if (obraSeleccionada() && !modoTrazar()) {
             <div class="mapa-info-popup animate-slide-in">
               <div class="popup-header">
                 <strong>{{ obraSeleccionada()!.nombre }}</strong>
@@ -54,12 +74,30 @@ import * as L from 'leaflet';
               </div>
               <p class="popup-desc">{{ truncate(obraSeleccionada()!.descripcion) }}</p>
               <div class="popup-meta" style="margin-top: 12px;">
+                <span><strong>Categoría:</strong> 🏷️ {{ obraSeleccionada()!.categoria || 'Infraestructura General' }}</span>
                 <span><strong>Estatus:</strong> {{ getStatusText(obraSeleccionada()!) }}</span>
                 <span><strong>Monto:</strong> {{ svc.formatMonto(obraSeleccionada()!.monto) }}</span>
                 <span><strong>Dirección:</strong> {{ obraSeleccionada()!.direccion || 'Sin dirección especificada' }}</span>
-                <span><strong>Coordenadas:</strong> {{ (obraSeleccionada()!.latitud ?? DEFAULT_CENTER.lat).toFixed(6) }}, {{ (obraSeleccionada()!.longitud ?? DEFAULT_CENTER.lng).toFixed(6) }}</span>
+                <span><strong>Rutas Lineales Guardadas:</strong> {{ rutasGuardadas().length }}</span>
               </div>
-              <a [routerLink]="['/obras', obraSeleccionada()!.id]" class="btn btn-primary btn-sm" style="margin-top:12px;display:block;text-align:center">📂 Ver Expediente</a>
+              
+              <!-- Rutas existentes -->
+              @if (rutasGuardadas().length > 0) {
+                <div class="rutas-lista-wrap">
+                  <div class="rutas-lista-title">🛣️ Rutas Trazadas en la Obra:</div>
+                  @for (ruta of rutasGuardadas(); track ruta.id) {
+                    <div class="ruta-item">
+                      <span class="ruta-name">📍 {{ ruta.nombre }} ({{ ruta.puntos.length }} pts)</span>
+                      <button class="btn-del-ruta" (click)="eliminarRuta(ruta.id)" title="Eliminar ruta">🗑️</button>
+                    </div>
+                  }
+                </div>
+              }
+
+              <div style="display:flex; gap:8px; margin-top:14px">
+                <button class="btn btn-secondary btn-sm" style="flex:1" (click)="activarTrazado()">📐 Trazar Ruta Lineal</button>
+                <a [routerLink]="['/obras', obraSeleccionada()!.id]" class="btn btn-primary btn-sm" style="flex:1;text-align:center">📂 Expediente</a>
+              </div>
             </div>
           }
         </div>
@@ -84,25 +122,46 @@ import * as L from 'leaflet';
     .mapa-obra-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
     .mapa-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
     .mapa-obra-nombre { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); }
-    .mapa-obra-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); align-items: center; }
+    .mapa-obra-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); align-items: center; margin-top:4px; }
     .status-lbl { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
     .mapa-container { flex: 1; position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
-    .mapa-info-popup { position: absolute; bottom: 20px; right: 20px; z-index: 1000; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 14px; padding: 18px; width: 320px; box-shadow: var(--shadow-lg); max-height: 80%; overflow-y: auto; }
+    .mapa-info-popup { position: absolute; bottom: 20px; right: 20px; z-index: 1000; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 14px; padding: 18px; width: 340px; box-shadow: var(--shadow-lg); max-height: 80%; overflow-y: auto; }
     .popup-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
     .popup-header strong { font-size: 0.95rem; color: var(--text-primary); }
     .popup-header button { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem; }
     .popup-desc { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 10px; }
     .popup-meta { display: flex; flex-direction: column; gap: 6px; font-size: 0.78rem; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 10px; }
+    .trazar-banner { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(20, 24, 33, 0.95); backdrop-filter: blur(8px); border: 1px solid var(--accent); border-radius: 12px; padding: 14px 20px; width: 90%; max-width: 600px; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 10px; }
+    .trazar-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--text-primary); }
+    .dist-badge { background: var(--accent); color: #000; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; }
+    .trazar-inputs { display: flex; gap: 8px; align-items: center; }
+    .rutas-lista-wrap { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .rutas-lista-title { font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); }
+    .ruta-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; color: var(--text-primary); }
+    .btn-del-ruta { background: transparent; border: none; cursor: pointer; font-size: 0.85rem; opacity: 0.7; transition: all 0.2s; }
+    .btn-del-ruta:hover { opacity: 1; transform: scale(1.1); }
   `]
 })
 export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   svc = inject(ObrasService);
+  rutasSvc = inject(RutasService);
+
   obras = signal<ObraResponse[]>([]);
   obraSeleccionada = signal<ObraResponse | null>(null);
   activeFilters = signal<Set<string>>(new Set(['EN_PROCESO', 'PLANIFICADA', 'INACTIVA', 'COMPLETADA', 'CANCELADA']));
 
+  modoTrazar = signal(false);
+  puntosTrazados = signal<{ lat: number, lng: number }[]>([]);
+  distanciaTotal = signal(0);
+  nombreNuevaRuta = '';
+  rutasGuardadas = signal<RutaObraResponse[]>([]);
+
   private map?: L.Map;
   private markersData: { marker: L.Marker; estatus: string }[] = [];
+  private draftPolyline?: L.Polyline;
+  private draftMarkers: L.CircleMarker[] = [];
+  private savedPolylines: L.Polyline[] = [];
+
   readonly DEFAULT_CENTER = { lat: 17.2661075, lng: -97.676773 };
 
   ngOnInit() {
@@ -110,6 +169,7 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
       next: (page) => {
         this.obras.set(page.content);
         this.refreshMapMarkers();
+        this.cargarTodasLasRutas();
       },
       error: (err) => console.error('Error al cargar obras en mapa:', err)
     });
@@ -133,13 +193,20 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
       attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
     }).addTo(this.map);
 
+    this.map.on('click', (e: L.LeafletMouseEvent) => {
+      if (this.modoTrazar()) {
+        const p = { lat: e.latlng.lat, lng: e.latlng.lng };
+        this.puntosTrazados.update(prev => [...prev, p]);
+        this.actualizarBorradorRuta();
+      }
+    });
+
     this.refreshMapMarkers();
   }
 
   private refreshMapMarkers(): void {
     if (!this.map) return;
 
-    // Limpiar marcadores anteriores
     this.markersData.forEach(m => m.marker.remove());
     this.markersData = [];
 
@@ -157,7 +224,7 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
       });
 
       const marker = L.marker([lat, lng], { icon })
-        .bindPopup(`<b style="color:#1a1a1a">${obra.nombre}</b><br>Estatus: ${this.getStatusText(obra)}<br>📍 ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
+        .bindPopup(`<b style="color:#1a1a1a">${obra.nombre}</b><br>🏷️ ${obra.categoria || 'General'}<br>Estatus: ${this.getStatusText(obra)}`)
         .addTo(this.map!);
 
       marker.on('click', () => this.seleccionarObra(obra));
@@ -166,6 +233,126 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (bounds.length > 0) {
       this.map.fitBounds(L.latLngBounds(bounds), { padding: [50, 50], maxZoom: 16 });
+    }
+  }
+
+  private cargarTodasLasRutas(): void {
+    this.savedPolylines.forEach(p => p.remove());
+    this.savedPolylines = [];
+
+    this.obras().forEach(obra => {
+      this.rutasSvc.getRutasPorObra(obra.id).subscribe({
+        next: (rutas) => {
+          if (this.obraSeleccionada()?.id === obra.id) {
+            this.rutasGuardadas.set(rutas);
+          }
+          const color = this.getColor(obra);
+          rutas.forEach(r => {
+            if (r.puntos && r.puntos.length >= 2) {
+              const latlngs: [number, number][] = r.puntos
+                .sort((a, b) => a.orden - b.orden)
+                .map(pt => [pt.latitud, pt.longitud]);
+              
+              const polyline = L.polyline(latlngs, {
+                color: color,
+                weight: 5,
+                opacity: 0.85,
+                dashArray: '8, 8'
+              }).bindPopup(`<b>🛣️ Ruta: ${r.nombre}</b><br>Obra: ${obra.nombre}`);
+              
+              if (this.map) polyline.addTo(this.map);
+              this.savedPolylines.push(polyline);
+            }
+          });
+        },
+        error: () => {}
+      });
+    });
+  }
+
+  activarTrazado(): void {
+    if (!this.obraSeleccionada()) return;
+    this.modoTrazar.set(true);
+    this.puntosTrazados.set([]);
+    this.distanciaTotal.set(0);
+    this.nombreNuevaRuta = `Tramo ${this.obraSeleccionada()!.nombre}`;
+  }
+
+  cancelarTrazado(): void {
+    this.modoTrazar.set(false);
+    this.puntosTrazados.set([]);
+    this.limpiarBorradorRuta();
+  }
+
+  deshacerUltimoPunto(): void {
+    this.puntosTrazados.update(prev => prev.slice(0, -1));
+    this.actualizarBorradorRuta();
+  }
+
+  private actualizarBorradorRuta(): void {
+    if (!this.map) return;
+    this.limpiarBorradorRuta();
+
+    const puntos = this.puntosTrazados();
+    const latlngs: [number, number][] = puntos.map(p => [p.lat, p.lng]);
+
+    if (latlngs.length > 0) {
+      this.draftPolyline = L.polyline(latlngs, { color: '#E8A020', weight: 6, opacity: 0.9 }).addTo(this.map);
+
+      puntos.forEach(pt => {
+        const circle = L.circleMarker([pt.lat, pt.lng], { radius: 6, color: '#FFFFFF', fillColor: '#E8A020', fillOpacity: 1 }).addTo(this.map!);
+        this.draftMarkers.push(circle);
+      });
+    }
+
+    // Calcular distancia
+    let total = 0;
+    for (let i = 0; i < puntos.length - 1; i++) {
+      const p1 = L.latLng(puntos[i].lat, puntos[i].lng);
+      const p2 = L.latLng(puntos[i + 1].lat, puntos[i + 1].lng);
+      total += p1.distanceTo(p2);
+    }
+    this.distanciaTotal.set(Math.round(total));
+  }
+
+  private limpiarBorradorRuta(): void {
+    this.draftPolyline?.remove();
+    this.draftMarkers.forEach(m => m.remove());
+    this.draftMarkers = [];
+  }
+
+  guardarRutaLineal(): void {
+    const currentObra = this.obraSeleccionada();
+    const puntos = this.puntosTrazados();
+    if (!currentObra || puntos.length < 2 || !this.nombreNuevaRuta.trim()) return;
+
+    this.rutasSvc.crearRuta({
+      obraId: currentObra.id,
+      nombre: this.nombreNuevaRuta.trim(),
+      descripcion: `Distancia aproximada: ${this.distanciaTotal()} m`,
+      puntos: puntos.map(p => ({ latitud: p.lat, longitud: p.lng }))
+    }).subscribe({
+      next: (nuevaRuta) => {
+        alert(`✅ Ruta lineal "${nuevaRuta.nombre}" guardada con éxito (${this.distanciaTotal()} metros).`);
+        this.cancelarTrazado();
+        this.cargarTodasLasRutas();
+      },
+      error: (err) => {
+        console.error('Error al guardar ruta lineal:', err);
+        alert('❌ Error al guardar la ruta lineal.');
+      }
+    });
+  }
+
+  eliminarRuta(rutaId: number): void {
+    if (confirm('¿Deseas eliminar esta ruta lineal?')) {
+      this.rutasSvc.eliminarRuta(rutaId).subscribe({
+        next: () => {
+          this.rutasGuardadas.update(list => list.filter(r => r.id !== rutaId));
+          this.cargarTodasLasRutas();
+        },
+        error: (err) => alert('Error al eliminar la ruta.')
+      });
     }
   }
 
@@ -186,6 +373,11 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
 
   seleccionarObra(obra: ObraResponse): void {
     this.obraSeleccionada.set(obra);
+    this.rutasSvc.getRutasPorObra(obra.id).subscribe({
+      next: (list) => this.rutasGuardadas.set(list),
+      error: () => this.rutasGuardadas.set([])
+    });
+
     const lat = obra.latitud ?? this.DEFAULT_CENTER.lat;
     const lng = obra.longitud ?? this.DEFAULT_CENTER.lng;
     this.map?.flyTo([lat, lng], 16, { duration: 1 });
@@ -193,6 +385,7 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
 
   deseleccionarObra(): void {
     this.obraSeleccionada.set(null);
+    this.rutasGuardadas.set([]);
   }
 
   truncate(text: string, len = 90): string {
