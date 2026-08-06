@@ -75,10 +75,16 @@ import * as L from 'leaflet';
           }
 
           @if (obraSeleccionada() && !modoTrazar()) {
-            <div class="mapa-info-popup animate-slide-in">
+            <div class="mapa-info-popup animate-slide-in"
+                 [style.top.px]="popupTop()"
+                 [style.left.px]="popupLeft()"
+                 (mousedown)="startPopupDrag($event)">
               <div class="popup-header">
                 <strong>{{ obraSeleccionada()!.nombre }}</strong>
-                <button (click)="deseleccionarObra()">✕</button>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="drag-handle" style="font-size:0.7rem;">🖐️ Mover</span>
+                  <button (click)="deseleccionarObra()" (mousedown)="$event.stopPropagation()">✕</button>
+                </div>
               </div>
               <p class="popup-desc">{{ truncate(obraSeleccionada()!.descripcion) }}</p>
               <div class="popup-meta" style="margin-top: 12px;">
@@ -133,7 +139,8 @@ import * as L from 'leaflet';
     .mapa-obra-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); align-items: center; margin-top:4px; }
     .status-lbl { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
     .mapa-container { flex: 1; position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
-    .mapa-info-popup { position: absolute; bottom: 20px; right: 20px; z-index: 1000; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 14px; padding: 18px; width: 340px; box-shadow: var(--shadow-lg); max-height: 80%; overflow-y: auto; }
+    .mapa-info-popup { position: absolute; z-index: 1000; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 14px; padding: 18px; width: 340px; box-shadow: var(--shadow-lg); max-height: 80%; overflow-y: auto; cursor: grab; }
+    .mapa-info-popup:active { cursor: grabbing; }
     .popup-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
     .popup-header strong { font-size: 0.95rem; color: var(--text-primary); }
     .popup-header button { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem; }
@@ -170,8 +177,32 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
 
   bannerTop = signal(16);
   bannerLeft = signal(16);
+  popupTop = signal(160);
+  popupLeft = signal(16);
   private isDragging = false;
+  private isPopupDragging = false;
   private dragOffset = { x: 0, y: 0 };
+  private popupDragOffset = { x: 0, y: 0 };
+
+  startPopupDrag(e: MouseEvent) {
+    this.isPopupDragging = true;
+    this.popupDragOffset = {
+      x: e.clientX - this.popupLeft(),
+      y: e.clientY - this.popupTop()
+    };
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!this.isPopupDragging) return;
+      this.popupLeft.set(Math.max(10, ev.clientX - this.popupDragOffset.x));
+      this.popupTop.set(Math.max(10, ev.clientY - this.popupDragOffset.y));
+    };
+    const onMouseUp = () => {
+      this.isPopupDragging = false;
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
 
   startDrag(e: MouseEvent) {
     this.isDragging = true;
