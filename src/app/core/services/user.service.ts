@@ -32,8 +32,4 @@ export class UserService {
   reactivateUser(id: number): Observable<UserResponse> {
     return this.http.patch<UserResponse>(`${this.API_URL}/${id}/reactivar`, {});
   }
-
-  hardDeleteUser(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.API_URL}/${id}/hard`);
-  }
 }

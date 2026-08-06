@@ -76,11 +76,10 @@ import { UserFormModalComponent } from './components/user-form-modal.component';
                     <div style="display:flex;gap:8px">
                       <button class="btn btn-secondary btn-sm" (click)="openUserModal(u)">✏️ Editar</button>
                       @if(u.active) {
-                        <button class="btn btn-warning btn-sm" (click)="deactivateUser(u.id)" [disabled]="u.roles.includes('ADMINISTRADOR') && usuarios.length === 1">⚠️ Desactivar</button>
+                        <button class="btn btn-warning btn-sm" (click)="deactivateUser(u.id)" [disabled]="u.roles.includes('ADMINISTRADOR') && activeAdminsCount() <= 1">⚠️ Desactivar</button>
                       } @else {
                         <button class="btn btn-primary btn-sm" (click)="reactivateUser(u.id)">🔄 Reactivar</button>
                       }
-                      <button class="btn btn-danger btn-sm" (click)="hardDeleteUser(u.id)" [disabled]="u.roles.includes('ADMINISTRADOR') && usuarios.length === 1">🗑 Eliminar Permanente</button>
                     </div>
                   </td>
                 </tr>
@@ -272,20 +271,15 @@ export class AdminComponent implements OnInit {
     }
   }
 
-  deactivateUser(id: number) {
-    if (confirm('¿Estás seguro de que deseas desactivar este usuario? (No se borrará del historial)')) {
-      this.userService.deactivateUser(id).subscribe({
-        next: () => this.loadUsers(),
-        error: (err) => console.error('Error desactivando', err)
-      });
-    }
+  activeAdminsCount(): number {
+    return this.usuarios.filter(u => u.active && u.roles.includes('ADMINISTRADOR')).length;
   }
 
-  hardDeleteUser(id: number) {
-    if (confirm('¡PELIGRO! ¿Estás completamente seguro de que deseas eliminar a este usuario de forma permanente? Esta acción borrará el registro físico de la base de datos y podría afectar el historial.')) {
-      this.userService.hardDeleteUser(id).subscribe({
+  deactivateUser(id: number) {
+    if (confirm('¿Deseas desactivar el acceso a este usuario?\n\nNota: Su cuenta quedará inhabilitada para ingresar al sistema, pero su historial de cambios y bitácora se conservará por auditoría.')) {
+      this.userService.deactivateUser(id).subscribe({
         next: () => this.loadUsers(),
-        error: (err) => alert('Error eliminando permanentemente al usuario (puede que tenga registros relacionados en la bitácora).')
+        error: (err) => alert(err.error?.message || 'Error desactivando el usuario.')
       });
     }
   }
@@ -293,7 +287,8 @@ export class AdminComponent implements OnInit {
   reactivateUser(id: number) {
     this.userService.reactivateUser(id).subscribe({
       next: () => this.loadUsers(),
-      error: (err) => console.error('Error reactivando', err)
+      error: (err) => alert(err.error?.message || 'Error reactivando el usuario.')
     });
   }
+
 }
