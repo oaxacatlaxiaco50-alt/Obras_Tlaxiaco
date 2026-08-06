@@ -42,6 +42,7 @@ export interface ObraResponse {
   latitud?: number;
   longitud?: number;
   direccion?: string;
+  categoria?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -59,6 +60,7 @@ export interface ObraCreateRequest {
   latitud?: number;
   longitud?: number;
   direccion?: string;
+  categoria?: string;
 }
 
 export interface ObraUpdateRequest {
@@ -71,6 +73,7 @@ export interface ObraUpdateRequest {
   latitud?: number;
   longitud?: number;
   direccion?: string;
+  categoria?: string;
 }
 
 export interface ObraEstatusRequest {

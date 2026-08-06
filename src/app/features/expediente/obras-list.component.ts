@@ -84,7 +84,7 @@ import * as L from 'leaflet';
                     <div class="obra-name-cell">
                       <span class="obra-code">{{ obra.codigo ?? obra.id }}</span>
                       <span class="obra-name">{{ obra.nombre }}</span>
-                      <span class="obra-location">{{ obra.descripcion?.slice(0,40) }}</span>
+                      <span class="obra-location">🏷️ {{ obra.categoria || 'Infraestructura General' }} · {{ obra.direccion || 'Tlaxiaco' }}</span>
                     </div>
                   </td>
                   <td>
@@ -179,14 +179,25 @@ import * as L from 'leaflet';
                 <input type="number" name="monto" class="form-input" placeholder="0.00" min="1" step="0.01" required>
               </div>
               <div class="form-group">
-                <label class="form-label">Responsable a Cargo *</label>
-                <select class="form-input" name="responsableId" required>
-                  <option value="" disabled selected>— Selecciona un responsable —</option>
-                  @for (u of responsables(); track u.id) {
-                    <option [value]="u.id">{{ u.firstName }} {{ u.lastName }} (ID: {{ u.id }})</option>
-                  }
+                <label class="form-label">Categoría de Obra *</label>
+                <select class="form-input" name="categoria" required>
+                  <option value="Pavimentación y Vialidades">🛣️ Pavimentación y Vialidades</option>
+                  <option value="Agua Potable y Drenaje">💧 Agua Potable y Drenaje</option>
+                  <option value="Electrificación y Alumbrado">⚡ Electrificación y Alumbrado</option>
+                  <option value="Educación y Escuelas">🏫 Educación y Escuelas</option>
+                  <option value="Salud y Espacios Públicos">🏥 Salud y Espacios Públicos</option>
+                  <option value="Infraestructura General" selected>🏗️ Infraestructura General</option>
                 </select>
               </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Responsable a Cargo *</label>
+              <select class="form-input" name="responsableId" required>
+                <option value="" disabled selected>— Selecciona un responsable —</option>
+                @for (u of responsables(); track u.id) {
+                  <option [value]="u.id">{{ u.firstName }} {{ u.lastName }} (ID: {{ u.id }})</option>
+                }
+              </select>
             </div>
             <div class="form-group" style="margin-bottom: 24px;">
               <label class="form-label">Descripción Breve</label>
@@ -558,6 +569,7 @@ export class ObrasListComponent implements OnInit {
     const monto = parseFloat(formData.get('monto') as string) || 1000;
     const responsableId = Number(formData.get('responsableId')) || (this.responsables()[0]?.id ?? 1);
     const descripcion = (formData.get('descripcion') as string)?.trim() || '';
+    const categoria = (formData.get('categoria') as string) || 'Infraestructura General';
     const latitud = this.latitudSeleccionada() ?? 17.266108;
     const longitud = this.longitudSeleccionada() ?? -97.676773;
 
@@ -574,6 +586,7 @@ export class ObrasListComponent implements OnInit {
       estatus: 'PLANIFICADA',
       responsableId,
       direccion,
+      categoria,
       latitud,
       longitud
     }).subscribe({
