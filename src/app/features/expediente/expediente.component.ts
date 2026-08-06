@@ -22,6 +22,7 @@ import html2canvas from 'html2canvas';
             <h1 class="exp-title">{{ obra()!.nombre }}</h1>
             <div class="exp-badges">
               <span class="badge" [class]="statusClass()">{{ statusLabel() }}</span>
+              <span class="badge badge-warning">🏷️ {{ obra()!.categoria || 'Infraestructura General' }}</span>
               @if (svc.isBlocked(obra()!)) {
                 <span class="badge badge-danger">🔒 Sin actualizaciones recientes</span>
               }
@@ -197,6 +198,19 @@ import html2canvas from 'html2canvas';
                     <option value="INACTIVA">Inactiva</option>
                   </select>
                 </div>
+                <div class="form-group">
+                  <label class="form-label">Categoría de Obra</label>
+                  <select name="categoria" class="form-input" [value]="obra()!.categoria || 'Infraestructura General'">
+                    <option value="Pavimentación y Vialidades">🛣️ Pavimentación y Vialidades</option>
+                    <option value="Agua Potable y Drenaje">💧 Agua Potable y Drenaje</option>
+                    <option value="Electrificación y Alumbrado">⚡ Electrificación y Alumbrado</option>
+                    <option value="Educación y Escuelas">🏫 Educación y Escuelas</option>
+                    <option value="Salud y Espacios Públicos">🏥 Salud y Espacios Públicos</option>
+                    <option value="Infraestructura General">🏗️ Infraestructura General</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
                 <div class="form-group">
                   <label class="form-label">Porcentaje de Avance (%)</label>
                   <input type="number" name="porcentaje" class="form-input" min="0" max="100" [value]="ultimoPorcentaje()" required>
@@ -438,10 +452,11 @@ export class ExpedienteComponent implements OnInit {
 
     const nombre = (formData.get('nombre') as string)?.trim() || current.nombre;
     const estatus = (formData.get('estatus') as ObraEstatus) || current.estatus;
+    const categoria = (formData.get('categoria') as string) || current.categoria || 'Infraestructura General';
     const descripcion = (formData.get('descripcion') as string)?.trim() || current.descripcion;
     const porcentaje = Number(formData.get('porcentaje')) || 0;
 
-    this.svc.updateObra(current.id, { nombre, descripcion }).subscribe({
+    this.svc.updateObra(current.id, { nombre, descripcion, categoria }).subscribe({
       next: (updated) => {
         this.obra.set(updated);
         if (estatus !== current.estatus) {
