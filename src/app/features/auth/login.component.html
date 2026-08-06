@@ -15,42 +15,64 @@
     
     <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
       <div class="form-group">
-        <label for="username">Usuario</label>
-        <input 
-          id="username" 
-          type="text" 
-          formControlName="username" 
-          class="form-control" 
-          placeholder="Ej: admin123"
-          [class.is-invalid]="loginForm.get('username')?.invalid && loginForm.get('username')?.touched">
+        <label for="username" class="form-label">
+          <span class="label-icon">👤</span> Usuario
+        </label>
+        <div class="input-wrapper">
+          <input 
+            id="username" 
+            type="text" 
+            formControlName="username" 
+            class="form-control" 
+            placeholder="Ej: admin (o tu usuario)"
+            autocomplete="username"
+            [class.is-invalid]="loginForm.get('username')?.invalid && loginForm.get('username')?.touched">
+        </div>
+        @if (loginForm.get('username')?.invalid && loginForm.get('username')?.touched) {
+          <span class="field-error">Por favor ingresa tu nombre de usuario.</span>
+        }
       </div>
       
-      <div class="form-group" style="margin-top: 16px;">
-        <label for="password">Contraseña</label>
-        <input 
-          id="password" 
-          type="password" 
-          formControlName="password" 
-          class="form-control" 
-          placeholder="••••••••"
-          [class.is-invalid]="loginForm.get('password')?.invalid && loginForm.get('password')?.touched">
+      <div class="form-group">
+        <label for="password" class="form-label">
+          <span class="label-icon">🔑</span> Contraseña
+        </label>
+        <div class="input-wrapper">
+          <input 
+            id="password" 
+            [type]="showPassword ? 'text' : 'password'" 
+            formControlName="password" 
+            class="form-control" 
+            placeholder="••••••••"
+            autocomplete="current-password"
+            [class.is-invalid]="loginForm.get('password')?.invalid && loginForm.get('password')?.touched">
+          <button type="button" class="toggle-password-btn" (click)="togglePasswordVisibility()" title="Mostrar/ocultar contraseña" tabindex="-1">
+            {{ showPassword ? '👁️' : '🙈' }}
+          </button>
+        </div>
+        @if (loginForm.get('password')?.invalid && loginForm.get('password')?.touched) {
+          <span class="field-error">Por favor ingresa tu contraseña.</span>
+        }
       </div>
 
       @if (errorMessage) {
-        <div class="error-message" style="color: var(--danger); font-size: 0.85rem; margin-top: 12px; text-align: center;">
-          {{ errorMessage }}
+        <div class="error-banner">
+          <span>⚠️</span> {{ errorMessage }}
         </div>
       }
 
-      <button type="submit" class="btn btn-primary login-btn" [disabled]="loginForm.invalid || isLoading" style="width: 100%; margin-top: 24px; padding: 12px;">
+      <button type="submit" class="btn btn-primary login-btn" [disabled]="loginForm.invalid || isLoading">
         @if (isLoading) {
-          <span>Iniciando...</span>
+          <span class="spinner"></span>
+          <span>Iniciando sesión...</span>
         } @else {
-          <span>Ingresar al Sistema</span>
+          <span>Ingresar al Sistema →</span>
         }
       </button>
     </form>
     
-    <p class="login-footer-note">🔒 Acceso protegido · Sistema Municipal v1.0</p>
+    <div class="login-footer">
+      <p class="login-footer-note">🔒 Acceso protegido · H. Ayuntamiento de Tlaxiaco</p>
+    </div>
   </div>
 </div>
