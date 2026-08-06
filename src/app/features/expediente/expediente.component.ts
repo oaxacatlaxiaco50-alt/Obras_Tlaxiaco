@@ -1,10 +1,13 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { DatePipe } from '@angular/common';
 import { ObrasService } from '../../core/services/obras.service';
 import { AvancesService } from '../../core/services/avances.service';
 import { ArchivosService } from '../../core/services/archivos.service';
 import { ExpedientesService, ExpedienteObraItem, EstadoDocumentoChecklist, SeccionExpedienteChecklist } from '../../core/services/expedientes.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
 import { ObraResponse, ObraAvance, ObraArchivo, ObraEstatus, ESTATUS_LABEL, ESTATUS_COLOR } from '../../core/models/obra.model';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -12,6 +15,7 @@ import html2canvas from 'html2canvas';
 @Component({
   selector: 'app-expediente',
   standalone: true,
+  imports: [DatePipe],
   template: `
     @if (obra()) {
       <div class="expediente animate-fade-in" id="pdfContent">
@@ -232,17 +236,25 @@ import html2canvas from 'html2canvas';
                   <table class="table" style="margin:0; width:100%;">
                     <thead>
                       <tr style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">
-                        <th style="width:40px; text-align:center;">#</th>
-                        <th>Documento / Requisito Oficial</th>
-                        <th style="width:230px; text-align:center;">Estado (Simbología)</th>
-                        <th style="width:280px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
+                        <th style="width:35px; text-align:center;">#</th>
+                        <th style="min-width:240px;">Documento / Requisito Oficial</th>
+                        <th style="width:190px; text-align:center;">Estado (Simbología)</th>
+                        <th style="width:240px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
+                        <th style="min-width:220px;">Observaciones / Notas</th>
                       </tr>
                     </thead>
                     <tbody>
                       @for (item of getItemsPorSeccion('PARTE_SOCIAL'); track item.id; let idx = $index) {
                         <tr>
                           <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
-                          <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">{{ item.documento.nombre }}</td>
+                          <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">
+                            {{ item.documento.nombre }}
+                            @if (item.fechaRevision) {
+                              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:normal; margin-top:2px;">
+                                🕒 Editado: {{ item.fechaRevision | date:'short' }}
+                              </div>
+                            }
+                          </td>
                           <td style="text-align:center;">
                             <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
                               <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
@@ -253,15 +265,27 @@ import html2canvas from 'html2canvas';
                           </td>
                           <td style="text-align:center;">
                             @if (item.archivoUrl) {
-                              <a [href]="getFileUrl(item.archivoUrl)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
-                                📄 Ver Documento
-                              </a>
+                              <div style="display:inline-flex; gap:6px; align-items:center;">
+                                <button type="button" class="btn btn-secondary btn-sm" (click)="abrirVisorDocumento(item.archivoUrl)" style="display:inline-flex; align-items:center; gap:4px;" title="Ver en pantalla">
+                                  👁️ Ver
+                                </button>
+                                <a [href]="getFileUrl(item.archivoUrl)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none;" title="Abrir en pestaña nueva">
+                                  ↗️
+                                </a>
+                                <label class="btn btn-secondary btn-sm" style="cursor:pointer; padding:4px 8px;" title="Reemplazar archivo">
+                                  🔄
+                                  <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
+                                </label>
+                              </div>
                             } @else {
                               <label class="btn btn-secondary btn-sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
                                 📤 Subir Archivo
                                 <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
                               </label>
                             }
+                          </td>
+                          <td>
+                            <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
                           </td>
                         </tr>
                       }
@@ -282,17 +306,25 @@ import html2canvas from 'html2canvas';
                   <table class="table" style="margin:0; width:100%;">
                     <thead>
                       <tr style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">
-                        <th style="width:40px; text-align:center;">#</th>
-                        <th>Documento / Requisito Oficial</th>
-                        <th style="width:230px; text-align:center;">Estado (Simbología)</th>
-                        <th style="width:280px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
+                        <th style="width:35px; text-align:center;">#</th>
+                        <th style="min-width:240px;">Documento / Requisito Oficial</th>
+                        <th style="width:190px; text-align:center;">Estado (Simbología)</th>
+                        <th style="width:240px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
+                        <th style="min-width:220px;">Observaciones / Notas</th>
                       </tr>
                     </thead>
                     <tbody>
                       @for (item of getItemsPorSeccion('PROYECTO_EJECUTIVO'); track item.id; let idx = $index) {
                         <tr>
                           <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
-                          <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">{{ item.documento.nombre }}</td>
+                          <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">
+                            {{ item.documento.nombre }}
+                            @if (item.fechaRevision) {
+                              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:normal; margin-top:2px;">
+                                🕒 Editado: {{ item.fechaRevision | date:'short' }}
+                              </div>
+                            }
+                          </td>
                           <td style="text-align:center;">
                             <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
                               <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
@@ -303,15 +335,27 @@ import html2canvas from 'html2canvas';
                           </td>
                           <td style="text-align:center;">
                             @if (item.archivoUrl) {
-                              <a [href]="getFileUrl(item.archivoUrl)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
-                                📄 Ver Documento
-                              </a>
+                              <div style="display:inline-flex; gap:6px; align-items:center;">
+                                <button type="button" class="btn btn-secondary btn-sm" (click)="abrirVisorDocumento(item.archivoUrl)" style="display:inline-flex; align-items:center; gap:4px;" title="Ver en pantalla">
+                                  👁️ Ver
+                                </button>
+                                <a [href]="getFileUrl(item.archivoUrl)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none;" title="Abrir en pestaña nueva">
+                                  ↗️
+                                </a>
+                                <label class="btn btn-secondary btn-sm" style="cursor:pointer; padding:4px 8px;" title="Reemplazar archivo">
+                                  🔄
+                                  <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
+                                </label>
+                              </div>
                             } @else {
                               <label class="btn btn-secondary btn-sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
                                 📤 Subir Archivo
                                 <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
                               </label>
                             }
+                          </td>
+                          <td>
+                            <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
                           </td>
                         </tr>
                       }
@@ -332,17 +376,25 @@ import html2canvas from 'html2canvas';
                   <table class="table" style="margin:0; width:100%;">
                     <thead>
                       <tr style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">
-                        <th style="width:40px; text-align:center;">#</th>
-                        <th>Documento / Requisito Oficial</th>
-                        <th style="width:230px; text-align:center;">Estado (Simbología)</th>
-                        <th style="width:280px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
+                        <th style="width:35px; text-align:center;">#</th>
+                        <th style="min-width:240px;">Documento / Requisito Oficial</th>
+                        <th style="width:190px; text-align:center;">Estado (Simbología)</th>
+                        <th style="width:240px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
+                        <th style="min-width:220px;">Observaciones / Notas</th>
                       </tr>
                     </thead>
                     <tbody>
                       @for (item of getItemsPorSeccion('PROCESOS_CONTRATACION'); track item.id; let idx = $index) {
                         <tr>
                           <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
-                          <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">{{ item.documento.nombre }}</td>
+                          <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">
+                            {{ item.documento.nombre }}
+                            @if (item.fechaRevision) {
+                              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:normal; margin-top:2px;">
+                                🕒 Editado: {{ item.fechaRevision | date:'short' }}
+                              </div>
+                            }
+                          </td>
                           <td style="text-align:center;">
                             <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
                               <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
@@ -353,15 +405,27 @@ import html2canvas from 'html2canvas';
                           </td>
                           <td style="text-align:center;">
                             @if (item.archivoUrl) {
-                              <a [href]="getFileUrl(item.archivoUrl)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
-                                📄 Ver Documento
-                              </a>
+                              <div style="display:inline-flex; gap:6px; align-items:center;">
+                                <button type="button" class="btn btn-secondary btn-sm" (click)="abrirVisorDocumento(item.archivoUrl)" style="display:inline-flex; align-items:center; gap:4px;" title="Ver en pantalla">
+                                  👁️ Ver
+                                </button>
+                                <a [href]="getFileUrl(item.archivoUrl)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none;" title="Abrir en pestaña nueva">
+                                  ↗️
+                                </a>
+                                <label class="btn btn-secondary btn-sm" style="cursor:pointer; padding:4px 8px;" title="Reemplazar archivo">
+                                  🔄
+                                  <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
+                                </label>
+                              </div>
                             } @else {
                               <label class="btn btn-secondary btn-sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
                                 📤 Subir Archivo
                                 <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
                               </label>
                             }
+                          </td>
+                          <td>
+                            <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
                           </td>
                         </tr>
                       }
@@ -382,17 +446,25 @@ import html2canvas from 'html2canvas';
                   <table class="table" style="margin:0; width:100%;">
                     <thead>
                       <tr style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">
-                        <th style="width:40px; text-align:center;">#</th>
-                        <th>Documento / Requisito Oficial</th>
-                        <th style="width:230px; text-align:center;">Estado (Simbología)</th>
-                        <th style="width:280px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
+                        <th style="width:35px; text-align:center;">#</th>
+                        <th style="min-width:240px;">Documento / Requisito Oficial</th>
+                        <th style="width:190px; text-align:center;">Estado (Simbología)</th>
+                        <th style="width:240px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
+                        <th style="min-width:220px;">Observaciones / Notas</th>
                       </tr>
                     </thead>
                     <tbody>
                       @for (item of getItemsPorSeccion('DOCUMENTOS_COMPROBATORIOS'); track item.id; let idx = $index) {
                         <tr>
                           <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
-                          <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">{{ item.documento.nombre }}</td>
+                          <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">
+                            {{ item.documento.nombre }}
+                            @if (item.fechaRevision) {
+                              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:normal; margin-top:2px;">
+                                🕒 Editado: {{ item.fechaRevision | date:'short' }}
+                              </div>
+                            }
+                          </td>
                           <td style="text-align:center;">
                             <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
                               <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
@@ -403,15 +475,27 @@ import html2canvas from 'html2canvas';
                           </td>
                           <td style="text-align:center;">
                             @if (item.archivoUrl) {
-                              <a [href]="getFileUrl(item.archivoUrl)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
-                                📄 Ver Documento
-                              </a>
+                              <div style="display:inline-flex; gap:6px; align-items:center;">
+                                <button type="button" class="btn btn-secondary btn-sm" (click)="abrirVisorDocumento(item.archivoUrl)" style="display:inline-flex; align-items:center; gap:4px;" title="Ver en pantalla">
+                                  👁️ Ver
+                                </button>
+                                <a [href]="getFileUrl(item.archivoUrl)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none;" title="Abrir en pestaña nueva">
+                                  ↗️
+                                </a>
+                                <label class="btn btn-secondary btn-sm" style="cursor:pointer; padding:4px 8px;" title="Reemplazar archivo">
+                                  🔄
+                                  <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
+                                </label>
+                              </div>
                             } @else {
                               <label class="btn btn-secondary btn-sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
                                 📤 Subir Archivo
                                 <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
                               </label>
                             }
+                          </td>
+                          <td>
+                            <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
                           </td>
                         </tr>
                       }
@@ -424,6 +508,25 @@ import html2canvas from 'html2canvas';
           </div>
         }
       </div>
+
+      <!-- Modal Previsualizador de Documentos -->
+      @if (mostrarModalVisor() && urlVisor()) {
+        <div class="modal-overlay animate-fade-in" style="z-index: 2000;">
+          <div class="modal-content animate-slide-in" style="max-width: 900px; width: 95%; height: 85vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+              <h3 class="modal-title">📄 Visor de Expediente Digital</h3>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <a [href]="urlVisor()!" target="_blank" download class="btn btn-secondary btn-sm" style="text-decoration: none;">📥 Descargar</a>
+                <a [href]="urlVisor()!" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration: none;">↗️ Nueva Pestaña</a>
+                <button class="btn-close" (click)="cerrarVisorDocumento()">✕</button>
+              </div>
+            </div>
+            <div style="flex: 1; background: #1a1a1a; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 12px;">
+              <iframe [src]="getSanitizedUrl(urlVisor()!)" style="width: 100%; height: 100%; border: none; border-radius: 8px; background: white;"></iframe>
+            </div>
+          </div>
+        </div>
+      }
       <!-- Modal Editar Expediente -->
       @if (mostrarModalEdicion()) {
         <div class="modal-overlay animate-fade-in">
@@ -649,13 +752,46 @@ export class ExpedienteComponent implements OnInit {
 
   archivosSubidos = signal<ObraArchivo[]>([]);
   expedientesSvc = inject(ExpedientesService);
+  sanitizer = inject(DomSanitizer);
+  toastSvc = inject(ToastService);
   checklist = signal<ExpedienteObraItem[]>([]);
+  mostrarModalVisor = signal(false);
+  urlVisor = signal<string | null>(null);
 
   svc = inject(ObrasService);
   avancesSvc = inject(AvancesService);
   archivosSvc = inject(ArchivosService);
   auth = inject(AuthService);
   private route = inject(ActivatedRoute);
+
+  getSanitizedUrl(url: string): SafeResourceUrl {
+    return this.sanitizer.bypassSecurityTrustResourceUrl(url);
+  }
+
+  abrirVisorDocumento(archivoUrl: string): void {
+    this.urlVisor.set(this.getFileUrl(archivoUrl));
+    this.mostrarModalVisor.set(true);
+  }
+
+  cerrarVisorDocumento(): void {
+    this.mostrarModalVisor.set(false);
+    this.urlVisor.set(null);
+  }
+
+  guardarObservaciones(item: ExpedienteObraItem, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const obs = input.value.trim();
+    const currentObra = this.obra();
+    if (!currentObra) return;
+
+    this.expedientesSvc.actualizarEstado(currentObra.id, item.id, item.estado, obs).subscribe({
+      next: (updated) => {
+        this.checklist.update(list => list.map(i => i.id === updated.id ? updated : i));
+        this.toastSvc.show('📝 Observación guardada correctamente', 'success');
+      },
+      error: () => this.toastSvc.show('Error al guardar observación', 'error')
+    });
+  }
 
   ngOnInit() {
     this.route.params.subscribe(p => {
