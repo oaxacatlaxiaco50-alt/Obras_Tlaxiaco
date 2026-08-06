@@ -165,7 +165,7 @@ import html2canvas from 'html2canvas';
                       <span class="doc-name">{{ arch.nombreOriginal }}</span>
                       <span class="doc-status">{{ arch.carpeta }} · {{ fmtBytes(arch.tamanioBytes) }}</span>
                     </div>
-                    <a [href]="'http://localhost:8081' + arch.archivoUrl" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none;">
+                    <a [href]="getFileUrl(arch.archivoUrl)" target="_blank" [download]="arch.nombreOriginal" class="btn btn-secondary btn-sm" style="text-decoration:none;">
                       👁️ Ver / Descargar
                     </a>
                   </div>
@@ -525,8 +525,14 @@ export class ExpedienteComponent implements OnInit {
     this.fotoEdicionFile.set(null);
   }
 
+  getFileUrl(url: string): string {
+    if (!url) return '#';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const cleanPath = url.startsWith('/') ? url : '/' + url;
+    return 'http://localhost:8081' + cleanPath;
+  }
+
   fotosPorFase(fase: string) {
-    // Con el nuevo backend usamos avances.evidencias filtradas por fase
     return this.avances()
       .flatMap(a => a.evidencias)
       .filter(e => e.fase === fase.toUpperCase() && e.tipo === 'IMAGEN');
