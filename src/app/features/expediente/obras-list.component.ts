@@ -521,10 +521,27 @@ export class ObrasListComponent implements OnInit {
         categoria: categoriaParam
       }).subscribe({
         next: (page) => {
-          this.todasLasObras.set(page.content || []);
-          this.totalPaginas.set(page.totalPages || 1);
-          this.totalElementos.set(page.totalElements || 0);
-          this.cargando.set(false);
+          if (statusVal === 'COMPLETADA' && (!page.content || page.content.length === 0)) {
+            this.svc.getObras({
+              page: this.paginaActual(),
+              size: this.tamanioPagina(),
+              estatus: 'FINALIZADA' as ObraEstatus,
+              categoria: categoriaParam
+            }).subscribe({
+              next: (fPage) => {
+                this.todasLasObras.set(fPage.content || []);
+                this.totalPaginas.set(fPage.totalPages || 1);
+                this.totalElementos.set(fPage.totalElements || 0);
+                this.cargando.set(false);
+              },
+              error: () => this.cargando.set(false)
+            });
+          } else {
+            this.todasLasObras.set(page.content || []);
+            this.totalPaginas.set(page.totalPages || 1);
+            this.totalElementos.set(page.totalElements || 0);
+            this.cargando.set(false);
+          }
         },
         error: () => this.cargando.set(false)
       });

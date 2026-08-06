@@ -3,6 +3,7 @@ export type ObraEstatus =
   | 'PLANIFICADA'
   | 'EN_PROCESO'
   | 'COMPLETADA'
+  | 'FINALIZADA'
   | 'CANCELADA'
   | 'INACTIVA';
 
@@ -16,6 +17,7 @@ export const ESTATUS_LABEL: Record<ObraEstatus, string> = {
   PLANIFICADA: 'Planificada',
   EN_PROCESO: 'En Proceso',
   COMPLETADA: 'Completada',
+  FINALIZADA: 'Completada',
   CANCELADA: 'Cancelada',
   INACTIVA: 'Inactiva',
 };
@@ -24,6 +26,7 @@ export const ESTATUS_COLOR: Record<ObraEstatus, string> = {
   PLANIFICADA: 'status-pendiente',
   EN_PROCESO: 'status-activa',
   COMPLETADA: 'status-completada',
+  FINALIZADA: 'status-completada',
   CANCELADA: 'status-bloqueada',
   INACTIVA: 'status-pausada',
 };
