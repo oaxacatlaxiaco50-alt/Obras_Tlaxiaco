@@ -39,6 +39,14 @@ import html2canvas from 'html2canvas';
             <button class="btn btn-primary" style="background:#E8A020; border-color:#E8A020; color:#fff; font-weight:700; display:inline-flex; align-items:center; gap:6px;" (click)="irAIntegracionExpediente()">
               🏛️ Integración del Expediente
             </button>
+            @if (auth.hasRole('admin', 'residente')) {
+              <button class="btn" style="background:linear-gradient(135deg,#10B981,#059669); color:#fff; border:none; box-shadow:0 4px 12px rgba(16,185,129,0.3); display:inline-flex; align-items:center; gap:6px;" (click)="mostrarModalIntegracionExp.set(true)">
+                📂 Integración de Expedientes
+              </button>
+              <button class="btn" style="background:linear-gradient(135deg,#10B981,#059669); color:#fff; border:none; box-shadow:0 4px 12px rgba(16,185,129,0.3); display:inline-flex; align-items:center; gap:6px;" (click)="mostrarModalNuevoExp.set(true)">
+                + Nuevo Expediente
+              </button>
+            }
             @if (auth.hasRole('admin', 'residente') && !svc.isBlocked(obra()!)) {
               <button class="btn btn-secondary" (click)="generarPDF()" [disabled]="generandoPDF()">
                 {{ generandoPDF() ? '⏳ Procesando PDF...' : '📄 Generar Reporte PDF' }}
@@ -628,6 +636,93 @@ import html2canvas from 'html2canvas';
           </div>
         </div>
       }
+
+      <!-- Modal: Integración de Expedientes (4 Carpetas) -->
+      @if (mostrarModalIntegracionExp()) {
+        <div class="modal-overlay animate-fade-in">
+          <div class="modal-content animate-slide-in" style="max-width:650px;">
+            <div class="modal-header">
+              <h2 class="modal-title">🗂️ Integración de Expedientes — {{ obra()!.nombre }}</h2>
+              <button class="btn-close" (click)="mostrarModalIntegracionExp.set(false); carpetaSeleccionadaExp.set(null)">✕</button>
+            </div>
+            <div class="modal-body" style="padding:24px;">
+              @if (!carpetaSeleccionadaExp()) {
+                <p style="margin-bottom:20px; color:var(--text-muted); font-size:0.9rem;">
+                  Selecciona una categoría para gestionar los documentos del expediente de esta obra.
+                </p>
+                <div class="folders-grid">
+                  <div class="folder-card" (click)="carpetaSeleccionadaExp.set('Legal')">
+                    <span class="folder-icon">⚖️</span>
+                    <span class="folder-name">Legal</span>
+                  </div>
+                  <div class="folder-card" (click)="carpetaSeleccionadaExp.set('Social')">
+                    <span class="folder-icon">👥</span>
+                    <span class="folder-name">Social</span>
+                  </div>
+                  <div class="folder-card" (click)="carpetaSeleccionadaExp.set('Técnicos')">
+                    <span class="folder-icon">📐</span>
+                    <span class="folder-name">Técnicos</span>
+                  </div>
+                  <div class="folder-card" (click)="carpetaSeleccionadaExp.set('Anexo Fotográfico')">
+                    <span class="folder-icon">📸</span>
+                    <span class="folder-name">Anexo Fotográfico</span>
+                  </div>
+                </div>
+              } @else {
+                <button class="btn btn-secondary btn-sm" style="margin-bottom:16px;" (click)="carpetaSeleccionadaExp.set(null)">
+                  ⬅ Volver a las categorías
+                </button>
+                <h3 style="margin-bottom:16px; color:var(--accent);">Carpeta: {{ carpetaSeleccionadaExp() }}</h3>
+                <div class="drag-drop-zone" (dragover)="$event.preventDefault()" (drop)="onDrop($event)">
+                  <div class="drop-icon">📤</div>
+                  <p>Arrastra tus archivos aquí o <strong>haz clic para seleccionar</strong></p>
+                  <input type="file" #expInput multiple style="display:none;" (change)="onFileSelect($event)">
+                  <button class="btn btn-secondary btn-sm" style="margin-top:8px;" (click)="expInput.click()">Seleccionar archivos</button>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Modal: Nuevo Expediente -->
+      @if (mostrarModalNuevoExp()) {
+        <div class="modal-overlay animate-fade-in">
+          <div class="modal-content animate-slide-in">
+            <div class="modal-header">
+              <h2 class="modal-title">📂 Crear Nuevo Expediente — {{ obra()!.nombre }}</h2>
+              <button class="btn-close" (click)="mostrarModalNuevoExp.set(false)">✕</button>
+            </div>
+            <form class="modal-form" (submit)="$event.preventDefault(); mostrarModalNuevoExp.set(false)">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Número de Licitación / Expediente</label>
+                  <input type="text" class="form-input" placeholder="Ej. LIC-2026-001" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Empresa Contratista</label>
+                  <input type="text" class="form-input" placeholder="Ej. Constructora del Sur SA" required>
+                </div>
+              </div>
+              <div class="form-row" style="margin-bottom:24px;">
+                <div class="form-group">
+                  <label class="form-label">Fecha de Firma (Contrato)</label>
+                  <input type="date" class="form-input" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Fecha Estimada de Término</label>
+                  <input type="date" class="form-input" required>
+                </div>
+              </div>
+              <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" (click)="mostrarModalNuevoExp.set(false)">Cancelar</button>
+                <button type="submit" class="btn btn-primary">📁 Integrar Expediente</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      }
+
       </div>
     } @else {
       <div class="not-found">
@@ -755,6 +850,22 @@ import html2canvas from 'html2canvas';
     .modal-form { padding: 24px; overflow-y: auto; max-height: 75vh; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 16px; border-top: 1px solid var(--border); }
+    /* Carpetas de Expedientes */
+    .folders-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 20px; }
+    .folder-card { background: var(--bg-dark); border: 1px solid var(--border); border-radius: 12px; padding: 24px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; cursor: pointer; transition: all 0.3s ease; }
+    .folder-card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 8px 24px rgba(232,160,32,0.15); }
+    .folder-icon { font-size: 2.5rem; line-height: 1; }
+    .folder-name { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); text-align: center; }
+    .drag-drop-zone { border: 2px dashed var(--border); border-radius: 12px; padding: 40px 20px; text-align: center; background: rgba(0,0,0,0.1); cursor: pointer; transition: all 0.3s; }
+    .drag-drop-zone:hover { border-color: var(--accent); background: rgba(232,160,32,0.05); }
+    .drop-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.8; }
+    /* Interactive rows */
+    .interactive-row:hover { background: rgba(232,160,32,0.06); transition: background 0.2s; }
+    .btn-pill { padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+    .btn-pill:hover { opacity: 0.85; }
+    .tab-main-btn { padding: 10px 20px; border: none; border-bottom: 3px solid transparent; background: transparent; color: var(--text-muted); font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
+    .tab-main-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-main-btn:hover { color: var(--text-primary); }
   `]
 })
 export class ExpedienteComponent implements OnInit {
@@ -788,6 +899,9 @@ export class ExpedienteComponent implements OnInit {
   tabPrincipalActiva = signal<'CHECKLIST' | 'FOTOS' | 'INFO'>('CHECKLIST');
   documentoSeleccionado = signal<ExpedienteObraItem | null>(null);
   mostrarModalGestionDoc = signal(false);
+  mostrarModalIntegracionExp = signal(false);
+  carpetaSeleccionadaExp = signal<string | null>(null);
+  mostrarModalNuevoExp = signal(false);
 
   abrirModalGestionDoc(item: ExpedienteObraItem): void {
     this.documentoSeleccionado.set(item);

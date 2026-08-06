@@ -27,8 +27,6 @@ import * as L from 'leaflet';
         @if (auth.hasRole('admin', 'residente')) {
           <div style="display: flex; gap: 12px; flex-wrap: wrap;">
             <button class="btn" style="background: linear-gradient(135deg, #10B981, #059669); color: white; border: none; box-shadow: 0 4px 12px rgba(16,185,129,0.3);" (click)="abrirModal('obra')">+ Nueva Obra</button>
-            <button class="btn" style="background: linear-gradient(135deg, #10B981, #059669); color: white; border: none; box-shadow: 0 4px 12px rgba(16,185,129,0.3);" (click)="mostrarModalIntegracion.set(true)">📂 Integración de Expedientes</button>
-            <button class="btn" style="background: linear-gradient(135deg, #10B981, #059669); color: white; border: none; box-shadow: 0 4px 12px rgba(16,185,129,0.3);" (click)="abrirModal('expediente')">+ Nuevo Expediente</button>
           </div>
         }
       </div>
