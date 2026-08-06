@@ -86,14 +86,28 @@ import html2canvas from 'html2canvas';
           </div>
         }
 
-        <!-- Description -->
-        <div class="card exp-desc-card">
-          <h3 class="sec-title">📝 Descripción del Proyecto</h3>
-          <p>{{ obra()!.descripcion }}</p>
-          <p style="margin-top:10px;color:var(--text-muted);font-size:0.82rem">{{ obra()!.descripcion }}</p>
+        <!-- PESTAÑAS PRINCIPALES DE LA OBRA -->
+        <div class="obra-main-tabs" style="display:flex; gap:10px; margin: 20px 0 10px 0; border-bottom:2px solid var(--border);">
+          <button type="button" class="tab-main-btn" [class.active]="tabPrincipalActiva() === 'CHECKLIST'" (click)="tabPrincipalActiva.set('CHECKLIST')">
+            🏛️ Integración del Expediente (4 Categorías Oficiales)
+          </button>
+          <button type="button" class="tab-main-btn" [class.active]="tabPrincipalActiva() === 'FOTOS'" (click)="tabPrincipalActiva.set('FOTOS')">
+            📸 Evidencia Fotográfica y Avances
+          </button>
+          <button type="button" class="tab-main-btn" [class.active]="tabPrincipalActiva() === 'INFO'" (click)="tabPrincipalActiva.set('INFO')">
+            📂 Archivos y Descripción del Proyecto
+          </button>
         </div>
 
-        @if (auth.hasRole('admin', 'residente')) {
+        @if (tabPrincipalActiva() === 'INFO') {
+          <!-- Description -->
+          <div class="card exp-desc-card">
+            <h3 class="sec-title">📝 Descripción del Proyecto</h3>
+            <p>{{ obra()!.descripcion }}</p>
+          </div>
+        }
+
+        @if (tabPrincipalActiva() === 'FOTOS' && auth.hasRole('admin', 'residente')) {
           <div class="exp-grid">
             <!-- Timeline de Fotos -->
             <div class="card">
@@ -194,8 +208,9 @@ import html2canvas from 'html2canvas';
             </div>
           </div>
 
+        @if (tabPrincipalActiva() === 'CHECKLIST') {
           <!-- SECCIÓN DE CHECKLIST UNITARIO OFICIAL (FORMATO TLAXIACO 2026) -->
-          <div class="card checklist-official-card" style="margin-top:24px; border:2px solid var(--border-light); background:var(--bg-surface);">
+          <div class="card checklist-official-card" style="margin-top:10px; border:2px solid var(--border-light); background:var(--bg-surface);">
             <div class="checklist-header" style="background:var(--bg-dark); padding:20px 24px; border-bottom:2px solid var(--border); display:flex; flex-direction:column; gap:8px;">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                 <div>
@@ -245,7 +260,7 @@ import html2canvas from 'html2canvas';
                     </thead>
                     <tbody>
                       @for (item of getItemsPorSeccion('PARTE_SOCIAL'); track item.id; let idx = $index) {
-                        <tr>
+                        <tr class="interactive-row" style="cursor:pointer;" (click)="abrirModalGestionDoc(item)">
                           <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
                           <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">
                             {{ item.documento.nombre }}
@@ -255,7 +270,7 @@ import html2canvas from 'html2canvas';
                               </div>
                             }
                           </td>
-                          <td style="text-align:center;">
+                          <td style="text-align:center;" (click)="$event.stopPropagation()">
                             <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
                               <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
                               <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
@@ -263,28 +278,12 @@ import html2canvas from 'html2canvas';
                               <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
                             </div>
                           </td>
-                          <td style="text-align:center;">
-                            @if (item.archivoUrl) {
-                              <div style="display:inline-flex; gap:6px; align-items:center;">
-                                <button type="button" class="btn btn-secondary btn-sm" (click)="abrirVisorDocumento(item.archivoUrl)" style="display:inline-flex; align-items:center; gap:4px;" title="Ver en pantalla">
-                                  👁️ Ver
-                                </button>
-                                <a [href]="getFileUrl(item.archivoUrl)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none;" title="Abrir en pestaña nueva">
-                                  ↗️
-                                </a>
-                                <label class="btn btn-secondary btn-sm" style="cursor:pointer; padding:4px 8px;" title="Reemplazar archivo">
-                                  🔄
-                                  <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
-                                </label>
-                              </div>
-                            } @else {
-                              <label class="btn btn-secondary btn-sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
-                                📤 Subir Archivo
-                                <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
-                              </label>
-                            }
+                          <td style="text-align:center;" (click)="$event.stopPropagation()">
+                            <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
+                              {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
+                            </button>
                           </td>
-                          <td>
+                          <td (click)="$event.stopPropagation()">
                             <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
                           </td>
                         </tr>
@@ -315,7 +314,7 @@ import html2canvas from 'html2canvas';
                     </thead>
                     <tbody>
                       @for (item of getItemsPorSeccion('PROYECTO_EJECUTIVO'); track item.id; let idx = $index) {
-                        <tr>
+                        <tr class="interactive-row" style="cursor:pointer;" (click)="abrirModalGestionDoc(item)">
                           <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
                           <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">
                             {{ item.documento.nombre }}
@@ -325,7 +324,7 @@ import html2canvas from 'html2canvas';
                               </div>
                             }
                           </td>
-                          <td style="text-align:center;">
+                          <td style="text-align:center;" (click)="$event.stopPropagation()">
                             <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
                               <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
                               <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
@@ -333,28 +332,12 @@ import html2canvas from 'html2canvas';
                               <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
                             </div>
                           </td>
-                          <td style="text-align:center;">
-                            @if (item.archivoUrl) {
-                              <div style="display:inline-flex; gap:6px; align-items:center;">
-                                <button type="button" class="btn btn-secondary btn-sm" (click)="abrirVisorDocumento(item.archivoUrl)" style="display:inline-flex; align-items:center; gap:4px;" title="Ver en pantalla">
-                                  👁️ Ver
-                                </button>
-                                <a [href]="getFileUrl(item.archivoUrl)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none;" title="Abrir en pestaña nueva">
-                                  ↗️
-                                </a>
-                                <label class="btn btn-secondary btn-sm" style="cursor:pointer; padding:4px 8px;" title="Reemplazar archivo">
-                                  🔄
-                                  <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
-                                </label>
-                              </div>
-                            } @else {
-                              <label class="btn btn-secondary btn-sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
-                                📤 Subir Archivo
-                                <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
-                              </label>
-                            }
+                          <td style="text-align:center;" (click)="$event.stopPropagation()">
+                            <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
+                              {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
+                            </button>
                           </td>
-                          <td>
+                          <td (click)="$event.stopPropagation()">
                             <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
                           </td>
                         </tr>
@@ -385,7 +368,7 @@ import html2canvas from 'html2canvas';
                     </thead>
                     <tbody>
                       @for (item of getItemsPorSeccion('PROCESOS_CONTRATACION'); track item.id; let idx = $index) {
-                        <tr>
+                        <tr class="interactive-row" style="cursor:pointer;" (click)="abrirModalGestionDoc(item)">
                           <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
                           <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">
                             {{ item.documento.nombre }}
@@ -395,7 +378,7 @@ import html2canvas from 'html2canvas';
                               </div>
                             }
                           </td>
-                          <td style="text-align:center;">
+                          <td style="text-align:center;" (click)="$event.stopPropagation()">
                             <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
                               <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
                               <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
@@ -403,28 +386,12 @@ import html2canvas from 'html2canvas';
                               <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
                             </div>
                           </td>
-                          <td style="text-align:center;">
-                            @if (item.archivoUrl) {
-                              <div style="display:inline-flex; gap:6px; align-items:center;">
-                                <button type="button" class="btn btn-secondary btn-sm" (click)="abrirVisorDocumento(item.archivoUrl)" style="display:inline-flex; align-items:center; gap:4px;" title="Ver en pantalla">
-                                  👁️ Ver
-                                </button>
-                                <a [href]="getFileUrl(item.archivoUrl)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none;" title="Abrir en pestaña nueva">
-                                  ↗️
-                                </a>
-                                <label class="btn btn-secondary btn-sm" style="cursor:pointer; padding:4px 8px;" title="Reemplazar archivo">
-                                  🔄
-                                  <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
-                                </label>
-                              </div>
-                            } @else {
-                              <label class="btn btn-secondary btn-sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
-                                📤 Subir Archivo
-                                <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
-                              </label>
-                            }
+                          <td style="text-align:center;" (click)="$event.stopPropagation()">
+                            <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
+                              {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
+                            </button>
                           </td>
-                          <td>
+                          <td (click)="$event.stopPropagation()">
                             <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
                           </td>
                         </tr>
@@ -455,7 +422,7 @@ import html2canvas from 'html2canvas';
                     </thead>
                     <tbody>
                       @for (item of getItemsPorSeccion('DOCUMENTOS_COMPROBATORIOS'); track item.id; let idx = $index) {
-                        <tr>
+                        <tr class="interactive-row" style="cursor:pointer;" (click)="abrirModalGestionDoc(item)">
                           <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
                           <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">
                             {{ item.documento.nombre }}
@@ -465,7 +432,7 @@ import html2canvas from 'html2canvas';
                               </div>
                             }
                           </td>
-                          <td style="text-align:center;">
+                          <td style="text-align:center;" (click)="$event.stopPropagation()">
                             <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
                               <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
                               <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
@@ -473,28 +440,12 @@ import html2canvas from 'html2canvas';
                               <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
                             </div>
                           </td>
-                          <td style="text-align:center;">
-                            @if (item.archivoUrl) {
-                              <div style="display:inline-flex; gap:6px; align-items:center;">
-                                <button type="button" class="btn btn-secondary btn-sm" (click)="abrirVisorDocumento(item.archivoUrl)" style="display:inline-flex; align-items:center; gap:4px;" title="Ver en pantalla">
-                                  👁️ Ver
-                                </button>
-                                <a [href]="getFileUrl(item.archivoUrl)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none;" title="Abrir en pestaña nueva">
-                                  ↗️
-                                </a>
-                                <label class="btn btn-secondary btn-sm" style="cursor:pointer; padding:4px 8px;" title="Reemplazar archivo">
-                                  🔄
-                                  <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
-                                </label>
-                              </div>
-                            } @else {
-                              <label class="btn btn-secondary btn-sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
-                                📤 Subir Archivo
-                                <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoItem(item, $event)">
-                              </label>
-                            }
+                          <td style="text-align:center;" (click)="$event.stopPropagation()">
+                            <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
+                              {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
+                            </button>
                           </td>
-                          <td>
+                          <td (click)="$event.stopPropagation()">
                             <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
                           </td>
                         </tr>
@@ -507,6 +458,7 @@ import html2canvas from 'html2canvas';
             </div>
           </div>
         }
+      }
       </div>
 
       <!-- Modal Previsualizador de Documentos -->
@@ -523,6 +475,95 @@ import html2canvas from 'html2canvas';
             </div>
             <div style="flex: 1; background: #1a1a1a; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 12px;">
               <iframe [src]="getSanitizedUrl(urlVisor()!)" style="width: 100%; height: 100%; border: none; border-radius: 8px; background: white;"></iframe>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- MODAL ESPACIO DEDICADO DE GESTIÓN Y PREVISUALIZACIÓN DE DOCUMENTO -->
+      @if (mostrarModalGestionDoc() && documentoSeleccionado()) {
+        <div class="modal-overlay animate-fade-in" style="z-index: 2100;">
+          <div class="modal-content animate-slide-in" style="max-width: 1100px; width: 95%; height: 90vh; display: flex; flex-direction: column; background: var(--bg-surface); overflow: hidden;">
+            <!-- Header -->
+            <div class="modal-header" style="background: var(--bg-dark); padding: 16px 24px; border-bottom: 2px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <span class="badge badge-warning" style="font-size:0.75rem; text-transform:uppercase; margin-bottom:4px; display:inline-block;">
+                  {{ documentoSeleccionado()!.documento.seccion }}
+                </span>
+                <h2 style="font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin: 0;">
+                  📄 {{ documentoSeleccionado()!.documento.nombre }}
+                </h2>
+              </div>
+              <button class="btn-close" (click)="cerrarModalGestionDoc()">✕</button>
+            </div>
+
+            <!-- Body split: Left Controls & Comments | Right Preview Space -->
+            <div style="flex: 1; display: grid; grid-template-columns: 380px 1fr; gap: 0; overflow: hidden;">
+              
+              <!-- Left Column: Controls & Observations -->
+              <div style="padding: 20px; background: var(--bg-dark); border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 20px; overflow-y: auto;">
+                
+                <!-- Estado -->
+                <div>
+                  <label class="form-label" style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">
+                    Estado del Documento (Simbología)
+                  </label>
+                  <div style="display:flex; gap:6px; margin-top:8px;">
+                    <button type="button" class="btn-pill" style="flex:1; padding:8px;" [style.background]="documentoSeleccionado()!.estado === 'OK' ? '#10B981' : 'rgba(255,255,255,0.05)'" [style.color]="documentoSeleccionado()!.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoEnModal('OK')">🟢 OK</button>
+                    <button type="button" class="btn-pill" style="flex:1; padding:8px;" [style.background]="documentoSeleccionado()!.estado === 'FALTANTE' ? '#EF4444' : 'rgba(255,255,255,0.05)'" [style.color]="documentoSeleccionado()!.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoEnModal('FALTANTE')">🔴 F</button>
+                    <button type="button" class="btn-pill" style="flex:1; padding:8px;" [style.background]="documentoSeleccionado()!.estado === 'CORREGIR' ? '#F59E0B' : 'rgba(255,255,255,0.05)'" [style.color]="documentoSeleccionado()!.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoEnModal('CORREGIR')">🟡 C</button>
+                    <button type="button" class="btn-pill" style="flex:1; padding:8px;" [style.background]="documentoSeleccionado()!.estado === 'NO_APLICA' ? '#6B7280' : 'rgba(255,255,255,0.05)'" [style.color]="documentoSeleccionado()!.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoEnModal('NO_APLICA')">⚪ N/A</button>
+                  </div>
+                </div>
+
+                <!-- Subir o Reemplazar Archivo -->
+                <div>
+                  <label class="form-label" style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">
+                    Expediente Digital (.PDF / Imagen)
+                  </label>
+                  <div style="margin-top:8px;">
+                    <label class="btn btn-primary" style="width:100%; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px; padding:10px;">
+                      📤 {{ documentoSeleccionado()!.archivoUrl ? 'Reemplazar Archivo Digital' : 'Subir Archivo Digital' }}
+                      <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoEnModal($event)">
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Observaciones / Comentarios -->
+                <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+                  <label class="form-label" style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">
+                    📝 Observaciones y Comentarios
+                  </label>
+                  <textarea rows="6" #obsModalTextarea [value]="documentoSeleccionado()!.observaciones || ''" placeholder="Escribe anotaciones, correcciones o estatus de firma para este documento..." class="form-input" style="flex:1; font-size:0.85rem; padding:10px; resize:none; border-radius:8px;"></textarea>
+                  <button type="button" class="btn btn-secondary" style="margin-top:4px;" (click)="guardarObservacionesDesdeModal(obsModalTextarea.value)">
+                    💾 Guardar Comentario
+                  </button>
+                </div>
+
+              </div>
+
+              <!-- Right Column: Document Viewer Space -->
+              <div style="background: #111; padding: 16px; display: flex; flex-direction: column; gap: 12px; height:100%;">
+                @if (documentoSeleccionado()!.archivoUrl) {
+                  <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px 14px; border-radius:8px;">
+                    <span style="font-size:0.82rem; color:var(--text-muted);">Visualizando: <strong>{{ documentoSeleccionado()!.archivoUrl }}</strong></span>
+                    <div style="display:flex; gap:8px;">
+                      <a [href]="getFileUrl(documentoSeleccionado()!.archivoUrl!)" target="_blank" download class="btn btn-secondary btn-sm" style="text-decoration:none;">📥 Descargar</a>
+                      <a [href]="getFileUrl(documentoSeleccionado()!.archivoUrl!)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none;">↗️ Nueva Pestaña</a>
+                    </div>
+                  </div>
+                  <div style="flex:1; border-radius:8px; overflow:hidden; border:1px solid var(--border);">
+                    <iframe [src]="getSanitizedUrl(getFileUrl(documentoSeleccionado()!.archivoUrl!))" style="width:100%; height:100%; border:none; background:white;"></iframe>
+                  </div>
+                } @else {
+                  <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-muted); gap:12px;">
+                    <span style="font-size:3.5rem;">📁</span>
+                    <p style="font-weight:600; font-size:0.95rem;">No hay archivo digital cargado para este requisito aún.</p>
+                    <span style="font-size:0.8rem;">Utiliza el botón 'Subir Archivo Digital' a la izquierda para adjuntar el PDF o imagen.</span>
+                  </div>
+                }
+              </div>
+
             </div>
           </div>
         </div>
@@ -757,6 +798,65 @@ export class ExpedienteComponent implements OnInit {
   checklist = signal<ExpedienteObraItem[]>([]);
   mostrarModalVisor = signal(false);
   urlVisor = signal<string | null>(null);
+
+  tabPrincipalActiva = signal<'CHECKLIST' | 'FOTOS' | 'INFO'>('CHECKLIST');
+  documentoSeleccionado = signal<ExpedienteObraItem | null>(null);
+  mostrarModalGestionDoc = signal(false);
+
+  abrirModalGestionDoc(item: ExpedienteObraItem): void {
+    this.documentoSeleccionado.set(item);
+    this.mostrarModalGestionDoc.set(true);
+  }
+
+  cerrarModalGestionDoc(): void {
+    this.mostrarModalGestionDoc.set(false);
+    this.documentoSeleccionado.set(null);
+  }
+
+  cambiarEstadoEnModal(estado: EstadoDocumentoChecklist): void {
+    const item = this.documentoSeleccionado();
+    if (!item) return;
+    this.cambiarEstadoItem(item, estado);
+    this.documentoSeleccionado.update(curr => curr ? { ...curr, estado } : null);
+  }
+
+  subirArchivoEnModal(event: Event): void {
+    const item = this.documentoSeleccionado();
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    const currentObra = this.obra();
+    if (!item || !file || !currentObra) return;
+
+    this.expedientesSvc.subirArchivoDocumento(currentObra.id, item.id, file).subscribe({
+      next: (updated) => {
+        this.checklist.update(list => list.map(i => i.id === updated.id ? updated : i));
+        this.documentoSeleccionado.set(updated);
+        this.toastSvc.show('✅ Archivo digital subido e integrado correctamente', 'success');
+      },
+      error: (err) => {
+        console.error('Error subiendo archivo', err);
+        this.toastSvc.show('❌ Error al subir archivo digital', 'error');
+      }
+    });
+  }
+
+  guardarObservacionesDesdeModal(texto: string): void {
+    const item = this.documentoSeleccionado();
+    const currentObra = this.obra();
+    if (!item || !currentObra) return;
+
+    this.expedientesSvc.actualizarEstado(currentObra.id, item.id, item.estado, texto).subscribe({
+      next: (updated) => {
+        this.checklist.update(list => list.map(i => i.id === updated.id ? updated : i));
+        this.documentoSeleccionado.set(updated);
+        this.toastSvc.show('📝 Comentario guardado correctamente', 'success');
+      },
+      error: (err) => {
+        console.error('Error guardando comentario', err);
+        this.toastSvc.show('❌ Error al guardar comentario', 'error');
+      }
+    });
+  }
 
   svc = inject(ObrasService);
   avancesSvc = inject(AvancesService);
