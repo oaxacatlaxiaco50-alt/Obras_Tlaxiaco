@@ -165,9 +165,20 @@ import html2canvas from 'html2canvas';
                       <span class="doc-name">{{ arch.nombreOriginal }}</span>
                       <span class="doc-status">{{ arch.carpeta }} · {{ fmtBytes(arch.tamanioBytes) }}</span>
                     </div>
-                    <a [href]="getFileUrl(arch.archivoUrl)" target="_blank" [download]="arch.nombreOriginal" class="btn btn-secondary btn-sm" style="text-decoration:none;">
-                      👁️ Ver / Descargar
-                    </a>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                      <a [href]="getFileUrl(arch.archivoUrl)" target="_blank" [download]="arch.nombreOriginal" class="btn btn-secondary btn-sm" style="text-decoration:none;">
+                        👁️ Ver / Descargar
+                      </a>
+                      @if (canDeleteFile()) {
+                        <button class="btn btn-danger btn-sm" (click)="eliminarArchivo(arch)" title="Eliminar archivo del expediente">
+                          🗑️ Eliminar
+                        </button>
+                      } @else {
+                        <span class="badge badge-warning" style="display:inline-flex; align-items:center; gap:4px; font-size:0.75rem;" title="Archivo protegido. Solo Administrador puede eliminar.">
+                          🔒 Candado
+                        </span>
+                      }
+                    </div>
                   </div>
                 } @empty {
                   <div class="empty-state" style="font-size:0.85rem; color:var(--text-muted); text-align:center; padding:16px;">
@@ -530,6 +541,30 @@ export class ExpedienteComponent implements OnInit {
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
     const cleanPath = url.startsWith('/') ? url : '/' + url;
     return 'http://localhost:8081' + cleanPath;
+  }
+
+  canDeleteFile(): boolean {
+    const currentObra = this.obra();
+    if (!currentObra) return false;
+    return this.auth.hasRole('admin') && !this.svc.isBlocked(currentObra);
+  }
+
+  eliminarArchivo(arch: ObraArchivo): void {
+    const currentObra = this.obra();
+    if (!currentObra) return;
+
+    if (confirm(`¿Estás seguro de que deseas eliminar el archivo "${arch.nombreOriginal}"?`)) {
+      this.archivosSvc.eliminarArchivo(currentObra.id, arch.id).subscribe({
+        next: () => {
+          this.archivosSubidos.update(list => list.filter(a => a.id !== arch.id));
+          this.uploadMsg.set(`🗑️ Archivo "${arch.nombreOriginal}" eliminado.`);
+          this.uploadError.set(false);
+        },
+        error: (err) => {
+          alert(err.error?.message || 'Error al eliminar el archivo.');
+        }
+      });
+    }
   }
 
   fotosPorFase(fase: string) {
