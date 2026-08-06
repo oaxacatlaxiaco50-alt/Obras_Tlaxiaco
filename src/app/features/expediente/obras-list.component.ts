@@ -33,19 +33,28 @@ import * as L from 'leaflet';
         }
       </div>
 
-      <!-- Buscador y Filtros -->
+      <!-- Buscador y Filtros Servidor -->
       <div class="card filter-card">
-        <div class="filter-row">
-          <div class="search-box">
+        <div class="filter-row" style="display:flex; gap:16px; flex-wrap:wrap; align-items:center;">
+          <div class="search-box" style="flex:1; min-width:280px;">
             <span class="search-icon">🔍</span>
             <input 
               type="text" 
-              placeholder="Buscar por nombre de obra, responsable o contratista..." 
+              placeholder="Buscar por código, nombre o descripción en servidor..." 
               class="form-input search-input"
               [value]="filtroTexto()"
               (input)="updateFiltroTexto($event)"
             />
           </div>
+          <select [value]="filtroCategoria()" (change)="cambiarCategoria($event)" class="form-input" style="width:240px; border-color:var(--border-light);">
+            <option value="todas">🏷️ Todas las Categorías</option>
+            <option value="Pavimentación y Vialidades">🛣️ Pavimentación y Vialidades</option>
+            <option value="Agua Potable y Drenaje">💧 Agua Potable y Drenaje</option>
+            <option value="Electrificación y Alumbrado">⚡ Electrificación y Alumbrado</option>
+            <option value="Educación y Escuelas">🏫 Educación y Escuelas</option>
+            <option value="Salud y Espacios Públicos">🏥 Salud y Espacios Públicos</option>
+            <option value="Infraestructura General">🏗️ Infraestructura General</option>
+          </select>
           <div style="display: flex; gap: 8px;">
             <button class="btn btn-secondary" (click)="exportarPDF()">📄 Exportar PDF</button>
             <button class="btn btn-secondary" style="border-color: #10B981; color: #10B981;" (click)="exportarExcel()">📊 Exportar Excel</button>
@@ -53,12 +62,12 @@ import * as L from 'leaflet';
         </div>
         <div class="filter-row" style="margin-top: 16px;">
           <div class="status-tabs">
-            <button class="tab-btn" [class.active]="filtroStatus() === 'todas'" (click)="filtroStatus.set('todas')">Todas</button>
-            <button class="tab-btn" [class.active]="filtroStatus() === 'activa'" (click)="filtroStatus.set('activa')">🟢 Activas</button>
-            <button class="tab-btn" [class.active]="filtroStatus() === 'en_proceso'" (click)="filtroStatus.set('en_proceso')">⚙️ En Proceso</button>
-            <button class="tab-btn" [class.active]="filtroStatus() === 'pausada'" (click)="filtroStatus.set('pausada')">🟠 Pausadas</button>
-            <button class="tab-btn" [class.active]="filtroStatus() === 'completada'" (click)="filtroStatus.set('completada')">🔵 Completadas</button>
-            <button class="tab-btn" [class.active]="filtroStatus() === 'bloqueada'" (click)="filtroStatus.set('bloqueada')">🔴 Bloqueadas</button>
+            <button class="tab-btn" [class.active]="filtroStatus() === 'todas'" (click)="cambiarEstatusTab('todas')">Todas</button>
+            <button class="tab-btn" [class.active]="filtroStatus() === 'PLANIFICADA'" (click)="cambiarEstatusTab('PLANIFICADA')">📋 Planificadas</button>
+            <button class="tab-btn" [class.active]="filtroStatus() === 'EN_PROCESO'" (click)="cambiarEstatusTab('EN_PROCESO')">🟢 En Proceso</button>
+            <button class="tab-btn" [class.active]="filtroStatus() === 'COMPLETADA'" (click)="cambiarEstatusTab('COMPLETADA')">🔵 Completadas</button>
+            <button class="tab-btn" [class.active]="filtroStatus() === 'INACTIVA'" (click)="cambiarEstatusTab('INACTIVA')">🟠 Inactivas</button>
+            <button class="tab-btn" [class.active]="filtroStatus() === 'CANCELADA'" (click)="cambiarEstatusTab('CANCELADA')">🔴 Canceladas</button>
           </div>
         </div>
       </div>
@@ -132,6 +141,30 @@ import * as L from 'leaflet';
               }
             </tbody>
           </table>
+        </div>
+        <!-- Paginador Servidor -->
+        <div class="pagination-footer" style="display:flex; justify-content:space-between; align-items:center; padding:16px 24px; border-top:1px solid var(--border); flex-wrap:wrap; gap:12px;">
+          <div style="display:flex; align-items:center; gap:12px; font-size:0.85rem; color:var(--text-muted);">
+            <span>Mostrando <strong>{{ todasLasObras().length }}</strong> de <strong>{{ totalElementos() }}</strong> obras registradas</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>Filas:</span>
+              <select [value]="tamanioPagina()" (change)="cambiarTamanioPagina($event)" class="form-input" style="padding:2px 8px; width:75px; font-size:0.8rem;">
+                <option [value]="5">5</option>
+                <option [value]="10">10</option>
+                <option [value]="25">25</option>
+                <option [value]="50">50</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn btn-secondary btn-sm" (click)="irAPagina(0)" [disabled]="paginaActual() === 0">⏮️ Primera</button>
+            <button class="btn btn-secondary btn-sm" (click)="irAPagina(paginaActual() - 1)" [disabled]="paginaActual() === 0">◀️ Anterior</button>
+            <span style="font-size:0.85rem; padding:0 8px; font-weight:600; color:var(--text-primary);">
+              Página {{ paginaActual() + 1 }} de {{ totalPaginas() }}
+            </span>
+            <button class="btn btn-secondary btn-sm" (click)="irAPagina(paginaActual() + 1)" [disabled]="paginaActual() >= totalPaginas() - 1">Siguiente ▶️</button>
+            <button class="btn btn-secondary btn-sm" (click)="irAPagina(totalPaginas() - 1)" [disabled]="paginaActual() >= totalPaginas() - 1">Última ⏭️</button>
+          </div>
         </div>
       </div>
 
@@ -446,44 +479,92 @@ export class ObrasListComponent implements OnInit {
 
   filtroTexto = signal('');
   filtroStatus = signal<string>('todas');
+  filtroCategoria = signal<string>('todas');
+
+  paginaActual = signal(0);
+  tamanioPagina = signal(10);
+  totalPaginas = signal(1);
+  totalElementos = signal(0);
 
   ngOnInit() {
-    this.svc.getObras({ size: 100 }).subscribe({
-      next: (page) => { this.todasLasObras.set(page.content); this.cargando.set(false); },
-      error: () => this.cargando.set(false)
-    });
+    this.cargarObrasPaginadas();
     this.usuariosSvc.getUsuarios().subscribe({
       next: (users) => this.responsables.set(users),
       error: () => {}
     });
   }
 
-  obrasFiltradas = computed(() => {
-    let list = this.todasLasObras();
-    const query = this.filtroTexto().toLowerCase().trim();
-    const status = this.filtroStatus();
-    if (query) {
-      list = list.filter(o =>
-        o.nombre.toLowerCase().includes(query) ||
-        o.codigo?.toLowerCase().includes(query) ||
-        String(o.id).includes(query)
-      );
+  cargarObrasPaginadas(): void {
+    this.cargando.set(true);
+    const search = this.filtroTexto().trim();
+    const statusVal = this.filtroStatus();
+    const catVal = this.filtroCategoria();
+
+    if (search) {
+      this.svc.searchObras(search, this.paginaActual(), this.tamanioPagina()).subscribe({
+        next: (page) => {
+          this.todasLasObras.set(page.content || []);
+          this.totalPaginas.set(page.totalPages || 1);
+          this.totalElementos.set(page.totalElements || 0);
+          this.cargando.set(false);
+        },
+        error: () => this.cargando.set(false)
+      });
+    } else {
+      const estatusParam = statusVal !== 'todas' ? (statusVal as ObraEstatus) : undefined;
+      const categoriaParam = catVal !== 'todas' ? catVal : undefined;
+
+      this.svc.getObras({
+        page: this.paginaActual(),
+        size: this.tamanioPagina(),
+        estatus: estatusParam,
+        categoria: categoriaParam
+      }).subscribe({
+        next: (page) => {
+          this.todasLasObras.set(page.content || []);
+          this.totalPaginas.set(page.totalPages || 1);
+          this.totalElementos.set(page.totalElements || 0);
+          this.cargando.set(false);
+        },
+        error: () => this.cargando.set(false)
+      });
     }
-    if (status !== 'todas') {
-      const estatusMap: Record<string, ObraEstatus> = {
-        activa: 'EN_PROCESO', en_proceso: 'EN_PROCESO',
-        completada: 'COMPLETADA', pausada: 'INACTIVA',
-        bloqueada: 'CANCELADA',
-      };
-      const backend = estatusMap[status] as ObraEstatus | undefined;
-      if (backend) list = list.filter(o => o.estatus === backend);
-    }
-    return list;
-  });
+  }
+
+  obrasFiltradas = computed(() => this.todasLasObras());
 
   updateFiltroTexto(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
     this.filtroTexto.set(value);
+    this.paginaActual.set(0);
+    this.cargarObrasPaginadas();
+  }
+
+  cambiarEstatusTab(status: string): void {
+    this.filtroStatus.set(status);
+    this.paginaActual.set(0);
+    this.cargarObrasPaginadas();
+  }
+
+  cambiarCategoria(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.filtroCategoria.set(value);
+    this.paginaActual.set(0);
+    this.cargarObrasPaginadas();
+  }
+
+  irAPagina(page: number): void {
+    if (page >= 0 && page < this.totalPaginas()) {
+      this.paginaActual.set(page);
+      this.cargarObrasPaginadas();
+    }
+  }
+
+  cambiarTamanioPagina(event: Event): void {
+    const size = Number((event.target as HTMLSelectElement).value);
+    this.tamanioPagina.set(size);
+    this.paginaActual.set(0);
+    this.cargarObrasPaginadas();
   }
 
   abrirExpediente(id: number): void {

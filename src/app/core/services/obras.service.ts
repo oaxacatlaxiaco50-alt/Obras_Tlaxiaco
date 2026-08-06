@@ -22,6 +22,7 @@ export class ObrasService {
     codigo?: string;
     nombre?: string;
     estatus?: ObraEstatus;
+    categoria?: string;
     responsableId?: number;
     startFechaInicio?: string;
     endFechaInicio?: string;
@@ -30,12 +31,13 @@ export class ObrasService {
   }): Observable<Page<ObraResponse>> {
     let httpParams = new HttpParams()
       .set('page', params?.page ?? 0)
-      .set('size', params?.size ?? 20);
+      .set('size', params?.size ?? 10);
 
-    if (params?.codigo)         httpParams = httpParams.set('codigo', params.codigo);
-    if (params?.nombre)         httpParams = httpParams.set('nombre', params.nombre);
-    if (params?.estatus)        httpParams = httpParams.set('estatus', params.estatus);
-    if (params?.responsableId)  httpParams = httpParams.set('responsableId', params.responsableId);
+    if (params?.codigo)           httpParams = httpParams.set('codigo', params.codigo);
+    if (params?.nombre)           httpParams = httpParams.set('nombre', params.nombre);
+    if (params?.estatus)          httpParams = httpParams.set('estatus', params.estatus);
+    if (params?.categoria)        httpParams = httpParams.set('categoria', params.categoria);
+    if (params?.responsableId)    httpParams = httpParams.set('responsableId', params.responsableId);
     if (params?.startFechaInicio) httpParams = httpParams.set('startFechaInicio', params.startFechaInicio);
     if (params?.endFechaInicio)   httpParams = httpParams.set('endFechaInicio', params.endFechaInicio);
 
