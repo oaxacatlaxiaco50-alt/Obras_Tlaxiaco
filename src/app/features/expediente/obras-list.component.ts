@@ -753,39 +753,224 @@ export class ObrasListComponent implements OnInit {
   }
 
   exportarPDF() {
-    this.toastSvc.show('Generando PDF, por favor espera...', 'info');
-    const element = document.querySelector('.table-card') as HTMLElement;
-    if (!element) return;
-    html2canvas(element, { scale: 2, backgroundColor: '#1E2D3D' }).then(canvas => {
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('l', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const imgProps = pdf.getImageProperties(imgData);
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      pdf.setFontSize(16);
-      pdf.text('Reporte Oficial de Expedientes', 14, 15);
-      pdf.addImage(imgData, 'PNG', 0, 25, pdfWidth, pdfHeight);
-      pdf.save('Reporte_Expedientes.pdf');
-      this.toastSvc.show('Documento PDF descargado', 'success');
+    this.toastSvc.show('📄 Generando PDF Ejecutivo, por favor espera...', 'info');
+    const list = this.todasLasObras();
+    if (list.length === 0) {
+      this.toastSvc.show('No hay obras para generar reporte PDF', 'warning');
+      return;
+    }
+
+    const doc = new jsPDF('l', 'mm', 'a4'); // Horizontal landscape
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    // Banner institucional superior
+    doc.setFillColor(30, 45, 61); // #1E2D3D dark header
+    doc.rect(0, 0, pageWidth, 26, 'F');
+
+    // Título institucional
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text('H. AYUNTAMIENTO CONSTITUCIONAL DE HEROICA CIUDAD DE TLAXIACO', pageWidth / 2, 10, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(232, 160, 32); // #E8A020 accent
+    doc.text('DIRECCIÓN DE OBRAS PÚBLICAS Y DESARROLLO URBANO · EXPEDIENTES TÉCNICOS', pageWidth / 2, 17, { align: 'center' });
+
+    doc.setFontSize(8);
+    doc.setTextColor(200, 200, 200);
+    doc.text(`Emisión: ${new Date().toLocaleDateString('es-MX')}`, pageWidth - 14, 22, { align: 'right' });
+
+    // Tarjetas de Resumen
+    const totalInversion = list.reduce((a, b) => a + (b.monto || 0), 0);
+    const avgAvance = Math.round(list.reduce((a, b) => a + (b.porcentajeAvance ?? (b.estatus === 'COMPLETADA' || b.estatus === 'FINALIZADA' ? 100 : 0)), 0) / list.length);
+
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(220, 220, 220);
+
+    // Box 1: Total Obras
+    doc.setFillColor(245, 247, 250);
+    doc.roundedRect(14, 30, 80, 15, 2, 2, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text('TOTAL OBRAS REGISTRADAS', 18, 36);
+    doc.setFontSize(11);
+    doc.setTextColor(30, 45, 61);
+    doc.text(`${list.length} Proyectos`, 18, 42);
+
+    // Box 2: Total Inversión
+    doc.roundedRect(100, 30, 90, 15, 2, 2, 'FD');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text('INVERSIÓN TOTAL ACUMULADA', 104, 36);
+    doc.setFontSize(11);
+    doc.setTextColor(16, 185, 129); // #10B981 green
+    doc.text(this.svc.formatMonto(totalInversion), 104, 42);
+
+    // Box 3: Promedio Avance
+    doc.roundedRect(196, 30, 86, 15, 2, 2, 'FD');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text('AVANCE FÍSICO PROMEDIO', 200, 36);
+    doc.setFontSize(11);
+    doc.setTextColor(232, 160, 32);
+    doc.text(`${avgAvance}% General`, 200, 42);
+
+    // Encabezado de Tabla
+    let y = 52;
+    doc.setFillColor(30, 45, 61);
+    doc.rect(14, y, pageWidth - 28, 8, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('#', 17, y + 5.5);
+    doc.text('CÓDIGO', 26, y + 5.5);
+    doc.text('NOMBRE DE LA OBRA', 60, y + 5.5);
+    doc.text('CATEGORÍA', 145, y + 5.5);
+    doc.text('INVERSIÓN ($)', 205, y + 5.5, { align: 'right' });
+    doc.text('ESTATUS', 235, y + 5.5);
+    doc.text('% AVANCE', 275, y + 5.5, { align: 'right' });
+
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+
+    list.forEach((o, i) => {
+      if (y > pageHeight - 35) {
+        doc.addPage();
+        y = 20;
+        doc.setFillColor(30, 45, 61);
+        doc.rect(14, y, pageWidth - 28, 8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text('#', 17, y + 5.5);
+        doc.text('CÓDIGO', 26, y + 5.5);
+        doc.text('NOMBRE DE LA OBRA', 60, y + 5.5);
+        doc.text('CATEGORÍA', 145, y + 5.5);
+        doc.text('INVERSIÓN ($)', 205, y + 5.5, { align: 'right' });
+        doc.text('ESTATUS', 235, y + 5.5);
+        doc.text('% AVANCE', 275, y + 5.5, { align: 'right' });
+        y += 8;
+        doc.setFont('helvetica', 'normal');
+      }
+
+      if (i % 2 === 0) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(14, y, pageWidth - 28, 7, 'F');
+      }
+
+      doc.setTextColor(50, 50, 50);
+      doc.setFontSize(8);
+      doc.text(String(i + 1), 17, y + 4.8);
+      doc.text(o.codigo || `OBR-${o.id}`, 26, y + 4.8);
+
+      const nombreTrunc = o.nombre.length > 45 ? o.nombre.slice(0, 42) + '...' : o.nombre;
+      doc.text(nombreTrunc, 60, y + 4.8);
+
+      const catTrunc = (o.categoria || 'Infraestructura General').length > 28
+        ? (o.categoria || 'Infraestructura General').slice(0, 25) + '...'
+        : (o.categoria || 'Infraestructura General');
+      doc.text(catTrunc, 145, y + 4.8);
+
+      doc.text(this.svc.formatMonto(o.monto), 205, y + 4.8, { align: 'right' });
+      doc.text(ESTATUS_LABEL[o.estatus] || o.estatus, 235, y + 4.8);
+
+      const pct = o.porcentajeAvance ?? (o.estatus === 'COMPLETADA' || o.estatus === 'FINALIZADA' ? 100 : 0);
+      doc.text(`${pct}%`, 275, y + 4.8, { align: 'right' });
+
+      y += 7;
     });
+
+    if (y > pageHeight - 35) {
+      doc.addPage();
+      y = 20;
+    } else {
+      y += 10;
+    }
+
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.4);
+
+    doc.line(25, y + 12, 95, y + 12);
+    doc.setFontSize(7);
+    doc.setTextColor(80, 80, 80);
+    doc.text('ELABORÓ', 60, y + 16, { align: 'center' });
+    doc.text('DIRECCIÓN DE OBRAS PÚBLICAS', 60, y + 19, { align: 'center' });
+
+    doc.line(113, y + 12, 183, y + 12);
+    doc.text('REVISÓ', 148, y + 16, { align: 'center' });
+    doc.text('CONTRALORÍA MUNICIPAL', 148, y + 19, { align: 'center' });
+
+    doc.line(201, y + 12, 271, y + 12);
+    doc.text('AUTORIZÓ', 236, y + 16, { align: 'center' });
+    doc.text('PRESIDENCIA MUNICIPAL', 236, y + 19, { align: 'center' });
+
+    doc.save(`Reporte_Ejecutivo_Obras_${new Date().toISOString().slice(0, 10)}.pdf`);
+    this.toastSvc.show('📄 Reporte PDF Ejecutivo descargado correctamente', 'success');
   }
 
   exportarExcel() {
-    const data = this.obrasFiltradas().map(o => ({
-      ID: o.id,
-      Codigo: o.codigo,
-      Nombre: o.nombre,
-      Inversion: o.monto,
-      ResponsableId: o.responsableId,
-      Estatus: o.estatus,
-      FechaInicio: o.fechaInicio,
-      FechaFin: o.fechaFin,
+    const list = this.todasLasObras();
+    if (list.length === 0) {
+      this.toastSvc.show('No hay obras para exportar en Excel', 'warning');
+      return;
+    }
+
+    const data: any[] = list.map((o, index) => ({
+      'No.': index + 1,
+      'Código': o.codigo || `OBR-${o.id}`,
+      'Nombre de la Obra': o.nombre,
+      'Categoría': o.categoria || 'Infraestructura General',
+      'Ubicación / Dirección': o.direccion || 'Heroica Ciudad de Tlaxiaco',
+      'Inversión ($ MXN)': o.monto,
+      'Monto Formateado': this.svc.formatMonto(o.monto),
+      'Estatus': ESTATUS_LABEL[o.estatus] || o.estatus,
+      'Avance Físico (%)': o.porcentajeAvance ?? (o.estatus === 'COMPLETADA' || o.estatus === 'FINALIZADA' ? 100 : 0),
+      'Fecha Inicio': o.fechaInicio,
+      'Fecha Fin': o.fechaFin,
     }));
+
+    const totalInversion = list.reduce((acc, curr) => acc + (curr.monto || 0), 0);
+    const promedioAvance = Math.round(
+      list.reduce((acc, curr) => acc + (curr.porcentajeAvance ?? (curr.estatus === 'COMPLETADA' || curr.estatus === 'FINALIZADA' ? 100 : 0)), 0) / list.length
+    );
+
+    data.push({
+      'No.': 0,
+      'Código': 'TOTALES',
+      'Nombre de la Obra': `TOTAL: ${list.length} OBRAS`,
+      'Categoría': '-',
+      'Ubicación / Dirección': '-',
+      'Inversión ($ MXN)': totalInversion,
+      'Monto Formateado': this.svc.formatMonto(totalInversion),
+      'Estatus': '-',
+      'Avance Físico (%)': promedioAvance,
+      'Fecha Inicio': '-',
+      'Fecha Fin': '-',
+    });
+
     const ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = [
+      { wch: 5 },  // No
+      { wch: 15 }, // Código
+      { wch: 45 }, // Nombre
+      { wch: 28 }, // Categoría
+      { wch: 30 }, // Dirección
+      { wch: 18 }, // Inversión
+      { wch: 20 }, // Formateado
+      { wch: 15 }, // Estatus
+      { wch: 18 }, // Avance
+      { wch: 14 }, // Fecha inicio
+      { wch: 14 }, // Fecha fin
+    ];
+
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Expedientes');
-    XLSX.writeFile(wb, 'Reporte_Expedientes.xlsx');
-    this.toastSvc.show('Reporte Excel (.xlsx) descargado', 'success');
+    XLSX.utils.book_append_sheet(wb, ws, 'Expedientes_Obra_Publica');
+    XLSX.writeFile(wb, `Reporte_Ejecutivo_Obras_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    this.toastSvc.show('📊 Reporte Excel (.xlsx) ejecutivo generado con éxito', 'success');
   }
 
   getProgressColor(p: number): string {
