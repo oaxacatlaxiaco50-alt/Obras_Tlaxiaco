@@ -122,17 +122,18 @@ import { UserFormModalComponent } from './components/user-form-modal.component';
           </div>
         </div>
         <div class="card">
-          <h3 class="sec-title">🔑 Roles y Permisos</h3>
+          <h3 class="sec-title">🔑 Roles y Permisos del Sistema</h3>
           <div class="perms-table">
             <div class="perm-row header">
-              <span>Permiso</span><span>Admin</span><span>Supervisor</span><span>Auditor</span>
+              <span>Acción / Permiso</span><span>Admin</span><span>Supervisor</span><span>Contratista</span><span>Auditor</span>
             </div>
             @for (p of permisos; track p.nombre) {
               <div class="perm-row">
                 <span>{{ p.nombre }}</span>
                 <span>{{ p.admin ? '✅' : '❌' }}</span>
-                <span>{{ p.residente ? '✅' : '❌' }}</span>
-                <span>{{ p.lector ? '✅' : '❌' }}</span>
+                <span>{{ p.supervisor ? '✅' : '❌' }}</span>
+                <span>{{ p.contratista ? '✅' : '❌' }}</span>
+                <span>{{ p.auditor ? '✅' : '❌' }}</span>
               </div>
             }
           </div>
@@ -164,6 +165,7 @@ import { UserFormModalComponent } from './components/user-form-modal.component';
     }
     .badge-administrador { background: rgba(232,160,32,0.15); color: var(--accent); }
     .badge-supervisor { background: rgba(45,212,191,0.15); color: var(--success); }
+    .badge-contratista { background: rgba(245,158,11,0.15); color: var(--warning); }
     .badge-auditor { background: rgba(100,116,139,0.15); color: var(--text-secondary); }
     .btn-warning { background: rgba(239, 160, 0, 0.2); border-color: rgba(239, 160, 0, 0.4); color: #fbbf24; }
     .btn-warning:hover { background: rgba(239, 160, 0, 0.3); }
@@ -179,13 +181,13 @@ import { UserFormModalComponent } from './components/user-form-modal.component';
     .rule-desc { font-size: 0.78rem; color: var(--text-muted); }
     .perms-table { display: flex; flex-direction: column; gap: 2px; }
     .perm-row {
-      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
-      padding: 10px 12px; border-radius: 8px; font-size: 0.83rem;
+      display: grid; grid-template-columns: 2.2fr 1fr 1fr 1fr 1fr;
+      padding: 10px 12px; border-radius: 8px; font-size: 0.81rem;
       align-items: center;
     }
     .perm-row.header {
       background: var(--bg-dark); font-weight: 700;
-      font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;
+      font-size: 0.73rem; color: var(--text-muted); text-transform: uppercase;
     }
     .perm-row:not(.header):hover { background: rgba(255,255,255,0.02); }
     button[disabled] { opacity: 0.4; cursor: not-allowed; }
@@ -198,11 +200,12 @@ export class AdminComponent implements OnInit {
   selectedUser: UserResponse | null = null;
 
   permisos = [
-    { nombre: 'Ver Dashboard completo', admin: true, residente: true, lector: false },
-    { nombre: 'Ver nombre y descripción', admin: true, residente: true, lector: true },
-    { nombre: 'Editar expediente', admin: true, residente: true, lector: false },
-    { nombre: 'Subir archivos', admin: true, residente: true, lector: false },
-    { nombre: 'Gestionar usuarios', admin: true, residente: false, lector: false },
+    { nombre: 'Gestionar Usuarios (Crear/Editar/Eliminar)', admin: true, supervisor: false, contratista: false, auditor: false },
+    { nombre: 'Crear / Editar Obras Públicas', admin: true, supervisor: true, contratista: false, auditor: false },
+    { nombre: 'Cambiar Estatus de Obra', admin: true, supervisor: true, contratista: false, auditor: false },
+    { nombre: 'Subir Archivos y Evidencias de Expediente', admin: true, supervisor: true, contratista: true, auditor: false },
+    { nombre: 'Consultar Obras, Bitácora y Expedientes', admin: true, supervisor: true, contratista: true, auditor: true },
+    { nombre: 'Exportar Reportes PDF y Excel', admin: true, supervisor: true, contratista: false, auditor: true },
   ];
 
   constructor(
@@ -231,7 +234,12 @@ export class AdminComponent implements OnInit {
   }
 
   getAvaColor(rol: string): string {
-    return { ADMINISTRADOR: '#1A3C5E', SUPERVISOR: '#0D5C4A', AUDITOR: '#3B4A5A' }[rol] ?? '#1A3C5E';
+    return {
+      ADMINISTRADOR: '#1A3C5E',
+      SUPERVISOR: '#0D5C4A',
+      CONTRATISTA: '#D97706',
+      AUDITOR: '#3B4A5A'
+    }[rol] ?? '#1A3C5E';
   }
 
   openUserModal(user?: UserResponse) {

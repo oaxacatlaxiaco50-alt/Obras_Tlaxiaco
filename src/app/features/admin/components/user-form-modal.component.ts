@@ -48,9 +48,10 @@ import { UserResponse, Rol } from '../../../core/models/user.model';
             <label>Rol del Sistema</label>
             <select formControlName="role" class="form-control" [class.is-invalid]="invalidField('role')">
               <option value="">Seleccione un rol...</option>
-              <option value="ADMINISTRADOR">Administrador</option>
-              <option value="SUPERVISOR">Supervisor (Residente)</option>
-              <option value="AUDITOR">Auditor (Lector)</option>
+              <option value="ADMINISTRADOR">Administrador (Acceso Total)</option>
+              <option value="SUPERVISOR">Supervisor / Residente</option>
+              <option value="CONTRATISTA">Contratista (Empresa)</option>
+              <option value="AUDITOR">Auditor (Lectura)</option>
             </select>
           </div>
           
