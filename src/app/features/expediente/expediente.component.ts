@@ -1136,8 +1136,9 @@ export class ExpedienteComponent implements OnInit {
     this.expedientesSvc.actualizarEstado(currentObra.id, item.id, estado, item.observaciones).subscribe({
       next: (updated) => {
         this.checklist.update(list => list.map(i => i.id === updated.id ? updated : i));
+        this.toastSvc.show(`Estado de "${item.documento.nombre}" actualizado a ${estado}`, 'info');
       },
-      error: (err) => console.error('Error al cambiar estado de documento', err)
+      error: (err) => this.toastSvc.show('Error al cambiar estado de documento', 'error')
     });
   }
 
@@ -1150,14 +1151,15 @@ export class ExpedienteComponent implements OnInit {
     this.expedientesSvc.subirArchivoDocumento(currentObra.id, item.id, file).subscribe({
       next: (updated) => {
         this.checklist.update(list => list.map(i => i.id === updated.id ? updated : i));
-        alert('✅ Documento subido y registrado correctamente en el expediente');
+        this.toastSvc.show('Documento subido y registrado correctamente en el expediente', 'success');
       },
-      error: (err) => alert('❌ Error al subir archivo de documento')
+      error: (err) => this.toastSvc.show('Error al subir archivo de documento', 'error')
     });
   }
 
   async generarPDF() {
     this.generandoPDF.set(true);
+    this.toastSvc.show('Generando PDF Ejecutivo del Expediente...', 'info');
     await new Promise(r => setTimeout(r, 100));
     const element = document.getElementById('pdfContent');
     if (!element) { this.generandoPDF.set(false); return; }
@@ -1169,8 +1171,10 @@ export class ExpedienteComponent implements OnInit {
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`Reporte_Obra_${this.obra()?.id}.pdf`);
+      this.toastSvc.show('PDF Ejecutivo descargado con éxito', 'success');
     } catch (error) {
       console.error('Error al generar PDF', error);
+      this.toastSvc.show('Error al generar el reporte PDF', 'error');
     } finally {
       this.generandoPDF.set(false);
     }
@@ -1219,13 +1223,13 @@ export class ExpedienteComponent implements OnInit {
             error: () => {}
           });
         }
-        alert('✅ Cambios guardados correctamente');
+        this.toastSvc.show('Cambios guardados correctamente', 'success');
         this.quitarFotoEdicion();
         this.mostrarModalEdicion.set(false);
       },
       error: (err) => {
         console.error('Error actualizando obra:', err);
-        alert('❌ Error al actualizar la obra.');
+        this.toastSvc.show('Error al actualizar la obra.', 'error');
       }
     });
   }
@@ -1241,7 +1245,7 @@ export class ExpedienteComponent implements OnInit {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) {
-      alert('❌ La imagen no puede superar 10 MB');
+      this.toastSvc.show('La imagen no puede superar 10 MB', 'warning');
       return;
     }
     this.fotoEdicionFile.set(file);
@@ -1284,11 +1288,12 @@ export class ExpedienteComponent implements OnInit {
       this.archivosSvc.eliminarArchivo(currentObra.id, arch.id).subscribe({
         next: () => {
           this.archivosSubidos.update(list => list.filter(a => a.id !== arch.id));
+          this.toastSvc.show(`Archivo "${arch.nombreOriginal}" eliminado con éxito`, 'info');
           this.uploadMsg.set(`🗑️ Archivo "${arch.nombreOriginal}" eliminado.`);
           this.uploadError.set(false);
         },
         error: (err) => {
-          alert(err.error?.message || 'Error al eliminar el archivo.');
+          this.toastSvc.show(err.error?.message || 'Error al eliminar el archivo.', 'error');
         }
       });
     }

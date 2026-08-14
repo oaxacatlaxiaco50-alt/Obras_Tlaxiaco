@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { AuthService } from '../../core/services/auth.service';
 import { ObrasService } from '../../core/services/obras.service';
 import { UserService } from '../../core/services/user.service';
+import { ToastService } from '../../core/services/toast.service';
 import { UserResponse } from '../../core/models/user.model';
 import { UserFormModalComponent } from './components/user-form-modal.component';
 
@@ -210,7 +211,8 @@ export class AdminComponent implements OnInit {
   constructor(
     public auth: AuthService, 
     public svc: ObrasService,
-    private userService: UserService
+    private userService: UserService,
+    private toastSvc: ToastService
   ) {}
 
   ngOnInit() {
@@ -255,18 +257,20 @@ export class AdminComponent implements OnInit {
     if (this.selectedUser) {
       this.userService.updateUser(this.selectedUser.id, data).subscribe({
         next: () => {
+          this.toastSvc.show('Usuario actualizado con éxito.', 'success');
           this.loadUsers();
           this.closeModal();
         },
-        error: (err) => console.error('Error actualizando usuario', err)
+        error: (err) => this.toastSvc.show(err.error?.message || 'Error al actualizar usuario.', 'error')
       });
     } else {
       this.userService.createUser(data).subscribe({
         next: () => {
+          this.toastSvc.show('Nuevo usuario creado con éxito.', 'success');
           this.loadUsers();
           this.closeModal();
         },
-        error: (err) => console.error('Error creando usuario', err)
+        error: (err) => this.toastSvc.show(err.error?.message || 'Error al crear usuario.', 'error')
       });
     }
   }
@@ -278,16 +282,22 @@ export class AdminComponent implements OnInit {
   deactivateUser(id: number) {
     if (confirm('¿Deseas desactivar el acceso a este usuario?\n\nNota: Su cuenta quedará inhabilitada para ingresar al sistema, pero su historial de cambios y bitácora se conservará por auditoría.')) {
       this.userService.deactivateUser(id).subscribe({
-        next: () => this.loadUsers(),
-        error: (err) => alert(err.error?.message || 'Error desactivando el usuario.')
+        next: () => {
+          this.toastSvc.show('Acceso de usuario desactivado.', 'info');
+          this.loadUsers();
+        },
+        error: (err) => this.toastSvc.show(err.error?.message || 'Error desactivando el usuario.', 'error')
       });
     }
   }
 
   reactivateUser(id: number) {
     this.userService.reactivateUser(id).subscribe({
-      next: () => this.loadUsers(),
-      error: (err) => alert(err.error?.message || 'Error reactivando el usuario.')
+      next: () => {
+        this.toastSvc.show('Cuenta de usuario reactivada.', 'success');
+        this.loadUsers();
+      },
+      error: (err) => this.toastSvc.show(err.error?.message || 'Error reactivando el usuario.', 'error')
     });
   }
 

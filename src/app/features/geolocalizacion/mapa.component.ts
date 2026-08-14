@@ -4,6 +4,7 @@ import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ObrasService } from '../../core/services/obras.service';
 import { RutasService } from '../../core/services/rutas.service';
+import { ToastService } from '../../core/services/toast.service';
 import { ObraResponse, ESTATUS_LABEL } from '../../core/models/obra.model';
 import { RutaObraResponse } from '../../core/models/ruta.model';
 import * as L from 'leaflet';
@@ -260,6 +261,7 @@ import * as L from 'leaflet';
 export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   svc = inject(ObrasService);
   rutasSvc = inject(RutasService);
+  toastSvc = inject(ToastService);
 
   obras = signal<ObraResponse[]>([]);
   obraSeleccionada = signal<ObraResponse | null>(null);
@@ -634,13 +636,13 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
         puntos: puntos.map(p => ({ latitud: p.lat, longitud: p.lng }))
       }).subscribe({
         next: (updated) => {
-          alert(`✅ Trazado de ruta "${updated.nombre}" actualizado con éxito (${this.distanciaTotal()} metros).`);
+          this.toastSvc.show(`Trazado de ruta "${updated.nombre}" actualizado con éxito (${this.distanciaTotal()} metros).`, 'success');
           this.cancelarTrazado();
           this.cargarTodasLasRutas();
         },
         error: (err) => {
           console.error('Error al actualizar trazado:', err);
-          alert('❌ Error al actualizar la ruta.');
+          this.toastSvc.show('Error al actualizar la ruta.', 'error');
         }
       });
     } else {
@@ -652,13 +654,13 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
         puntos: puntos.map(p => ({ latitud: p.lat, longitud: p.lng }))
       }).subscribe({
         next: (nuevaRuta) => {
-          alert(`✅ Ruta lineal "${nuevaRuta.nombre}" guardada con éxito (${this.distanciaTotal()} metros).`);
+          this.toastSvc.show(`Ruta lineal "${nuevaRuta.nombre}" guardada con éxito (${this.distanciaTotal()} metros).`, 'success');
           this.cancelarTrazado();
           this.cargarTodasLasRutas();
         },
         error: (err) => {
           console.error('Error al guardar ruta lineal:', err);
-          alert('❌ Error al guardar la ruta lineal.');
+          this.toastSvc.show('Error al guardar la ruta lineal.', 'error');
         }
       });
     }
@@ -669,9 +671,10 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
       this.rutasSvc.eliminarRuta(rutaId).subscribe({
         next: () => {
           this.rutasGuardadas.update(list => list.filter(r => r.id !== rutaId));
+          this.toastSvc.show('Ruta lineal eliminada correctamente.', 'success');
           this.cargarTodasLasRutas();
         },
-        error: (err) => alert('Error al eliminar la ruta.')
+        error: (err) => this.toastSvc.show('Error al eliminar la ruta.', 'error')
       });
     }
   }
