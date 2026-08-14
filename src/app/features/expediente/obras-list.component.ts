@@ -180,7 +180,12 @@ import * as L from 'leaflet';
           <form class="modal-form" (submit)="crearObra($event)">
             <div class="form-group">
               <label class="form-label">Nombre del Proyecto *</label>
-              <input type="text" name="nombre" class="form-input" placeholder="Ej. Pavimentación Calle Juárez" required>
+              <input type="text" name="nombre" class="form-input" placeholder="Ej. Pavimentación Calle Juárez" required (input)="valNombreTexto.set($any($event.target).value)">
+              @if (valNombreTexto() && valNombreTexto().trim().length < 5) {
+                <span style="font-size:0.75rem; color:#EF4444; font-weight:600; margin-top:4px; display:block;">
+                  ⚠️ Mínimo 5 caracteres (Actual: {{ valNombreTexto().trim().length }})
+                </span>
+              }
             </div>
 
             <!-- Mapa para seleccionar ubicación con cursor -->
@@ -197,14 +202,20 @@ import * as L from 'leaflet';
               <label class="form-label">Ubicación / Dirección</label>
               <input type="text" name="direccion" class="form-input" placeholder="Ej. Sector Sur, Tlaxiaco">
             </div>
+            
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">Fecha Inicio *</label>
-                <input type="date" name="fechaInicio" class="form-input" required>
+                <input type="date" name="fechaInicio" class="form-input" required (change)="valFechaInicio.set($any($event.target).value)">
               </div>
               <div class="form-group">
                 <label class="form-label">Fecha Fin *</label>
-                <input type="date" name="fechaFin" class="form-input" required>
+                <input type="date" name="fechaFin" class="form-input" [min]="valFechaInicio()" required (change)="valFechaFin.set($any($event.target).value)">
+                @if (valFechaFin() && valFechaInicio() && valFechaFin() < valFechaInicio()) {
+                  <span style="font-size:0.75rem; color:#EF4444; font-weight:600; margin-top:4px; display:block;">
+                    ⚠️ La fecha fin no puede ser anterior al inicio
+                  </span>
+                }
               </div>
             </div>
             <div class="form-row">
@@ -234,8 +245,20 @@ import * as L from 'leaflet';
               </select>
             </div>
             <div class="form-group" style="margin-bottom: 24px;">
-              <label class="form-label">Descripción Breve</label>
-              <textarea name="descripcion" class="form-input" rows="3" placeholder="Detalles de la obra..."></textarea>
+              <label class="form-label">Descripción Breve (mín. 10, máx. 500 caracteres)</label>
+              <textarea name="descripcion" class="form-input" rows="3" placeholder="Detalles de la obra..." maxlength="500" (input)="valDescripcionTexto.set($any($event.target).value)"></textarea>
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; margin-top:4px;">
+                @if (valDescripcionTexto().trim().length > 0 && valDescripcionTexto().trim().length < 10) {
+                  <span style="color:#F59E0B; font-weight:600;">⚠️ Mínimo 10 caracteres (faltan {{ 10 - valDescripcionTexto().trim().length }})</span>
+                } @else if (valDescripcionTexto().trim().length > 500) {
+                  <span style="color:#EF4444; font-weight:600;">⚠️ Excede el máximo de 500 caracteres</span>
+                } @else {
+                  <span></span>
+                }
+                <span [style.color]="valDescripcionTexto().trim().length > 500 ? '#EF4444' : 'var(--text-muted)'">
+                  {{ valDescripcionTexto().trim().length }}/500
+                </span>
+              </div>
             </div>
             <div class="modal-actions">
               <button type="button" class="btn btn-secondary" (click)="cerrarModalNuevaObra()">Cancelar</button>
@@ -467,6 +490,13 @@ export class ObrasListComponent implements OnInit {
   mostrarModalNuevaObra = signal(false);
   mostrarModalNuevoExpediente = signal(false);
   mostrarModalIntegracion = signal(false);
+
+  // Señales de validación en vivo de formulario
+  valNombreTexto = signal('');
+  valFechaInicio = signal('');
+  valFechaFin = signal('');
+  valDescripcionTexto = signal('');
+
   responsableSeleccionado = signal('');
   responsables = signal<UserResponse[]>([]);
   todasLasObras = signal<ObraResponse[]>([]);
@@ -608,6 +638,10 @@ export class ObrasListComponent implements OnInit {
       this.modalMap.remove();
       this.modalMap = undefined;
     }
+    this.valNombreTexto.set('');
+    this.valFechaInicio.set('');
+    this.valFechaFin.set('');
+    this.valDescripcionTexto.set('');
     this.mostrarModalNuevaObra.set(false);
   }
 
@@ -663,14 +697,61 @@ export class ObrasListComponent implements OnInit {
 
     const nombre = (formData.get('nombre') as string)?.trim() || '';
     const direccion = (formData.get('direccion') as string)?.trim() || '';
-    const fechaInicio = (formData.get('fechaInicio') as string) || new Date().toISOString().slice(0, 10);
-    const fechaFin = (formData.get('fechaFin') as string) || new Date().toISOString().slice(0, 10);
-    const monto = parseFloat(formData.get('monto') as string) || 1000;
-    const responsableId = Number(formData.get('responsableId')) || (this.responsables()[0]?.id ?? 1);
+    const fechaInicio = (formData.get('fechaInicio') as string) || '';
+    const fechaFin = (formData.get('fechaFin') as string) || '';
+    const rawMonto = formData.get('monto') as string;
+    const monto = parseFloat(rawMonto) || 0;
+    const responsableId = Number(formData.get('responsableId')) || 0;
     const descripcion = (formData.get('descripcion') as string)?.trim() || '';
     const categoria = (formData.get('categoria') as string) || 'Infraestructura General';
     const latitud = this.latitudSeleccionada() ?? 17.266108;
     const longitud = this.longitudSeleccionada() ?? -97.676773;
+
+    // --- VALIDACIONES DE CAMPOS ---
+    if (!nombre || nombre.length < 5) {
+      this.toastSvc.show('⚠️ El nombre de la obra debe contener al menos 5 caracteres.', 'warning');
+      return;
+    }
+
+    if (nombre.length > 150) {
+      this.toastSvc.show('⚠️ El nombre de la obra no debe superar los 150 caracteres.', 'warning');
+      return;
+    }
+
+    if (!fechaInicio) {
+      this.toastSvc.show('⚠️ Debes seleccionar una Fecha de Inicio válida.', 'warning');
+      return;
+    }
+
+    if (!fechaFin) {
+      this.toastSvc.show('⚠️ Debes seleccionar una Fecha de Término válida.', 'warning');
+      return;
+    }
+
+    if (fechaFin < fechaInicio) {
+      this.toastSvc.show('⚠️ La fecha de término no puede ser anterior a la fecha de inicio de la obra.', 'warning');
+      return;
+    }
+
+    if (!rawMonto || monto <= 0) {
+      this.toastSvc.show('⚠️ El presupuesto asignado debe ser mayor a $0.00.', 'warning');
+      return;
+    }
+
+    if (!responsableId) {
+      this.toastSvc.show('⚠️ Debes seleccionar un Responsable a cargo para la obra.', 'warning');
+      return;
+    }
+
+    if (descripcion && descripcion.length < 10) {
+      this.toastSvc.show('⚠️ La descripción breve debe contener al menos 10 caracteres.', 'warning');
+      return;
+    }
+
+    if (descripcion && descripcion.length > 500) {
+      this.toastSvc.show(`⚠️ La descripción breve supera el máximo permitido de 500 caracteres (Actual: ${descripcion.length}).`, 'warning');
+      return;
+    }
 
     // Generar código único válido
     const codigo = 'OBR-' + Date.now().toString().slice(-6);
