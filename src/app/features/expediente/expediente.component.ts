@@ -207,7 +207,7 @@ import html2canvas from 'html2canvas';
 
         <!-- SECCIÓN DE CHECKLIST UNITARIO OFICIAL (FORMATO TLAXIACO 2026) -->
         <div class="card checklist-official-card" id="section-checklist" style="margin-top:24px; border:2px solid var(--border-light); background:var(--bg-surface);">
-            <div class="checklist-header" style="background:var(--bg-dark); padding:20px 24px; border-bottom:2px solid var(--border); display:flex; flex-direction:column; gap:8px;">
+            <div class="checklist-header" style="background:var(--bg-dark); padding:20px 24px; border-bottom:2px solid var(--border); display:flex; flex-direction:column; gap:12px;">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                 <div>
                   <h2 style="font-size:1.1rem; font-weight:800; color:var(--text-primary); margin:0;">
@@ -217,14 +217,28 @@ import html2canvas from 'html2canvas';
                     H. AYUNTAMIENTO MUNICIPAL DE HEROICA CIUDAD DE TLAXIACO · REGIDURÍA DE OBRAS PÚBLICAS
                   </span>
                 </div>
-                <div class="simbologia-strip" style="display:flex; gap:8px; align-items:center; background:rgba(0,0,0,0.3); padding:8px 14px; border-radius:8px; border:1px solid var(--border-light);">
-                  <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">SIMBOLOGÍA:</span>
-                  <span class="badge" style="background:#10B98122; color:#10B981; border:1px solid #10B98144; font-weight:700;">OK (Completo)</span>
-                  <span class="badge" style="background:#EF444422; color:#EF4444; border:1px solid #EF444444; font-weight:700;">F (Faltante)</span>
-                  <span class="badge" style="background:#F59E0B22; color:#F59E0B; border:1px solid #F59E0B44; font-weight:700;">C (A Corregir)</span>
-                  <span class="badge" style="background:#6B728022; color:#9CA3AF; border:1px solid #6B728044; font-weight:700;">N/A (No Aplica)</span>
+                
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                  <!-- Controles Globales de Acordeón -->
+                  <div style="display:flex; gap:6px;">
+                    <button type="button" class="btn btn-secondary btn-sm" (click)="desplegarTodasSecciones()" style="font-size:0.78rem; padding:4px 10px;">
+                      📂 Desplegar Todo
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" (click)="colapsarTodasSecciones()" style="font-size:0.78rem; padding:4px 10px;">
+                      📁 Colapsar Todo
+                    </button>
+                  </div>
+
+                  <div class="simbologia-strip" style="display:flex; gap:8px; align-items:center; background:rgba(0,0,0,0.3); padding:6px 12px; border-radius:8px; border:1px solid var(--border-light);">
+                    <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">SIMBOLOGÍA:</span>
+                    <span class="badge" style="background:#10B98122; color:#10B981; border:1px solid #10B98144; font-weight:700;">OK (Completo)</span>
+                    <span class="badge" style="background:#EF444422; color:#EF4444; border:1px solid #EF444444; font-weight:700;">F (Faltante)</span>
+                    <span class="badge" style="background:#F59E0B22; color:#F59E0B; border:1px solid #F59E0B44; font-weight:700;">C (A Corregir)</span>
+                    <span class="badge" style="background:#6B728022; color:#9CA3AF; border:1px solid #6B728044; font-weight:700;">N/A (No Aplica)</span>
+                  </div>
                 </div>
               </div>
+
               <div style="display:flex; gap:20px; font-size:0.82rem; color:var(--text-muted); padding-top:8px; border-top:1px dashed var(--border);">
                 <span>📍 <strong>Obra:</strong> {{ obra()!.nombre }}</span>
                 <span>📌 <strong>Localidad:</strong> {{ obra()!.direccion || 'Heroica Ciudad de Tlaxiaco' }}</span>
@@ -233,222 +247,270 @@ import html2canvas from 'html2canvas';
             </div>
 
             <!-- ACORDEONES POR SECCIÓN -->
-            <div class="checklist-sections" style="padding:20px 24px; display:flex; flex-direction:column; gap:24px;">
+            <div class="checklist-sections" style="padding:20px 24px; display:flex; flex-direction:column; gap:16px;">
               
               <!-- I. PARTE SOCIAL -->
               <div class="seccion-block" style="border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--bg-dark);">
-                <div class="seccion-header" style="background:rgba(232, 160, 32, 0.1); padding:12px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border);">
-                  <h3 style="font-size:0.95rem; font-weight:800; color:var(--accent); margin:0;">I. PARTE SOCIAL</h3>
-                  <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);">
-                    Avance: {{ getPorcentajeCompletadoSeccion('PARTE_SOCIAL') }}%
-                  </span>
+                <div class="seccion-header interactive-accordion-header" (click)="toggleSeccion('PARTE_SOCIAL')" style="background:rgba(232, 160, 32, 0.1); padding:14px 18px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; border-bottom:1px solid var(--border);">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="accordion-icon" style="color:var(--accent); font-weight:bold; font-size:0.85rem;">{{ isSeccionAbierta('PARTE_SOCIAL') ? '▼' : '►' }}</span>
+                    <h3 style="font-size:0.95rem; font-weight:800; color:var(--accent); margin:0;">I. PARTE SOCIAL</h3>
+                    <span class="badge badge-secondary" style="font-size:0.72rem;">{{ getItemsPorSeccion('PARTE_SOCIAL').length }} Requisitos</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);">
+                      Avance: {{ getPorcentajeCompletadoSeccion('PARTE_SOCIAL') }}%
+                    </span>
+                    <span class="badge" [style.background]="isSeccionAbierta('PARTE_SOCIAL') ? 'rgba(232,160,32,0.25)' : 'rgba(255,255,255,0.08)'" [style.color]="isSeccionAbierta('PARTE_SOCIAL') ? 'var(--accent)' : 'var(--text-muted)'" style="font-size:0.75rem; font-weight:700;">
+                      {{ isSeccionAbierta('PARTE_SOCIAL') ? '▲ Desplegado' : '▼ Minimizado' }}
+                    </span>
+                  </div>
                 </div>
-                <div class="table-responsive">
-                  <table class="table" style="margin:0; width:100%;">
-                    <thead>
-                      <tr style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">
-                        <th style="width:35px; text-align:center;">#</th>
-                        <th style="min-width:240px;">Documento / Requisito Oficial</th>
-                        <th style="width:190px; text-align:center;">Estado (Simbología)</th>
-                        <th style="width:240px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
-                        <th style="min-width:220px;">Observaciones / Notas</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      @for (item of getItemsPorSeccion('PARTE_SOCIAL'); track item.id; let idx = $index) {
-                        <tr class="interactive-row" style="cursor:pointer;" (click)="abrirModalGestionDoc(item)">
-                          <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
-                          <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">
-                            {{ item.documento.nombre }}
-                            @if (item.fechaRevision) {
-                              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:normal; margin-top:2px;">
-                                🕒 Editado: {{ item.fechaRevision | date:'short' }}
-                              </div>
-                            }
-                          </td>
-                          <td style="text-align:center;" (click)="$event.stopPropagation()">
-                            <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
-                              <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
-                              <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
-                              <button type="button" class="btn-pill" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
-                              <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
-                            </div>
-                          </td>
-                          <td style="text-align:center;" (click)="$event.stopPropagation()">
-                            <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
-                              {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
-                            </button>
-                          </td>
-                          <td (click)="$event.stopPropagation()">
-                            <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
-                          </td>
+
+                @if (isSeccionAbierta('PARTE_SOCIAL')) {
+                  <div class="table-responsive animate-fade-in">
+                    <table class="table" style="margin:0; width:100%;">
+                      <thead>
+                        <tr style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">
+                          <th style="width:35px; text-align:center;">#</th>
+                          <th style="min-width:240px;">Documento / Requisito Oficial</th>
+                          <th style="width:190px; text-align:center;">Estado (Simbología)</th>
+                          <th style="width:240px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
+                          <th style="min-width:220px;">Observaciones / Notas</th>
                         </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        @for (item of getItemsPorSeccion('PARTE_SOCIAL'); track item.id; let idx = $index) {
+                          <tr class="interactive-row" style="cursor:pointer;" (click)="abrirModalGestionDoc(item)">
+                            <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
+                            <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">
+                              {{ item.documento.nombre }}
+                              @if (item.fechaRevision) {
+                                <div style="font-size:0.72rem; color:var(--text-muted); font-weight:normal; margin-top:2px;">
+                                  🕒 Editado: {{ item.fechaRevision | date:'short' }}
+                                </div>
+                              }
+                            </td>
+                            <td style="text-align:center;" (click)="$event.stopPropagation()">
+                              <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
+                                <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
+                                <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
+                                <button type="button" class="btn-pill" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
+                                <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
+                              </div>
+                            </td>
+                            <td style="text-align:center;" (click)="$event.stopPropagation()">
+                              <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
+                                {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
+                              </button>
+                            </td>
+                            <td (click)="$event.stopPropagation()">
+                              <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
               </div>
 
               <!-- II. PARTE TÉCNICA O PROYECTO EJECUTIVO -->
               <div class="seccion-block" style="border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--bg-dark);">
-                <div class="seccion-header" style="background:rgba(59, 130, 246, 0.1); padding:12px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border);">
-                  <h3 style="font-size:0.95rem; font-weight:800; color:#60A5FA; margin:0;">II. PARTE TÉCNICA O PROYECTO EJECUTIVO</h3>
-                  <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);">
-                    Avance: {{ getPorcentajeCompletadoSeccion('PROYECTO_EJECUTIVO') }}%
-                  </span>
+                <div class="seccion-header interactive-accordion-header" (click)="toggleSeccion('PROYECTO_EJECUTIVO')" style="background:rgba(59, 130, 246, 0.1); padding:14px 18px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; border-bottom:1px solid var(--border);">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="accordion-icon" style="color:#60A5FA; font-weight:bold; font-size:0.85rem;">{{ isSeccionAbierta('PROYECTO_EJECUTIVO') ? '▼' : '►' }}</span>
+                    <h3 style="font-size:0.95rem; font-weight:800; color:#60A5FA; margin:0;">II. PARTE TÉCNICA O PROYECTO EJECUTIVO</h3>
+                    <span class="badge badge-secondary" style="font-size:0.72rem;">{{ getItemsPorSeccion('PROYECTO_EJECUTIVO').length }} Requisitos</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);">
+                      Avance: {{ getPorcentajeCompletadoSeccion('PROYECTO_EJECUTIVO') }}%
+                    </span>
+                    <span class="badge" [style.background]="isSeccionAbierta('PROYECTO_EJECUTIVO') ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.08)'" [style.color]="isSeccionAbierta('PROYECTO_EJECUTIVO') ? '#60A5FA' : 'var(--text-muted)'" style="font-size:0.75rem; font-weight:700;">
+                      {{ isSeccionAbierta('PROYECTO_EJECUTIVO') ? '▲ Desplegado' : '▼ Minimizado' }}
+                    </span>
+                  </div>
                 </div>
-                <div class="table-responsive">
-                  <table class="table" style="margin:0; width:100%;">
-                    <thead>
-                      <tr style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">
-                        <th style="width:35px; text-align:center;">#</th>
-                        <th style="min-width:240px;">Documento / Requisito Oficial</th>
-                        <th style="width:190px; text-align:center;">Estado (Simbología)</th>
-                        <th style="width:240px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
-                        <th style="min-width:220px;">Observaciones / Notas</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      @for (item of getItemsPorSeccion('PROYECTO_EJECUTIVO'); track item.id; let idx = $index) {
-                        <tr class="interactive-row" style="cursor:pointer;" (click)="abrirModalGestionDoc(item)">
-                          <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
-                          <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">
-                            {{ item.documento.nombre }}
-                            @if (item.fechaRevision) {
-                              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:normal; margin-top:2px;">
-                                🕒 Editado: {{ item.fechaRevision | date:'short' }}
-                              </div>
-                            }
-                          </td>
-                          <td style="text-align:center;" (click)="$event.stopPropagation()">
-                            <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
-                              <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
-                              <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
-                              <button type="button" class="btn-pill" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
-                              <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
-                            </div>
-                          </td>
-                          <td style="text-align:center;" (click)="$event.stopPropagation()">
-                            <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
-                              {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
-                            </button>
-                          </td>
-                          <td (click)="$event.stopPropagation()">
-                            <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
-                          </td>
+
+                @if (isSeccionAbierta('PROYECTO_EJECUTIVO')) {
+                  <div class="table-responsive animate-fade-in">
+                    <table class="table" style="margin:0; width:100%;">
+                      <thead>
+                        <tr style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">
+                          <th style="width:35px; text-align:center;">#</th>
+                          <th style="min-width:240px;">Documento / Requisito Oficial</th>
+                          <th style="width:190px; text-align:center;">Estado (Simbología)</th>
+                          <th style="width:240px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
+                          <th style="min-width:220px;">Observaciones / Notas</th>
                         </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        @for (item of getItemsPorSeccion('PROYECTO_EJECUTIVO'); track item.id; let idx = $index) {
+                          <tr class="interactive-row" style="cursor:pointer;" (click)="abrirModalGestionDoc(item)">
+                            <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
+                            <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">
+                              {{ item.documento.nombre }}
+                              @if (item.fechaRevision) {
+                                <div style="font-size:0.72rem; color:var(--text-muted); font-weight:normal; margin-top:2px;">
+                                  🕒 Editado: {{ item.fechaRevision | date:'short' }}
+                                </div>
+                              }
+                            </td>
+                            <td style="text-align:center;" (click)="$event.stopPropagation()">
+                              <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
+                                <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
+                                <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
+                                <button type="button" class="btn-pill" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
+                                <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
+                              </div>
+                            </td>
+                            <td style="text-align:center;" (click)="$event.stopPropagation()">
+                              <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
+                                {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
+                              </button>
+                            </td>
+                            <td (click)="$event.stopPropagation()">
+                              <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
               </div>
 
               <!-- III. PROCESOS DE CONTRATACIÓN -->
               <div class="seccion-block" style="border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--bg-dark);">
-                <div class="seccion-header" style="background:rgba(168, 85, 247, 0.1); padding:12px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border);">
-                  <h3 style="font-size:0.95rem; font-weight:800; color:#C084FC; margin:0;">III. PROCESOS DE CONTRATACIÓN</h3>
-                  <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);">
-                    Avance: {{ getPorcentajeCompletadoSeccion('PROCESOS_CONTRATACION') }}%
-                  </span>
+                <div class="seccion-header interactive-accordion-header" (click)="toggleSeccion('PROCESOS_CONTRATACION')" style="background:rgba(168, 85, 247, 0.1); padding:14px 18px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; border-bottom:1px solid var(--border);">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="accordion-icon" style="color:#C084FC; font-weight:bold; font-size:0.85rem;">{{ isSeccionAbierta('PROCESOS_CONTRATACION') ? '▼' : '►' }}</span>
+                    <h3 style="font-size:0.95rem; font-weight:800; color:#C084FC; margin:0;">III. PROCESOS DE CONTRATACIÓN</h3>
+                    <span class="badge badge-secondary" style="font-size:0.72rem;">{{ getItemsPorSeccion('PROCESOS_CONTRATACION').length }} Requisitos</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);">
+                      Avance: {{ getPorcentajeCompletadoSeccion('PROCESOS_CONTRATACION') }}%
+                    </span>
+                    <span class="badge" [style.background]="isSeccionAbierta('PROCESOS_CONTRATACION') ? 'rgba(168,85,247,0.25)' : 'rgba(255,255,255,0.08)'" [style.color]="isSeccionAbierta('PROCESOS_CONTRATACION') ? '#C084FC' : 'var(--text-muted)'" style="font-size:0.75rem; font-weight:700;">
+                      {{ isSeccionAbierta('PROCESOS_CONTRATACION') ? '▲ Desplegado' : '▼ Minimizado' }}
+                    </span>
+                  </div>
                 </div>
-                <div class="table-responsive">
-                  <table class="table" style="margin:0; width:100%;">
-                    <thead>
-                      <tr style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">
-                        <th style="width:35px; text-align:center;">#</th>
-                        <th style="min-width:240px;">Documento / Requisito Oficial</th>
-                        <th style="width:190px; text-align:center;">Estado (Simbología)</th>
-                        <th style="width:240px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
-                        <th style="min-width:220px;">Observaciones / Notas</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      @for (item of getItemsPorSeccion('PROCESOS_CONTRATACION'); track item.id; let idx = $index) {
-                        <tr class="interactive-row" style="cursor:pointer;" (click)="abrirModalGestionDoc(item)">
-                          <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
-                          <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">
-                            {{ item.documento.nombre }}
-                            @if (item.fechaRevision) {
-                              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:normal; margin-top:2px;">
-                                🕒 Editado: {{ item.fechaRevision | date:'short' }}
-                              </div>
-                            }
-                          </td>
-                          <td style="text-align:center;" (click)="$event.stopPropagation()">
-                            <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
-                              <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
-                              <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
-                              <button type="button" class="btn-pill" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
-                              <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
-                            </div>
-                          </td>
-                          <td style="text-align:center;" (click)="$event.stopPropagation()">
-                            <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
-                              {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
-                            </button>
-                          </td>
-                          <td (click)="$event.stopPropagation()">
-                            <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
-                          </td>
+
+                @if (isSeccionAbierta('PROCESOS_CONTRATACION')) {
+                  <div class="table-responsive animate-fade-in">
+                    <table class="table" style="margin:0; width:100%;">
+                      <thead>
+                        <tr style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">
+                          <th style="width:35px; text-align:center;">#</th>
+                          <th style="min-width:240px;">Documento / Requisito Oficial</th>
+                          <th style="width:190px; text-align:center;">Estado (Simbología)</th>
+                          <th style="width:240px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
+                          <th style="min-width:220px;">Observaciones / Notas</th>
                         </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        @for (item of getItemsPorSeccion('PROCESOS_CONTRATACION'); track item.id; let idx = $index) {
+                          <tr class="interactive-row" style="cursor:pointer;" (click)="abrirModalGestionDoc(item)">
+                            <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
+                            <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">
+                              {{ item.documento.nombre }}
+                              @if (item.fechaRevision) {
+                                <div style="font-size:0.72rem; color:var(--text-muted); font-weight:normal; margin-top:2px;">
+                                  🕒 Editado: {{ item.fechaRevision | date:'short' }}
+                                </div>
+                              }
+                            </td>
+                            <td style="text-align:center;" (click)="$event.stopPropagation()">
+                              <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
+                                <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
+                                <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
+                                <button type="button" class="btn-pill" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
+                                <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
+                              </div>
+                            </td>
+                            <td style="text-align:center;" (click)="$event.stopPropagation()">
+                              <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
+                                {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
+                              </button>
+                            </td>
+                            <td (click)="$event.stopPropagation()">
+                              <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
               </div>
 
               <!-- IV. DOCUMENTOS COMPROBATORIOS -->
               <div class="seccion-block" style="border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--bg-dark);">
-                <div class="seccion-header" style="background:rgba(16, 185, 129, 0.1); padding:12px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border);">
-                  <h3 style="font-size:0.95rem; font-weight:800; color:#34D399; margin:0;">IV. DOCUMENTOS COMPROBATORIOS</h3>
-                  <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);">
-                    Avance: {{ getPorcentajeCompletadoSeccion('DOCUMENTOS_COMPROBATORIOS') }}%
-                  </span>
+                <div class="seccion-header interactive-accordion-header" (click)="toggleSeccion('DOCUMENTOS_COMPROBATORIOS')" style="background:rgba(16, 185, 129, 0.1); padding:14px 18px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; border-bottom:1px solid var(--border);">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="accordion-icon" style="color:#34D399; font-weight:bold; font-size:0.85rem;">{{ isSeccionAbierta('DOCUMENTOS_COMPROBATORIOS') ? '▼' : '►' }}</span>
+                    <h3 style="font-size:0.95rem; font-weight:800; color:#34D399; margin:0;">IV. DOCUMENTOS COMPROBATORIOS</h3>
+                    <span class="badge badge-secondary" style="font-size:0.72rem;">{{ getItemsPorSeccion('DOCUMENTOS_COMPROBATORIOS').length }} Requisitos</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary);">
+                      Avance: {{ getPorcentajeCompletadoSeccion('DOCUMENTOS_COMPROBATORIOS') }}%
+                    </span>
+                    <span class="badge" [style.background]="isSeccionAbierta('DOCUMENTOS_COMPROBATORIOS') ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.08)'" [style.color]="isSeccionAbierta('DOCUMENTOS_COMPROBATORIOS') ? '#34D399' : 'var(--text-muted)'" style="font-size:0.75rem; font-weight:700;">
+                      {{ isSeccionAbierta('DOCUMENTOS_COMPROBATORIOS') ? '▲ Desplegado' : '▼ Minimizado' }}
+                    </span>
+                  </div>
                 </div>
-                <div class="table-responsive">
-                  <table class="table" style="margin:0; width:100%;">
-                    <thead>
-                      <tr style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">
-                        <th style="width:35px; text-align:center;">#</th>
-                        <th style="min-width:240px;">Documento / Requisito Oficial</th>
-                        <th style="width:190px; text-align:center;">Estado (Simbología)</th>
-                        <th style="width:240px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
-                        <th style="min-width:220px;">Observaciones / Notas</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      @for (item of getItemsPorSeccion('DOCUMENTOS_COMPROBATORIOS'); track item.id; let idx = $index) {
-                        <tr class="interactive-row" style="cursor:pointer;" (click)="abrirModalGestionDoc(item)">
-                          <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
-                          <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">
-                            {{ item.documento.nombre }}
-                            @if (item.fechaRevision) {
-                              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:normal; margin-top:2px;">
-                                🕒 Editado: {{ item.fechaRevision | date:'short' }}
-                              </div>
-                            }
-                          </td>
-                          <td style="text-align:center;" (click)="$event.stopPropagation()">
-                            <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
-                              <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
-                              <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
-                              <button type="button" class="btn-pill" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
-                              <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
-                            </div>
-                          </td>
-                          <td style="text-align:center;" (click)="$event.stopPropagation()">
-                            <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
-                              {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
-                            </button>
-                          </td>
-                          <td (click)="$event.stopPropagation()">
-                            <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
-                          </td>
+
+                @if (isSeccionAbierta('DOCUMENTOS_COMPROBATORIOS')) {
+                  <div class="table-responsive animate-fade-in">
+                    <table class="table" style="margin:0; width:100%;">
+                      <thead>
+                        <tr style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">
+                          <th style="width:35px; text-align:center;">#</th>
+                          <th style="min-width:240px;">Documento / Requisito Oficial</th>
+                          <th style="width:190px; text-align:center;">Estado (Simbología)</th>
+                          <th style="width:240px; text-align:center;">Expediente Digital (.PDF / Imagen)</th>
+                          <th style="min-width:220px;">Observaciones / Notas</th>
                         </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        @for (item of getItemsPorSeccion('DOCUMENTOS_COMPROBATORIOS'); track item.id; let idx = $index) {
+                          <tr class="interactive-row" style="cursor:pointer;" (click)="abrirModalGestionDoc(item)">
+                            <td style="text-align:center; font-weight:700; color:var(--text-muted); font-size:0.8rem;">{{ idx + 1 }}</td>
+                            <td style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">
+                              {{ item.documento.nombre }}
+                              @if (item.fechaRevision) {
+                                <div style="font-size:0.72rem; color:var(--text-muted); font-weight:normal; margin-top:2px;">
+                                  🕒 Editado: {{ item.fechaRevision | date:'short' }}
+                                </div>
+                              }
+                            </td>
+                            <td style="text-align:center;" (click)="$event.stopPropagation()">
+                              <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
+                                <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
+                                <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
+                                <button type="button" class="btn-pill" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
+                                <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
+                              </div>
+                            </td>
+                            <td style="text-align:center;" (click)="$event.stopPropagation()">
+                              <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
+                                {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
+                              </button>
+                            </td>
+                            <td (click)="$event.stopPropagation()">
+                              <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
               </div>
 
             </div>
@@ -866,6 +928,10 @@ import html2canvas from 'html2canvas';
     .tab-main-btn { padding: 10px 20px; border: none; border-bottom: 3px solid transparent; background: transparent; color: var(--text-muted); font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
     .tab-main-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
     .tab-main-btn:hover { color: var(--text-primary); }
+    /* Acordeón Interactivo */
+    .interactive-accordion-header { transition: all 0.2s ease; }
+    .interactive-accordion-header:hover { filter: brightness(1.15); background: rgba(255,255,255,0.04) !important; }
+    .accordion-icon { transition: transform 0.2s ease; display: inline-block; }
   `]
 })
 export class ExpedienteComponent implements OnInit {
@@ -902,6 +968,31 @@ export class ExpedienteComponent implements OnInit {
   mostrarModalIntegracionExp = signal(false);
   carpetaSeleccionadaExp = signal<string | null>(null);
   mostrarModalNuevoExp = signal(false);
+
+  // Estado del Acordeón para las 4 Secciones
+  seccionesAbiertas = signal<Set<string>>(new Set(['PARTE_SOCIAL', 'PROYECTO_EJECUTIVO', 'PROCESOS_CONTRATACION', 'DOCUMENTOS_COMPROBATORIOS']));
+
+  toggleSeccion(seccionKey: string): void {
+    const set = new Set(this.seccionesAbiertas());
+    if (set.has(seccionKey)) {
+      set.delete(seccionKey);
+    } else {
+      set.add(seccionKey);
+    }
+    this.seccionesAbiertas.set(set);
+  }
+
+  isSeccionAbierta(seccionKey: string): boolean {
+    return this.seccionesAbiertas().has(seccionKey);
+  }
+
+  desplegarTodasSecciones(): void {
+    this.seccionesAbiertas.set(new Set(['PARTE_SOCIAL', 'PROYECTO_EJECUTIVO', 'PROCESOS_CONTRATACION', 'DOCUMENTOS_COMPROBATORIOS']));
+  }
+
+  colapsarTodasSecciones(): void {
+    this.seccionesAbiertas.set(new Set());
+  }
 
   abrirModalGestionDoc(item: ExpedienteObraItem): void {
     this.documentoSeleccionado.set(item);
