@@ -1,4 +1,4 @@
-import { Component, AfterViewInit, OnInit, OnDestroy, signal, inject } from '@angular/core';
+import { Component, AfterViewInit, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -13,41 +13,102 @@ import * as L from 'leaflet';
   standalone: true,
   imports: [RouterLink, DecimalPipe, FormsModule],
   template: `
-    <div class="mapa-page animate-fade-in">
-      <div class="mapa-header">
-        <div>
-          <h1 class="mapa-title">🗺️ Geolocalización y Rutas Lineales de Obras</h1>
-          <p class="mapa-subtitle">Visualiza la ubicación GPS y realiza trazados lineales reales (pavimentaciones, vialidades, redes de agua)</p>
-        </div>
-        <div class="leyenda">
-          <button class="ley-item" [class.disabled]="!activeFilters().has('PLANIFICADA')" (click)="toggleFilter('PLANIFICADA')"><span class="ley-dot" style="background:#6366F1"></span>Planificada</button>
-          <button class="ley-item" [class.disabled]="!activeFilters().has('EN_PROCESO')" (click)="toggleFilter('EN_PROCESO')"><span class="ley-dot" style="background:#2DD4BF"></span>En Proceso</button>
-          <button class="ley-item" [class.disabled]="!activeFilters().has('COMPLETADA')" (click)="toggleFilter('COMPLETADA')"><span class="ley-dot" style="background:#3B82F6"></span>Completada</button>
-          <button class="ley-item" [class.disabled]="!activeFilters().has('INACTIVA')" (click)="toggleFilter('INACTIVA')"><span class="ley-dot" style="background:#F59E0B"></span>Inactiva</button>
-          <button class="ley-item" [class.disabled]="!activeFilters().has('CANCELADA')" (click)="toggleFilter('CANCELADA')"><span class="ley-dot" style="background:#EF4444"></span>Cancelada</button>
-        </div>
-      </div>
-      <div class="mapa-layout">
-        <div class="mapa-list">
-          <div class="list-search-info">
-            <span>🔍 Selecciona una obra para ver sus trazados lineales o registrar nuevas rutas</span>
+    <div class="mapa-page animate-fade-in" [class.fullscreen-page]="modoPantallaCompleta()">
+      @if (!modoPantallaCompleta()) {
+        <div class="mapa-header">
+          <div>
+            <h1 class="mapa-title">🗺️ Geolocalización y Rutas Lineales de Obras</h1>
+            <p class="mapa-subtitle">Visualiza la ubicación GPS y realiza trazados lineales reales (pavimentaciones, vialidades, redes de agua)</p>
           </div>
-          @for (obra of obras(); track obra.id) {
-            @if (activeFilters().has(obra.estatus)) {
-              <div class="mapa-obra-card" [class.selected]="obraSeleccionada()?.id === obra.id" (click)="seleccionarObra(obra)">
-                <div class="mapa-obra-top">
-                  <span class="mapa-dot" [style.background]="getColor(obra)"></span>
-                  <span class="mapa-obra-nombre">{{ obra.nombre }}</span>
-                </div>
-                <div class="mapa-obra-meta">
-                  <span class="status-lbl">{{ getStatusText(obra) }}</span>
-                  <span class="badge badge-warning" style="font-size:0.7rem;">🏷️ {{ obra.categoria || 'General' }}</span>
-                </div>
+          <div class="leyenda">
+            <button class="ley-item" [class.disabled]="!activeFilters().has('PLANIFICADA')" (click)="toggleFilter('PLANIFICADA')"><span class="ley-dot" style="background:#6366F1"></span>Planificada</button>
+            <button class="ley-item" [class.disabled]="!activeFilters().has('EN_PROCESO')" (click)="toggleFilter('EN_PROCESO')"><span class="ley-dot" style="background:#2DD4BF"></span>En Proceso</button>
+            <button class="ley-item" [class.disabled]="!activeFilters().has('COMPLETADA')" (click)="toggleFilter('COMPLETADA')"><span class="ley-dot" style="background:#3B82F6"></span>Completada</button>
+            <button class="ley-item" [class.disabled]="!activeFilters().has('INACTIVA')" (click)="toggleFilter('INACTIVA')"><span class="ley-dot" style="background:#F59E0B"></span>Inactiva</button>
+            <button class="ley-item" [class.disabled]="!activeFilters().has('CANCELADA')" (click)="toggleFilter('CANCELADA')"><span class="ley-dot" style="background:#EF4444"></span>Cancelada</button>
+          </div>
+        </div>
+      }
+      
+      <div class="mapa-layout">
+        <!-- Panel Izquierdo: Buscador, Lista y Filtro Exclusivo -->
+        @if (!modoPantallaCompleta()) {
+          <div class="mapa-list">
+          <!-- Buscador e interactivo de obras -->
+          <div class="search-panel-box card">
+            <div class="search-input-wrap">
+              <span class="search-ico">🔍</span>
+              <input 
+                type="text" 
+                placeholder="Buscar por nombre, código o categoría..." 
+                class="form-input search-input-mapa"
+                [value]="textoBusqueda()"
+                (input)="actualizarBusqueda($event)"
+              />
+              @if (textoBusqueda() || obraFiltroExclusivo()) {
+                <button class="btn-clear-search" (click)="limpiarFiltroExclusivo()" title="Limpiar filtro y mostrar todas">✕</button>
+              }
+            </div>
+
+            <!-- Desplegable selector directo de Obra -->
+            <div style="margin-top: 10px;">
+              <select class="form-input select-obra-mapa" (change)="seleccionarObraDesdeSelect($event)" [value]="obraFiltroExclusivo()?.id || ''">
+                <option value="">-- 📍 Seleccionar Obra Específica --</option>
+                @for (ob of obras(); track ob.id) {
+                  <option [value]="ob.id">{{ ob.nombre }} ({{ ob.codigo || 'OBR-' + ob.id }})</option>
+                }
+              </select>
+            </div>
+
+            @if (obraFiltroExclusivo()) {
+              <div class="enfoque-badge" style="margin-top: 10px; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:0.75rem; font-weight:700; color:var(--accent);">🎯 Mostrando solo: {{ obraFiltroExclusivo()!.nombre }}</span>
+                <button class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size:0.7rem;" (click)="limpiarFiltroExclusivo()">Ver todas</button>
               </div>
             }
+          </div>
+
+          <div class="list-search-info">
+            <span>💡 {{ obrasVisibles().length }} obra(s) encontrada(s). Haz clic en una para aislarla en el mapa.</span>
+          </div>
+
+          @for (obra of obrasVisibles(); track obra.id) {
+            <div class="mapa-obra-card" [class.selected]="obraSeleccionada()?.id === obra.id" (click)="seleccionarYEnfocarObra(obra)">
+              <div class="mapa-obra-top">
+                <span class="mapa-dot" [style.background]="getColor(obra)"></span>
+                <span class="mapa-obra-nombre">{{ obra.nombre }}</span>
+              </div>
+              <div class="mapa-obra-meta">
+                <span class="status-lbl">{{ getStatusText(obra) }}</span>
+                <span class="badge badge-warning" style="font-size:0.7rem;">🏷️ {{ obra.categoria || 'General' }}</span>
+              </div>
+            </div>
+          } @empty {
+            <div class="empty-state" style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+              🔍 No se encontraron obras con ese criterio de búsqueda.
+            </div>
           }
         </div>
-        <div class="mapa-container">
+      }
+
+        <!-- Contenedor Principal del Mapa -->
+        <div class="mapa-container" [class.fullscreen-container]="modoPantallaCompleta()">
+          
+          <!-- Toolbar Superior de Controles del Mapa: Capas y Fullscreen -->
+          <div class="mapa-toolbar">
+            <div class="capas-switcher">
+              <span class="switcher-title">🛰️ Vistas del Mapa:</span>
+              <button class="capa-btn" [class.active]="capaMapaActual() === 'dark'" (click)="cambiarCapaMapa('dark')">🌙 Oscuro</button>
+              <button class="capa-btn" [class.active]="capaMapaActual() === 'satellite'" (click)="cambiarCapaMapa('satellite')">🛰️ Satélite Real</button>
+              <button class="capa-btn" [class.active]="capaMapaActual() === 'osm'" (click)="cambiarCapaMapa('osm')">🗺️ Callejero OSM</button>
+            </div>
+            <div class="toolbar-actions">
+              <button class="btn btn-secondary btn-sm" (click)="togglePantallaCompleta()">
+                {{ modoPantallaCompleta() ? '🗗 Salir de Pantalla Completa' : '⛶ Pantalla Completa' }}
+              </button>
+            </div>
+          </div>
+
           <div id="leaflet-map" style="width:100%;height:100%;min-height:520px;border-radius:16px"></div>
           
           <!-- Floating Draggable Banner para Trazado Lineal -->
@@ -74,6 +135,7 @@ import * as L from 'leaflet';
             </div>
           }
 
+          <!-- Tarjeta de Información flotante al seleccionar una Obra -->
           @if (obraSeleccionada() && !modoTrazar()) {
             <div class="mapa-info-popup animate-slide-in"
                  [style.top.px]="popupTop()"
@@ -108,9 +170,16 @@ import * as L from 'leaflet';
                 </div>
               }
 
-              <div style="display:flex; gap:8px; margin-top:14px">
-                <button class="btn btn-secondary btn-sm" style="flex:1" (click)="activarTrazado()">📐 Trazar Ruta Lineal</button>
-                <a [routerLink]="['/obras', obraSeleccionada()!.id]" class="btn btn-primary btn-sm" style="flex:1;text-align:center">📂 Expediente</a>
+              <!-- Botones de Acción -->
+              <div style="display:flex; flex-direction:column; gap:8px; margin-top:14px">
+                <div style="display:flex; gap:8px;">
+                  <button class="btn btn-secondary btn-sm" style="flex:1" (click)="activarTrazado()">📐 Trazar Ruta Lineal</button>
+                  <a [routerLink]="['/obras', obraSeleccionada()!.id]" class="btn btn-primary btn-sm" style="flex:1;text-align:center">📂 Expediente</a>
+                </div>
+                <!-- Botón Navegación GPS directo a Google Maps -->
+                <a [href]="getGoogleMapsUrl(obraSeleccionada()!)" target="_blank" class="btn btn-secondary btn-sm" style="width:100%; text-align:center; background: rgba(59, 130, 246, 0.1); border-color: #3B82F6; color: #60A5FA;">
+                  🚘 Abrir Navegación GPS (Google Maps) ↗
+                </a>
               </div>
             </div>
           }
@@ -119,7 +188,8 @@ import * as L from 'leaflet';
     </div>
   `,
   styles: [`
-    .mapa-page { display: flex; flex-direction: column; gap: 20px; height: calc(100vh - 120px); }
+    .mapa-page { display: flex; flex-direction: column; gap: 20px; height: calc(100vh - 120px); transition: all 0.3s ease; }
+    .mapa-page.fullscreen-page { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; background: var(--bg-dark); padding: 0; margin: 0; }
     .mapa-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
     .mapa-title { font-size: 1.4rem; font-weight: 800; margin-bottom: 4px; }
     .mapa-subtitle { font-size: 0.85rem; color: var(--text-muted); }
@@ -129,8 +199,14 @@ import * as L from 'leaflet';
     .ley-item.disabled { opacity: 0.35; filter: grayscale(1); }
     .ley-dot { width: 10px; height: 10px; border-radius: 50%; }
     .mapa-layout { display: flex; gap: 20px; flex: 1; overflow: hidden; }
-    .mapa-list { width: 320px; flex-shrink: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-    .list-search-info { font-size: 0.8rem; color: var(--text-muted); padding: 8px 12px; border-radius: 8px; background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--border); }
+    .mapa-list { width: 330px; flex-shrink: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    .search-panel-box { padding: 12px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; }
+    .search-input-wrap { position: relative; display: flex; align-items: center; }
+    .search-ico { position: absolute; left: 10px; font-size: 0.85rem; opacity: 0.7; }
+    .search-input-mapa { padding-left: 32px; padding-right: 28px; font-size: 0.8rem; width: 100%; border-radius: 8px; }
+    .btn-clear-search { position: absolute; right: 8px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.85rem; }
+    .select-obra-mapa { font-size: 0.8rem; padding: 6px 10px; border-radius: 8px; background: var(--bg-dark); border: 1px solid var(--border-light); width: 100%; color: var(--text-primary); }
+    .list-search-info { font-size: 0.75rem; color: var(--text-muted); padding: 8px 12px; border-radius: 8px; background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--border); }
     .mapa-obra-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; cursor: pointer; transition: var(--transition); }
     .mapa-obra-card:hover, .mapa-obra-card.selected { border-color: var(--accent); background: var(--bg-surface-hover); }
     .mapa-obra-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
@@ -139,6 +215,16 @@ import * as L from 'leaflet';
     .mapa-obra-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); align-items: center; margin-top:4px; }
     .status-lbl { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
     .mapa-container { flex: 1; position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
+    .mapa-container.fullscreen-container { border-radius: 0; border: none; }
+    
+    /* Toolbar de Capas y Pantalla Completa */
+    .mapa-toolbar { position: absolute; top: 12px; right: 12px; z-index: 1000; display: flex; gap: 12px; align-items: center; background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(8px); padding: 6px 14px; border-radius: 12px; border: 1px solid var(--border-light); }
+    .capas-switcher { display: flex; gap: 6px; align-items: center; }
+    .switcher-title { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-right: 4px; }
+    .capa-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-secondary); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .capa-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+    .capa-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
+    
     .mapa-info-popup { position: absolute; z-index: 1000; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 14px; padding: 18px; width: 340px; box-shadow: var(--shadow-lg); max-height: 80%; overflow-y: auto; cursor: grab; }
     .mapa-info-popup:active { cursor: grabbing; }
     .popup-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
@@ -167,7 +253,12 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
 
   obras = signal<ObraResponse[]>([]);
   obraSeleccionada = signal<ObraResponse | null>(null);
+  obraFiltroExclusivo = signal<ObraResponse | null>(null);
+  textoBusqueda = signal('');
   activeFilters = signal<Set<string>>(new Set(['EN_PROCESO', 'PLANIFICADA', 'INACTIVA', 'COMPLETADA', 'CANCELADA']));
+
+  capaMapaActual = signal<'dark' | 'osm' | 'satellite'>('dark');
+  modoPantallaCompleta = signal(false);
 
   modoTrazar = signal(false);
   puntosTrazados = signal<{ lat: number, lng: number }[]>([]);
@@ -183,6 +274,23 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   private isPopupDragging = false;
   private dragOffset = { x: 0, y: 0 };
   private popupDragOffset = { x: 0, y: 0 };
+
+  // Obras computadas según búsqueda y filtro exclusivo
+  obrasVisibles = computed(() => {
+    if (this.obraFiltroExclusivo()) {
+      return [this.obraFiltroExclusivo()!];
+    }
+    const q = this.textoBusqueda().toLowerCase().trim();
+    return this.obras().filter(obra => {
+      if (!this.activeFilters().has(obra.estatus)) return false;
+      if (!q) return true;
+      const nombreMatch = obra.nombre.toLowerCase().includes(q);
+      const codigoMatch = (obra.codigo || '').toLowerCase().includes(q);
+      const catMatch = (obra.categoria || '').toLowerCase().includes(q);
+      const dirMatch = (obra.direccion || '').toLowerCase().includes(q);
+      return nombreMatch || codigoMatch || catMatch || dirMatch;
+    });
+  });
 
   startPopupDrag(e: MouseEvent) {
     this.isPopupDragging = true;
@@ -225,7 +333,8 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private map?: L.Map;
-  private markersData: { marker: L.Marker; estatus: string }[] = [];
+  private currentTileLayer?: L.TileLayer;
+  private markersData: { marker: L.Marker; estatus: string; obraId: number }[] = [];
   private draftPolyline?: L.Polyline;
   private draftMarkers: L.CircleMarker[] = [];
   private savedPolylines: L.Polyline[] = [];
@@ -257,9 +366,7 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.map) return;
 
     this.map = L.map('leaflet-map', { center: [this.DEFAULT_CENTER.lat, this.DEFAULT_CENTER.lng], zoom: 14 });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
-    }).addTo(this.map);
+    this.aplicarCapaMapa('dark');
 
     this.map.on('click', (e: L.LeafletMouseEvent) => {
       if (this.modoTrazar()) {
@@ -272,6 +379,68 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
     this.refreshMapMarkers();
   }
 
+  cambiarCapaMapa(tipo: 'dark' | 'osm' | 'satellite') {
+    this.capaMapaActual.set(tipo);
+    this.aplicarCapaMapa(tipo);
+  }
+
+  private aplicarCapaMapa(tipo: 'dark' | 'osm' | 'satellite') {
+    if (!this.map) return;
+    if (this.currentTileLayer) {
+      this.map.removeLayer(this.currentTileLayer);
+    }
+
+    let url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    let attrib = '&copy; OpenStreetMap &copy; CARTO';
+
+    if (tipo === 'osm') {
+      url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      attrib = '&copy; OpenStreetMap contributors';
+    } else if (tipo === 'satellite') {
+      url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+      attrib = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community';
+    }
+
+    this.currentTileLayer = L.tileLayer(url, { attribution: attrib, maxZoom: 19 }).addTo(this.map);
+  }
+
+  togglePantallaCompleta() {
+    this.modoPantallaCompleta.set(!this.modoPantallaCompleta());
+    setTimeout(() => this.map?.invalidateSize(), 200);
+  }
+
+  actualizarBusqueda(ev: Event) {
+    const val = (ev.target as HTMLInputElement).value;
+    this.textoBusqueda.set(val);
+    this.refreshMapMarkers();
+  }
+
+  seleccionarObraDesdeSelect(ev: Event) {
+    const val = (ev.target as HTMLSelectElement).value;
+    if (!val) {
+      this.limpiarFiltroExclusivo();
+      return;
+    }
+    const id = Number(val);
+    const ob = this.obras().find(o => o.id === id);
+    if (ob) {
+      this.seleccionarYEnfocarObra(ob);
+    }
+  }
+
+  seleccionarYEnfocarObra(obra: ObraResponse) {
+    this.obraFiltroExclusivo.set(obra);
+    this.seleccionarObra(obra);
+    this.refreshMapMarkers();
+  }
+
+  limpiarFiltroExclusivo() {
+    this.obraFiltroExclusivo.set(null);
+    this.textoBusqueda.set('');
+    this.deseleccionarObra();
+    this.refreshMapMarkers();
+  }
+
   private refreshMapMarkers(): void {
     if (!this.map) return;
 
@@ -279,27 +448,30 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
     this.markersData = [];
 
     const bounds: L.LatLngExpression[] = [];
+    const lista = this.obrasVisibles();
 
-    this.obras().forEach((obra, i) => {
+    lista.forEach((obra, i) => {
       const lat = obra.latitud ?? (this.DEFAULT_CENTER.lat + (i * 0.002));
       const lng = obra.longitud ?? (this.DEFAULT_CENTER.lng + (i * 0.002));
       bounds.push([lat, lng]);
 
       const color = this.getColor(obra);
       const icon = L.divIcon({
-        html: `<div style="width:30px;height:30px;background:${color};border:2px solid #fff;border-radius:50%;box-shadow:0 0 12px ${color}88;display:flex;align-items:center;justify-content:center;font-size:14px;color:white;font-weight:bold;">📍</div>`,
-        className: '', iconSize: [30, 30], iconAnchor: [15, 15]
+        html: `<div style="width:32px;height:32px;background:${color};border:2px solid #fff;border-radius:50%;box-shadow:0 0 14px ${color}aa;display:flex;align-items:center;justify-content:center;font-size:15px;color:white;font-weight:bold;">📍</div>`,
+        className: '', iconSize: [32, 32], iconAnchor: [16, 16]
       });
 
       const marker = L.marker([lat, lng], { icon })
         .bindPopup(`<b style="color:#1a1a1a">${obra.nombre}</b><br>🏷️ ${obra.categoria || 'General'}<br>Estatus: ${this.getStatusText(obra)}`)
         .addTo(this.map!);
 
-      marker.on('click', () => this.seleccionarObra(obra));
-      this.markersData.push({ marker, estatus: obra.estatus });
+      marker.on('click', () => this.seleccionarYEnfocarObra(obra));
+      this.markersData.push({ marker, estatus: obra.estatus, obraId: obra.id });
     });
 
-    if (bounds.length > 0) {
+    if (bounds.length === 1) {
+      this.map.flyTo(bounds[0], 17, { duration: 1.2 });
+    } else if (bounds.length > 1) {
       this.map.fitBounds(L.latLngBounds(bounds), { padding: [50, 50], maxZoom: 16 });
     }
   }
@@ -429,14 +601,7 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
     if (next.has(status)) next.delete(status);
     else next.add(status);
     this.activeFilters.set(next);
-
-    this.markersData.forEach(m => {
-      if (next.has(m.estatus)) {
-        if (!this.map?.hasLayer(m.marker)) m.marker.addTo(this.map!);
-      } else {
-        if (this.map?.hasLayer(m.marker)) m.marker.remove();
-      }
-    });
+    this.refreshMapMarkers();
   }
 
   seleccionarObra(obra: ObraResponse): void {
@@ -448,12 +613,18 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const lat = obra.latitud ?? this.DEFAULT_CENTER.lat;
     const lng = obra.longitud ?? this.DEFAULT_CENTER.lng;
-    this.map?.flyTo([lat, lng], 16, { duration: 1 });
+    this.map?.flyTo([lat, lng], 17, { duration: 1.2 });
   }
 
   deseleccionarObra(): void {
     this.obraSeleccionada.set(null);
     this.rutasGuardadas.set([]);
+  }
+
+  getGoogleMapsUrl(obra: ObraResponse): string {
+    const lat = obra.latitud ?? this.DEFAULT_CENTER.lat;
+    const lng = obra.longitud ?? this.DEFAULT_CENTER.lng;
+    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
   }
 
   truncate(text: string, len = 90): string {
@@ -478,3 +649,4 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
     return ESTATUS_LABEL[obra.estatus] ?? obra.estatus;
   }
 }
+
