@@ -337,7 +337,7 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   private markersData: { marker: L.Marker; estatus: string; obraId: number }[] = [];
   private draftPolyline?: L.Polyline;
   private draftMarkers: L.CircleMarker[] = [];
-  private savedPolylines: L.Polyline[] = [];
+  private savedPolylinesData: { polyline: L.Polyline; obraId: number }[] = [];
 
   readonly DEFAULT_CENTER = { lat: 17.2661075, lng: -97.676773 };
 
@@ -474,11 +474,14 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
     } else if (bounds.length > 1) {
       this.map.fitBounds(L.latLngBounds(bounds), { padding: [50, 50], maxZoom: 16 });
     }
+
+    // Filtrar también las rutas lineales según las obras visibles
+    this.actualizarVisibilidadRutas();
   }
 
   private cargarTodasLasRutas(): void {
-    this.savedPolylines.forEach(p => p.remove());
-    this.savedPolylines = [];
+    this.savedPolylinesData.forEach(item => item.polyline.remove());
+    this.savedPolylinesData = [];
 
     this.obras().forEach(obra => {
       this.rutasSvc.getRutasPorObra(obra.id).subscribe({
@@ -500,13 +503,30 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
                 dashArray: '8, 8'
               }).bindPopup(`<b>🛣️ Ruta: ${r.nombre}</b><br>Obra: ${obra.nombre}`);
               
-              if (this.map) polyline.addTo(this.map);
-              this.savedPolylines.push(polyline);
+              this.savedPolylinesData.push({ polyline, obraId: obra.id });
             }
           });
+          this.actualizarVisibilidadRutas();
         },
         error: () => {}
       });
+    });
+  }
+
+  private actualizarVisibilidadRutas(): void {
+    if (!this.map) return;
+    const idsVisibles = new Set(this.obrasVisibles().map(o => o.id));
+
+    this.savedPolylinesData.forEach(item => {
+      if (idsVisibles.has(item.obraId)) {
+        if (!this.map!.hasLayer(item.polyline)) {
+          item.polyline.addTo(this.map!);
+        }
+      } else {
+        if (this.map!.hasLayer(item.polyline)) {
+          this.map!.removeLayer(item.polyline);
+        }
+      }
     });
   }
 
