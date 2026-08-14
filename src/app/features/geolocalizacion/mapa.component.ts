@@ -111,27 +111,32 @@ import * as L from 'leaflet';
 
           <div id="leaflet-map" style="width:100%;height:100%;min-height:520px;border-radius:16px"></div>
           
-          <!-- Floating Draggable Banner para Trazado Lineal -->
+          <!-- Floating Draggable Banner para Trazado / Edición Lineal -->
           @if (modoTrazar()) {
             <div class="trazar-banner animate-slide-in"
                  [style.top.px]="bannerTop()"
                  [style.left.px]="bannerLeft()"
                  (mousedown)="startDrag($event)">
               <div class="trazar-header">
-                <span>📐 <strong>Modo Trazado Lineal</strong></span>
+                <span>📐 <strong>{{ rutaEnEdicion() ? 'Modificando Trazado: ' + rutaEnEdicion()!.nombre : 'Modo Trazado Lineal' }}</strong></span>
                 <span class="drag-handle">🖐️ Mover</span>
               </div>
-              <p class="trazar-hint">Haz clic sobre la calle en el mapa para marcar los vértices.</p>
+              <p class="trazar-hint">Haz clic sobre la calle en el mapa para {{ rutaEnEdicion() ? 'modificar o agregar vértices a la ruta' : 'marcar los vértices' }}.</p>
               <div class="trazar-meta">
                 <span class="dist-badge">📏 {{ distanciaTotal() }} m</span>
                 <span class="badge badge-info">📍 {{ puntosTrazados().length }} pts</span>
+                @if (rutaEnEdicion()) {
+                  <span class="badge badge-warning">✏️ Editando</span>
+                }
               </div>
               <input type="text" [(ngModel)]="nombreNuevaRuta" (mousedown)="$event.stopPropagation()" placeholder="Nombre de la ruta (ej. Tramo Calle Juárez)" class="form-input form-input-sm">
               <div class="trazar-actions">
                 <button class="btn btn-secondary btn-sm" (click)="deshacerUltimoPunto()" (mousedown)="$event.stopPropagation()" [disabled]="puntosTrazados().length === 0">⏮️ Deshacer</button>
-                <button class="btn btn-primary btn-sm" (click)="guardarRutaLineal()" (mousedown)="$event.stopPropagation()" [disabled]="puntosTrazados().length < 2 || !nombreNuevaRuta.trim()">💾 Guardar</button>
+                <button class="btn btn-primary btn-sm" (click)="guardarRutaLineal()" (mousedown)="$event.stopPropagation()" [disabled]="puntosTrazados().length < 2 || !nombreNuevaRuta.trim()">
+                  {{ rutaEnEdicion() ? '💾 Actualizar Trazado' : '💾 Guardar Ruta' }}
+                </button>
               </div>
-              <button class="btn btn-danger btn-sm" (click)="cancelarTrazado()" (mousedown)="$event.stopPropagation()" style="width:100%">✕ Cancelar Trazado</button>
+              <button class="btn btn-danger btn-sm" (click)="cancelarTrazado()" (mousedown)="$event.stopPropagation()" style="width:100%">✕ Cancelar {{ rutaEnEdicion() ? 'Edición' : 'Trazado' }}</button>
             </div>
           }
 
@@ -157,14 +162,17 @@ import * as L from 'leaflet';
                 <span><strong>Rutas Lineales Guardadas:</strong> {{ rutasGuardadas().length }}</span>
               </div>
               
-              <!-- Rutas existentes -->
+              <!-- Rutas existentes con opción de Modificar y Eliminar -->
               @if (rutasGuardadas().length > 0) {
                 <div class="rutas-lista-wrap">
                   <div class="rutas-lista-title">🛣️ Rutas Trazadas en la Obra:</div>
                   @for (ruta of rutasGuardadas(); track ruta.id) {
                     <div class="ruta-item">
                       <span class="ruta-name">📍 {{ ruta.nombre }} ({{ ruta.puntos.length }} pts)</span>
-                      <button class="btn-del-ruta" (click)="eliminarRuta(ruta.id)" title="Eliminar ruta">🗑️</button>
+                      <div style="display:flex; gap:4px; align-items:center;">
+                        <button class="btn-edit-ruta" (click)="modificarRuta(ruta)" title="Modificar trazado de esta ruta">✏️ Editar</button>
+                        <button class="btn-del-ruta" (click)="eliminarRuta(ruta.id)" title="Eliminar ruta">🗑️</button>
+                      </div>
                     </div>
                   }
                 </div>
@@ -173,7 +181,7 @@ import * as L from 'leaflet';
               <!-- Botones de Acción -->
               <div style="display:flex; flex-direction:column; gap:8px; margin-top:14px">
                 <div style="display:flex; gap:8px;">
-                  <button class="btn btn-secondary btn-sm" style="flex:1" (click)="activarTrazado()">📐 Trazar Ruta Lineal</button>
+                  <button class="btn btn-secondary btn-sm" style="flex:1" (click)="activarTrazado()">📐 Nuevo Trazado</button>
                   <a [routerLink]="['/obras', obraSeleccionada()!.id]" class="btn btn-primary btn-sm" style="flex:1;text-align:center">📂 Expediente</a>
                 </div>
                 <!-- Botón Navegación GPS directo a Google Maps -->
@@ -243,6 +251,8 @@ import * as L from 'leaflet';
     .rutas-lista-wrap { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
     .rutas-lista-title { font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); }
     .ruta-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; color: var(--text-primary); }
+    .btn-edit-ruta { background: rgba(232,160,32,0.15); border: 1px solid var(--accent); color: var(--accent); font-size: 0.7rem; font-weight: 600; padding: 2px 6px; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+    .btn-edit-ruta:hover { background: var(--accent); color: #000; }
     .btn-del-ruta { background: transparent; border: none; cursor: pointer; font-size: 0.85rem; opacity: 0.7; transition: all 0.2s; }
     .btn-del-ruta:hover { opacity: 1; transform: scale(1.1); }
   `]
@@ -261,6 +271,7 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   modoPantallaCompleta = signal(false);
 
   modoTrazar = signal(false);
+  rutaEnEdicion = signal<RutaObraResponse | null>(null);
   puntosTrazados = signal<{ lat: number, lng: number }[]>([]);
   distanciaTotal = signal(0);
   nombreNuevaRuta = '';
@@ -337,7 +348,7 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   private markersData: { marker: L.Marker; estatus: string; obraId: number }[] = [];
   private draftPolyline?: L.Polyline;
   private draftMarkers: L.CircleMarker[] = [];
-  private savedPolylinesData: { polyline: L.Polyline; obraId: number }[] = [];
+  private savedPolylinesData: { polyline: L.Polyline; obraId: number; firstPoint?: { lat: number; lng: number } }[] = [];
 
   readonly DEFAULT_CENTER = { lat: 17.2661075, lng: -97.676773 };
 
@@ -345,7 +356,6 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
     this.svc.getObras({ size: 100 }).subscribe({
       next: (page) => {
         this.obras.set(page.content);
-        this.refreshMapMarkers();
         this.cargarTodasLasRutas();
       },
       error: (err) => console.error('Error al cargar obras en mapa:', err)
@@ -441,6 +451,24 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
     this.refreshMapMarkers();
   }
 
+  // Obtiene coordenadas exactas o deterministas por ID para evitar saltos entre vistas
+  private getCoordenadasObra(obra: ObraResponse): { lat: number; lng: number } {
+    if (obra.latitud != null && obra.longitud != null && !isNaN(obra.latitud) && !isNaN(obra.longitud)) {
+      return { lat: obra.latitud, lng: obra.longitud };
+    }
+    // Si la obra no tiene coordenadas asignadas, usar el primer punto de su ruta trazada si existe
+    const rutaObra = this.savedPolylinesData.find(item => item.obraId === obra.id);
+    if (rutaObra && rutaObra.firstPoint) {
+      return rutaObra.firstPoint;
+    }
+    // Fallback totalmente determinista basado en el ID de la obra
+    const offset = ((obra.id * 17) % 20) * 0.0015 - 0.015;
+    return {
+      lat: this.DEFAULT_CENTER.lat + offset,
+      lng: this.DEFAULT_CENTER.lng + (offset * 0.8)
+    };
+  }
+
   private refreshMapMarkers(): void {
     if (!this.map) return;
 
@@ -450,10 +478,9 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
     const bounds: L.LatLngExpression[] = [];
     const lista = this.obrasVisibles();
 
-    lista.forEach((obra, i) => {
-      const lat = obra.latitud ?? (this.DEFAULT_CENTER.lat + (i * 0.002));
-      const lng = obra.longitud ?? (this.DEFAULT_CENTER.lng + (i * 0.002));
-      bounds.push([lat, lng]);
+    lista.forEach((obra) => {
+      const coords = this.getCoordenadasObra(obra);
+      bounds.push([coords.lat, coords.lng]);
 
       const color = this.getColor(obra);
       const icon = L.divIcon({
@@ -461,7 +488,7 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
         className: '', iconSize: [32, 32], iconAnchor: [16, 16]
       });
 
-      const marker = L.marker([lat, lng], { icon })
+      const marker = L.marker([coords.lat, coords.lng], { icon })
         .bindPopup(`<b style="color:#1a1a1a">${obra.nombre}</b><br>🏷️ ${obra.categoria || 'General'}<br>Estatus: ${this.getStatusText(obra)}`)
         .addTo(this.map!);
 
@@ -492,9 +519,8 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
           const color = this.getColor(obra);
           rutas.forEach(r => {
             if (r.puntos && r.puntos.length >= 2) {
-              const latlngs: [number, number][] = r.puntos
-                .sort((a, b) => a.orden - b.orden)
-                .map(pt => [pt.latitud, pt.longitud]);
+              const puntosOrdenados = [...r.puntos].sort((a, b) => a.orden - b.orden);
+              const latlngs: [number, number][] = puntosOrdenados.map(pt => [pt.latitud, pt.longitud]);
               
               const polyline = L.polyline(latlngs, {
                 color: color,
@@ -503,10 +529,11 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
                 dashArray: '8, 8'
               }).bindPopup(`<b>🛣️ Ruta: ${r.nombre}</b><br>Obra: ${obra.nombre}`);
               
-              this.savedPolylinesData.push({ polyline, obraId: obra.id });
+              const firstPt = puntosOrdenados[0] ? { lat: puntosOrdenados[0].latitud, lng: puntosOrdenados[0].longitud } : undefined;
+              this.savedPolylinesData.push({ polyline, obraId: obra.id, firstPoint: firstPt });
             }
           });
-          this.actualizarVisibilidadRutas();
+          this.refreshMapMarkers();
         },
         error: () => {}
       });
@@ -532,14 +559,25 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
 
   activarTrazado(): void {
     if (!this.obraSeleccionada()) return;
+    this.rutaEnEdicion.set(null);
     this.modoTrazar.set(true);
     this.puntosTrazados.set([]);
     this.distanciaTotal.set(0);
     this.nombreNuevaRuta = `Tramo ${this.obraSeleccionada()!.nombre}`;
   }
 
+  modificarRuta(ruta: RutaObraResponse): void {
+    this.rutaEnEdicion.set(ruta);
+    this.nombreNuevaRuta = ruta.nombre;
+    const pts = [...ruta.puntos].sort((a, b) => a.orden - b.orden).map(p => ({ lat: p.latitud, lng: p.longitud }));
+    this.puntosTrazados.set(pts);
+    this.modoTrazar.set(true);
+    this.actualizarBorradorRuta();
+  }
+
   cancelarTrazado(): void {
     this.modoTrazar.set(false);
+    this.rutaEnEdicion.set(null);
     this.puntosTrazados.set([]);
     this.limpiarBorradorRuta();
   }
@@ -586,22 +624,44 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
     const puntos = this.puntosTrazados();
     if (!currentObra || puntos.length < 2 || !this.nombreNuevaRuta.trim()) return;
 
-    this.rutasSvc.crearRuta({
-      obraId: currentObra.id,
-      nombre: this.nombreNuevaRuta.trim(),
-      descripcion: `Distancia aproximada: ${this.distanciaTotal()} m`,
-      puntos: puntos.map(p => ({ latitud: p.lat, longitud: p.lng }))
-    }).subscribe({
-      next: (nuevaRuta) => {
-        alert(`✅ Ruta lineal "${nuevaRuta.nombre}" guardada con éxito (${this.distanciaTotal()} metros).`);
-        this.cancelarTrazado();
-        this.cargarTodasLasRutas();
-      },
-      error: (err) => {
-        console.error('Error al guardar ruta lineal:', err);
-        alert('❌ Error al guardar la ruta lineal.');
-      }
-    });
+    const rutaEdit = this.rutaEnEdicion();
+
+    if (rutaEdit) {
+      // Actualizar trazado existente (PUT /rutas/{id})
+      this.rutasSvc.actualizarRuta(rutaEdit.id, {
+        nombre: this.nombreNuevaRuta.trim(),
+        descripcion: `Distancia aproximada: ${this.distanciaTotal()} m`,
+        puntos: puntos.map(p => ({ latitud: p.lat, longitud: p.lng }))
+      }).subscribe({
+        next: (updated) => {
+          alert(`✅ Trazado de ruta "${updated.nombre}" actualizado con éxito (${this.distanciaTotal()} metros).`);
+          this.cancelarTrazado();
+          this.cargarTodasLasRutas();
+        },
+        error: (err) => {
+          console.error('Error al actualizar trazado:', err);
+          alert('❌ Error al actualizar la ruta.');
+        }
+      });
+    } else {
+      // Crear nuevo trazado (POST /rutas)
+      this.rutasSvc.crearRuta({
+        obraId: currentObra.id,
+        nombre: this.nombreNuevaRuta.trim(),
+        descripcion: `Distancia aproximada: ${this.distanciaTotal()} m`,
+        puntos: puntos.map(p => ({ latitud: p.lat, longitud: p.lng }))
+      }).subscribe({
+        next: (nuevaRuta) => {
+          alert(`✅ Ruta lineal "${nuevaRuta.nombre}" guardada con éxito (${this.distanciaTotal()} metros).`);
+          this.cancelarTrazado();
+          this.cargarTodasLasRutas();
+        },
+        error: (err) => {
+          console.error('Error al guardar ruta lineal:', err);
+          alert('❌ Error al guardar la ruta lineal.');
+        }
+      });
+    }
   }
 
   eliminarRuta(rutaId: number): void {
@@ -631,9 +691,8 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
       error: () => this.rutasGuardadas.set([])
     });
 
-    const lat = obra.latitud ?? this.DEFAULT_CENTER.lat;
-    const lng = obra.longitud ?? this.DEFAULT_CENTER.lng;
-    this.map?.flyTo([lat, lng], 17, { duration: 1.2 });
+    const coords = this.getCoordenadasObra(obra);
+    this.map?.flyTo([coords.lat, coords.lng], 17, { duration: 1.2 });
   }
 
   deseleccionarObra(): void {
@@ -642,9 +701,8 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   getGoogleMapsUrl(obra: ObraResponse): string {
-    const lat = obra.latitud ?? this.DEFAULT_CENTER.lat;
-    const lng = obra.longitud ?? this.DEFAULT_CENTER.lng;
-    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    const coords = this.getCoordenadasObra(obra);
+    return `https://www.google.com/maps/dir/?api=1&destination=${coords.lat},${coords.lng}`;
   }
 
   truncate(text: string, len = 90): string {
