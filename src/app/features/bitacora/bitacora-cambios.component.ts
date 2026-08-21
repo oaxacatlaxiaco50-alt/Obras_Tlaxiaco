@@ -1,14 +1,17 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { AuditLogService } from '../../core/services/audit-log.service';
 import { AuditLog } from '../../core/models/audit-log.model';
 import { AuditLogsComponent } from '../audit/audit-logs.component';
 
+export type PeriodoFiltro = 'dia' | 'semana' | 'mes' | 'todo';
+
 @Component({
   selector: 'app-bitacora-cambios',
   standalone: true,
-  imports: [CommonModule, AuditLogsComponent],
+  imports: [CommonModule, FormsModule, AuditLogsComponent],
   template: `
     @if (auth.hasRole('admin')) {
       <div class="bc-wrapper animate-fade-in">
@@ -16,10 +19,25 @@ import { AuditLogsComponent } from '../audit/audit-logs.component';
         <div class="bc-header">
           <div>
             <h1 class="bc-title">🔒 Bitácora de Cambios</h1>
-            <p class="bc-subtitle">Acciones registradas esta semana · Solo Administrador</p>
+            <p class="bc-subtitle">Acciones registradas (filtrado por {{ getLabelPeriodo() }}) · Solo Administrador</p>
           </div>
-          <div class="bc-semana-badge">
-            <span>📅 Semana actual: {{ rangoSemana() }}</span>
+          <div class="bc-header-controls">
+            <div class="bc-period-selector">
+              <label class="period-label">📅 Periodo:</label>
+              <select
+                class="period-select"
+                [ngModel]="filtroPeriodo()"
+                (ngModelChange)="filtroPeriodo.set($event)"
+              >
+                <option value="dia">Hoy</option>
+                <option value="semana">Esta Semana</option>
+                <option value="mes">Este Mes</option>
+                <option value="todo">Todo el Historial</option>
+              </select>
+            </div>
+            <div class="bc-semana-badge">
+              <span>{{ getTextoPeriodo() }}</span>
+            </div>
           </div>
         </div>
 
@@ -90,7 +108,7 @@ import { AuditLogsComponent } from '../audit/audit-logs.component';
                 <tr>
                   <td colspan="7" class="bc-empty">
                     <div class="empty-icon">✅</div>
-                    <div>Sin cambios críticos esta semana</div>
+                    <div>Sin registros en el periodo seleccionado ({{ getLabelPeriodo() }})</div>
                   </td>
                 </tr>
               }
@@ -101,7 +119,7 @@ import { AuditLogsComponent } from '../audit/audit-logs.component';
         <!-- Nota de acceso -->
         <div class="bc-nota">
           🔐 Esta vista es exclusiva para el rol <strong>Administrador</strong>.
-          Se filtra automáticamente por la semana actual (lunes a domingo).
+          Puedes cambiar el periodo de consulta usando el filtro superior.
         </div>
 
         <!-- Logs de Auditoría completas al final de la página -->
@@ -123,10 +141,25 @@ import { AuditLogsComponent } from '../audit/audit-logs.component';
     .bc-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; }
     .bc-title { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
     .bc-subtitle { font-size: 0.82rem; color: var(--text-muted); }
+    .bc-header-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    
+    .bc-period-selector {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 6px 12px;
+    }
+    .period-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+    .period-select {
+      background: var(--bg-dark); border: 1px solid var(--border);
+      color: var(--text-primary); border-radius: 6px; padding: 4px 8px;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer; outline: none;
+    }
+    .period-select:focus { border-color: var(--accent); }
+
     .bc-semana-badge {
       background: rgba(232,160,32,0.12); border: 1px solid rgba(232,160,32,0.3);
       color: var(--accent); border-radius: 10px; padding: 8px 16px;
-      font-size: 0.82rem; font-weight: 600; align-self: flex-start;
+      font-size: 0.82rem; font-weight: 600;
     }
 
     .bc-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
@@ -214,6 +247,8 @@ export class BitacoraCambiosComponent implements OnInit {
   private auditSvc = inject(AuditLogService);
   auth = inject(AuthService);
 
+  filtroPeriodo = signal<PeriodoFiltro>('semana');
+
   // Acciones del backend que corresponden a editar/crear
   private readonly EDIT_ACTIONS = [
     'CREACION_OBRA', 'MODIFICACION_OBRA', 'ACTUALIZACION_MONTOS_FECHAS',
@@ -227,25 +262,33 @@ export class BitacoraCambiosComponent implements OnInit {
 
   private _todos = signal<AuditLog[]>([]);
 
-  // Filtra acciones de editar/eliminar de la semana actual
+  // Filtra acciones según el periodo seleccionado (día, semana, mes, todo)
   entradas = computed(() => {
-    const inicioSemana = (() => {
-      const d = new Date();
-      const day = d.getDay();
-      d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-      d.setHours(0, 0, 0, 0);
-      return d;
-    })();
+    const ahora = new Date();
+    const periodo = this.filtroPeriodo();
+
+    let fechaLimite: Date | null = null;
+    if (periodo === 'dia') {
+      fechaLimite = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0);
+    } else if (periodo === 'semana') {
+      const day = ahora.getDay();
+      fechaLimite = new Date(ahora);
+      fechaLimite.setDate(ahora.getDate() - (day === 0 ? 6 : day - 1));
+      fechaLimite.setHours(0, 0, 0, 0);
+    } else if (periodo === 'mes') {
+      fechaLimite = new Date(ahora.getFullYear(), ahora.getMonth(), 1, 0, 0, 0);
+    }
+
     return this._todos().filter(e => {
       const accion = e.action ?? '';
       const esCambio = [...this.EDIT_ACTIONS, ...this.DELETE_ACTIONS].includes(accion);
-      const fechaLog = new Date(e.timestamp);
-      return esCambio && fechaLog >= inicioSemana;
+      if (!esCambio) return false;
+      if (!fechaLimite) return true;
+      return new Date(e.timestamp) >= fechaLimite;
     });
   });
 
   ngOnInit() {
-    // Usar audit-logs que tiene el campo action real
     this.auditSvc.getLogs({ page: 0, size: 500 }).subscribe({
       next: (res) => this._todos.set(res.content),
       error: (err) => console.error('Error cargando audit logs', err)
@@ -265,6 +308,24 @@ export class BitacoraCambiosComponent implements OnInit {
   totalEliminaciones = computed(() => this.entradas().filter(e => this.esEliminar(e)).length);
   usuariosActivos    = computed(() => new Set(this.entradas().map(e => e.username)).size);
 
+  getLabelPeriodo(): string {
+    const labels: Record<PeriodoFiltro, string> = {
+      dia: 'hoy',
+      semana: 'esta semana',
+      mes: 'este mes',
+      todo: 'historial completo'
+    };
+    return labels[this.filtroPeriodo()];
+  }
+
+  getTextoPeriodo(): string {
+    const p = this.filtroPeriodo();
+    if (p === 'dia') return '📅 Hoy: ' + new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+    if (p === 'semana') return '📅 Semana: ' + this.rangoSemana();
+    if (p === 'mes') return '📅 Mes: ' + new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+    return '📅 Todo el Historial';
+  }
+
   rangoSemana(): string {
     const hoy = new Date();
     const dia = hoy.getDay();
@@ -283,3 +344,4 @@ export class BitacoraCambiosComponent implements OnInit {
     return new Date(ts).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
   }
 }
+
