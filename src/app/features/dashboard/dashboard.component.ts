@@ -36,13 +36,13 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   mostrarModalNuevaObra = signal(false);
 
+  private viewReady = false;
+
   ngOnInit() {
     this.svc.getObras({ size: 100 }).subscribe({
       next: (page) => {
         const list = page.content;
         this.obras.set(list);
-        // Calcular avance promedio (usando ultimo-porcentaje endpoint no disponible en lista,
-        // usamos estimación basada en estatus)
         const completadas = list.filter(o => o.estatus === 'COMPLETADA').length;
         this.avancePromedio.set(list.length ? Math.round((completadas / list.length) * 100) : 0);
         this.conteo.set({
@@ -53,6 +53,14 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
           enProceso:   list.filter(o => o.estatus === 'PLANIFICADA').length,
         });
         this.cargando.set(false);
+        // Render charts only after view is ready AND data has arrived
+        if (this.viewReady && isPlatformBrowser(this.platformId)) {
+          setTimeout(() => {
+            this.destroyCharts();
+            this.initPieAvanceChart();
+            this.initDonutChart();
+          }, 100);
+        }
       },
       error: () => this.cargando.set(false)
     });
@@ -93,18 +101,27 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngAfterViewInit() {
     if (isPlatformBrowser(this.platformId)) {
-      setTimeout(() => {
-        this.initPieAvanceChart();
-        this.initDonutChart();
-      }, 50);
+      this.viewReady = true;
+      // If data already loaded when view is ready, render charts now
+      if (!this.cargando()) {
+        setTimeout(() => {
+          this.destroyCharts();
+          this.initPieAvanceChart();
+          this.initDonutChart();
+        }, 100);
+      }
     }
   }
 
   ngOnDestroy() {
-    if (isPlatformBrowser(this.platformId)) {
-      this.pieAvanceChart?.destroy();
-      this.donutChart?.destroy();
-    }
+    this.destroyCharts();
+  }
+
+  private destroyCharts() {
+    this.pieAvanceChart?.destroy();
+    this.pieAvanceChart = undefined;
+    this.donutChart?.destroy();
+    this.donutChart = undefined;
   }
 
   private initPieAvanceChart() {
