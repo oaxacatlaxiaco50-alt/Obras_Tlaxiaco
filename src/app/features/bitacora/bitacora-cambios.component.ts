@@ -1,8 +1,8 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { BitacoraService } from '../../core/services/bitacora.service';
 import { AuthService } from '../../core/services/auth.service';
-import { EntradaBitacora } from '../../core/models/bitacora.model';
+import { AuditLogService } from '../../core/services/audit-log.service';
+import { AuditLog } from '../../core/models/audit-log.model';
 
 @Component({
   selector: 'app-bitacora-cambios',
@@ -58,34 +58,30 @@ import { EntradaBitacora } from '../../core/models/bitacora.model';
             </thead>
             <tbody>
               @for (e of entradas(); track e.id; let idx = $index) {
-                <tr class="bc-row" [class.bc-eliminar]="e.accion === 'Eliminar'" [class.bc-editar]="e.accion === 'Editar'">
+                <tr class="bc-row" [class.bc-eliminar]="esEliminar(e)" [class.bc-editar]="esEditar(e)">
                   <td class="bc-num">{{ idx + 1 }}</td>
                   <td class="bc-fecha">
-                    <span class="fecha-dia">{{ fmtDia(e.fecha) }}</span>
-                    <span class="fecha-hora">{{ fmtHora(e.fecha) }}</span>
+                    <span class="fecha-dia">{{ fmtDia(e.timestamp) }}</span>
+                    <span class="fecha-hora">{{ fmtHora(e.timestamp) }}</span>
                   </td>
                   <td class="bc-usuario">
                     <div class="user-chip">
-                      <span class="avatar-mini">{{ e.usuario.split(' ').map(p => p[0]).join('').slice(0,2) }}</span>
+                      <span class="avatar-mini">{{ e.username.charAt(0).toUpperCase() }}</span>
                       <div>
-                        <div class="user-nombre">{{ e.usuario }}</div>
-                        <div class="user-rol">{{ e.rol }}</div>
+                        <div class="user-nombre">{{ e.username }}</div>
+                        <div class="user-rol">{{ e.module }}</div>
                       </div>
                     </div>
                   </td>
                   <td>
-                    <span class="badge-accion" [attr.data-accion]="e.accion">
-                      {{ e.accion === 'Editar' ? '✏️' : '🗑️' }} {{ e.accion }}
+                    <span class="badge-accion" [attr.data-accion]="accionLabel(e)">
+                      {{ accionLabel(e) === 'Editar' ? '✏️' : '🗑️' }} {{ accionLabel(e) }}
                     </span>
                   </td>
-                  <td class="bc-modulo">{{ e.modulo }}</td>
-                  <td class="bc-desc">{{ e.descripcion }}</td>
+                  <td class="bc-modulo">{{ e.module }}</td>
+                  <td class="bc-desc">{{ e.newData ? 'Actualización de obra' : e.action }}</td>
                   <td class="bc-obra">
-                    @if (e.obraNombre) {
-                      <span class="obra-link">{{ e.obraNombre }}</span>
-                    } @else {
-                      <span class="obra-vacia">—</span>
-                    }
+                    <span class="obra-link">{{ e.module }}</span>
                   </td>
                 </tr>
               }
@@ -209,12 +205,23 @@ import { EntradaBitacora } from '../../core/models/bitacora.model';
   `]
 })
 export class BitacoraCambiosComponent implements OnInit {
-  private bitacoraService = inject(BitacoraService);
+  private auditSvc = inject(AuditLogService);
   auth = inject(AuthService);
 
-  private _todas = signal<EntradaBitacora[]>([]);
+  // Acciones del backend que corresponden a editar/eliminar
+  private readonly EDIT_ACTIONS = [
+    'MODIFICACION_OBRA', 'ACTUALIZACION_MONTOS_FECHAS',
+    'ASIGNACION_RESPONSABLES', 'CAMBIO_ESTATUS',
+    'UPDATE', 'PATCH'
+  ];
+  private readonly DELETE_ACTIONS = [
+    'ELIMINACION_OBRA', 'ELIMINACION_ARCHIVO',
+    'ELIMINACION_AVANCE', 'DELETE'
+  ];
 
-  // Filtra acciones de tipo Editar o Eliminar de la semana actual
+  private _todos = signal<AuditLog[]>([]);
+
+  // Filtra acciones de editar/eliminar de la semana actual
   entradas = computed(() => {
     const inicioSemana = (() => {
       const d = new Date();
@@ -223,23 +230,34 @@ export class BitacoraCambiosComponent implements OnInit {
       d.setHours(0, 0, 0, 0);
       return d;
     })();
-    return this._todas().filter(e =>
-      ['Editar', 'Eliminar'].includes(e.accion) && e.fecha >= inicioSemana
-    );
+    return this._todos().filter(e => {
+      const accion = e.action ?? '';
+      const esCambio = [...this.EDIT_ACTIONS, ...this.DELETE_ACTIONS].includes(accion);
+      const fechaLog = new Date(e.timestamp);
+      return esCambio && fechaLog >= inicioSemana;
+    });
   });
 
   ngOnInit() {
-    // Cargar con tamaño grande para poder filtrar en frontend por semana
-    this.bitacoraService.getHistorialGeneral(0, 200).subscribe({
-      next: (data) => this._todas.set(data),
-      error: (err) => console.error('Error cargando bitácora de cambios', err)
+    // Usar audit-logs que tiene el campo action real
+    this.auditSvc.getLogs({ page: 0, size: 500 }).subscribe({
+      next: (res) => this._todos.set(res.content),
+      error: (err) => console.error('Error cargando audit logs', err)
     });
   }
 
+  esEditar(e: AuditLog)   { return this.EDIT_ACTIONS.includes(e.action ?? ''); }
+  esEliminar(e: AuditLog) { return this.DELETE_ACTIONS.includes(e.action ?? ''); }
+  accionLabel(e: AuditLog): string {
+    if (this.DELETE_ACTIONS.includes(e.action ?? '')) return 'Eliminar';
+    if (this.EDIT_ACTIONS.includes(e.action ?? ''))   return 'Editar';
+    return 'Otro';
+  }
+
   totalCambios       = computed(() => this.entradas().length);
-  totalEdiciones     = computed(() => this.entradas().filter(e => e.accion === 'Editar').length);
-  totalEliminaciones = computed(() => this.entradas().filter(e => e.accion === 'Eliminar').length);
-  usuariosActivos    = computed(() => new Set(this.entradas().map(e => e.usuario)).size);
+  totalEdiciones     = computed(() => this.entradas().filter(e => this.esEditar(e)).length);
+  totalEliminaciones = computed(() => this.entradas().filter(e => this.esEliminar(e)).length);
+  usuariosActivos    = computed(() => new Set(this.entradas().map(e => e.username)).size);
 
   rangoSemana(): string {
     const hoy = new Date();
@@ -252,10 +270,10 @@ export class BitacoraCambiosComponent implements OnInit {
     return `${fmt(lunes)} – ${fmt(domingo)}`;
   }
 
-  fmtDia(d: Date): string {
-    return d.toLocaleDateString('es-MX', { weekday: 'short', day: '2-digit', month: 'short' });
+  fmtDia(ts: string): string {
+    return new Date(ts).toLocaleDateString('es-MX', { weekday: 'short', day: '2-digit', month: 'short' });
   }
-  fmtHora(d: Date): string {
-    return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+  fmtHora(ts: string): string {
+    return new Date(ts).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
   }
 }
