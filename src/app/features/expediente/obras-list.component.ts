@@ -466,8 +466,8 @@ import * as L from 'leaflet';
     .file-size { font-size: 0.75rem; color: var(--text-muted); }
 
     /* Modal Overlay Styles */
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-    .modal-content { background: var(--bg-surface); width: 90%; max-width: 500px; border-radius: var(--radius-lg); border: 1px solid var(--border-light); box-shadow: var(--shadow-lg); overflow: hidden; display: flex; flex-direction: column; }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: flex; align-items: flex-start; justify-content: center; z-index: 10000; overflow-y: auto; padding-top: 60px; padding-bottom: 60px; }
+    .modal-content { background: var(--bg-surface); width: 90%; max-width: 500px; border-radius: var(--radius-lg); border: 1px solid var(--border-light); box-shadow: var(--shadow-lg); overflow: hidden; display: flex; flex-direction: column; margin: auto; }
     .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); }
     .modal-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
     .btn-close { background: transparent; border: none; font-size: 1.2rem; color: var(--text-muted); cursor: pointer; transition: var(--transition); }
