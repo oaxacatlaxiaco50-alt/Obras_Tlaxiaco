@@ -169,56 +169,38 @@ import * as L from 'leaflet';
       <!-- Modal Nueva Obra -->
       @if (mostrarModalNuevaObra()) {
       <div class="modal-overlay animate-fade-in">
-        <div class="modal-content animate-slide-in" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+        <div class="modal-content animate-slide-in" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
           <div class="modal-header">
             <h2 class="modal-title">🏗️ Crear Nueva Obra</h2>
             <button class="btn-close" (click)="cerrarModalNuevaObra()">✕</button>
           </div>
           <form class="modal-form" (submit)="crearObra($event)">
-            <div class="form-group">
-              <label class="form-label">Nombre del Proyecto *</label>
-              <input type="text" name="nombre" class="form-input" placeholder="Ej. Pavimentación Calle Juárez" required (input)="valNombreTexto.set($any($event.target).value)">
-              @if (valNombreTexto() && valNombreTexto().trim().length < 5) {
-                <span style="font-size:0.75rem; color:#EF4444; font-weight:600; margin-top:4px; display:block;">
-                  ⚠️ Mínimo 5 caracteres (Actual: {{ valNombreTexto().trim().length }})
-                </span>
-              }
-            </div>
-
-            <!-- Mapa para seleccionar ubicación con cursor -->
-            <div class="form-group">
-              <label class="form-label">📍 Seleccionar Ubicación en el Mapa (Haz clic o arrastra el marcador)</label>
-              <div id="modal-map" style="width: 100%; height: 220px; border-radius: 10px; margin-top: 6px; border: 1px solid var(--border); overflow: hidden; background: #0b131e;"></div>
-              <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--accent); margin-top: 6px; background: rgba(0,0,0,0.25); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);">
-                <span>Latitud: <strong>{{ latitudSeleccionada() ?? 17.266108 }}</strong></span>
-                <span>Longitud: <strong>{{ longitudSeleccionada() ?? -97.676773 }}</strong></span>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Ubicación / Dirección</label>
-              <input type="text" name="direccion" class="form-input" placeholder="Ej. Sector Sur, Tlaxiaco">
-            </div>
             
-            <div class="form-row">
+            <div class="form-row" style="grid-template-columns: 2fr 1fr;">
               <div class="form-group">
-                <label class="form-label">Fecha Inicio *</label>
-                <input type="date" name="fechaInicio" class="form-input" required (change)="valFechaInicio.set($any($event.target).value)">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Fecha Fin *</label>
-                <input type="date" name="fechaFin" class="form-input" [min]="valFechaInicio()" required (change)="valFechaFin.set($any($event.target).value)">
-                @if (valFechaFin() && valFechaInicio() && valFechaFin() < valFechaInicio()) {
+                <label class="form-label">Nombre del Proyecto *</label>
+                <input type="text" name="nombre" class="form-input" placeholder="Ej. Pavimentación Calle Juárez" required (input)="valNombreTexto.set($any($event.target).value)">
+                @if (valNombreTexto() && valNombreTexto().trim().length < 5) {
                   <span style="font-size:0.75rem; color:#EF4444; font-weight:600; margin-top:4px; display:block;">
-                    ⚠️ La fecha fin no puede ser anterior al inicio
+                    ⚠️ Mínimo 5 caracteres (Actual: {{ valNombreTexto().trim().length }})
                   </span>
                 }
               </div>
+              <div class="form-group">
+                <label class="form-label">Responsable a Cargo *</label>
+                <select class="form-input" name="responsableId" required>
+                  <option value="" disabled selected>— Selecciona —</option>
+                  @for (u of responsables(); track u.id) {
+                    <option [value]="u.id">{{ u.firstName }} {{ u.lastName }} (ID: {{ u.id }})</option>
+                  }
+                </select>
+              </div>
             </div>
+
             <div class="form-row">
               <div class="form-group">
-                <label class="form-label">Presupuesto Asignado ($) *</label>
-                <input type="number" name="monto" class="form-input" placeholder="0.00" min="1" step="0.01" required>
+                <label class="form-label">Ubicación / Dirección</label>
+                <input type="text" name="direccion" class="form-input" placeholder="Ej. Sector Sur, Tlaxiaco">
               </div>
               <div class="form-group">
                 <label class="form-label">Categoría de Obra *</label>
@@ -232,31 +214,57 @@ import * as L from 'leaflet';
                 </select>
               </div>
             </div>
-            <div class="form-group">
-              <label class="form-label">Responsable a Cargo *</label>
-              <select class="form-input" name="responsableId" required>
-                <option value="" disabled selected>— Selecciona un responsable —</option>
-                @for (u of responsables(); track u.id) {
-                  <option [value]="u.id">{{ u.firstName }} {{ u.lastName }} (ID: {{ u.id }})</option>
+
+            <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr;">
+              <div class="form-group">
+                <label class="form-label">Fecha Inicio *</label>
+                <input type="date" name="fechaInicio" class="form-input" required (change)="valFechaInicio.set($any($event.target).value)">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Fecha Fin *</label>
+                <input type="date" name="fechaFin" class="form-input" [min]="valFechaInicio()" required (change)="valFechaFin.set($any($event.target).value)">
+                @if (valFechaFin() && valFechaInicio() && valFechaFin() < valFechaInicio()) {
+                  <span style="font-size:0.75rem; color:#EF4444; font-weight:600; margin-top:4px; display:block;">
+                    ⚠️ La fecha fin no puede ser anterior
+                  </span>
                 }
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom: 24px;">
-              <label class="form-label">Descripción Breve (mín. 10, máx. 500 caracteres)</label>
-              <textarea name="descripcion" class="form-input" rows="3" placeholder="Detalles de la obra..." maxlength="500" (input)="valDescripcionTexto.set($any($event.target).value)"></textarea>
-              <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; margin-top:4px;">
-                @if (valDescripcionTexto().trim().length > 0 && valDescripcionTexto().trim().length < 10) {
-                  <span style="color:#F59E0B; font-weight:600;">⚠️ Mínimo 10 caracteres (faltan {{ 10 - valDescripcionTexto().trim().length }})</span>
-                } @else if (valDescripcionTexto().trim().length > 500) {
-                  <span style="color:#EF4444; font-weight:600;">⚠️ Excede el máximo de 500 caracteres</span>
-                } @else {
-                  <span></span>
-                }
-                <span [style.color]="valDescripcionTexto().trim().length > 500 ? '#EF4444' : 'var(--text-muted)'">
-                  {{ valDescripcionTexto().trim().length }}/500
-                </span>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Presupuesto ($) *</label>
+                <input type="number" name="monto" class="form-input" placeholder="0.00" min="1" step="0.01" required>
               </div>
             </div>
+
+            <div class="form-row">
+              <!-- Mapa -->
+              <div class="form-group">
+                <label class="form-label">📍 Ubicación en el Mapa (Haz clic o arrastra)</label>
+                <div id="modal-map" style="width: 100%; height: 200px; border-radius: 10px; margin-top: 6px; border: 1px solid var(--border); overflow: hidden; background: #0b131e;"></div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--accent); margin-top: 6px; background: rgba(0,0,0,0.25); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);">
+                  <span>Latitud: <strong>{{ latitudSeleccionada() ?? 17.266108 }}</strong></span>
+                  <span>Longitud: <strong>{{ longitudSeleccionada() ?? -97.676773 }}</strong></span>
+                </div>
+              </div>
+              
+              <!-- Descripción -->
+              <div class="form-group" style="margin-bottom: 24px;">
+                <label class="form-label">Descripción Breve (mín. 10, máx. 500)</label>
+                <textarea name="descripcion" class="form-input" style="height: 200px; resize: none; margin-top: 6px;" placeholder="Detalles de la obra..." maxlength="500" (input)="valDescripcionTexto.set($any($event.target).value)"></textarea>
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; margin-top:4px;">
+                  @if (valDescripcionTexto().trim().length > 0 && valDescripcionTexto().trim().length < 10) {
+                    <span style="color:#F59E0B; font-weight:600;">⚠️ Mínimo 10 caracteres</span>
+                  } @else if (valDescripcionTexto().trim().length > 500) {
+                    <span style="color:#EF4444; font-weight:600;">⚠️ Excede el máximo</span>
+                  } @else {
+                    <span></span>
+                  }
+                  <span [style.color]="valDescripcionTexto().trim().length > 500 ? '#EF4444' : 'var(--text-muted)'">
+                    {{ valDescripcionTexto().trim().length }}/500
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <div class="modal-actions">
               <button type="button" class="btn btn-secondary" (click)="cerrarModalNuevaObra()">Cancelar</button>
               <button type="submit" class="btn btn-primary">💾 Guardar Proyecto</button>
