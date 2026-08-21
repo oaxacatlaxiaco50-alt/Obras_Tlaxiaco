@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { AuthService } from '../../core/services/auth.service';
 import { AuditLogService } from '../../core/services/audit-log.service';
 import { AuditLog } from '../../core/models/audit-log.model';
+import { AuditLogsComponent } from '../audit/audit-logs.component';
 
 @Component({
   selector: 'app-bitacora-cambios',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, AuditLogsComponent],
   template: `
     @if (auth.hasRole('admin')) {
       <div class="bc-wrapper animate-fade-in">
@@ -15,7 +16,7 @@ import { AuditLog } from '../../core/models/audit-log.model';
         <div class="bc-header">
           <div>
             <h1 class="bc-title">🔒 Bitácora de Cambios</h1>
-            <p class="bc-subtitle">Acciones de Editar y Eliminar registradas esta semana · Solo Administrador</p>
+            <p class="bc-subtitle">Acciones registradas esta semana · Solo Administrador</p>
           </div>
           <div class="bc-semana-badge">
             <span>📅 Semana actual: {{ rangoSemana() }}</span>
@@ -101,6 +102,11 @@ import { AuditLog } from '../../core/models/audit-log.model';
         <div class="bc-nota">
           🔐 Esta vista es exclusiva para el rol <strong>Administrador</strong>.
           Se filtra automáticamente por la semana actual (lunes a domingo).
+        </div>
+
+        <!-- Logs de Auditoría completas al final de la página -->
+        <div style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 24px;">
+          <app-audit-logs />
         </div>
       </div>
     } @else {
@@ -208,11 +214,11 @@ export class BitacoraCambiosComponent implements OnInit {
   private auditSvc = inject(AuditLogService);
   auth = inject(AuthService);
 
-  // Acciones del backend que corresponden a editar/eliminar
+  // Acciones del backend que corresponden a editar/crear
   private readonly EDIT_ACTIONS = [
-    'MODIFICACION_OBRA', 'ACTUALIZACION_MONTOS_FECHAS',
+    'CREACION_OBRA', 'MODIFICACION_OBRA', 'ACTUALIZACION_MONTOS_FECHAS',
     'ASIGNACION_RESPONSABLES', 'CAMBIO_ESTATUS',
-    'UPDATE', 'PATCH'
+    'CREATE', 'UPDATE', 'PATCH'
   ];
   private readonly DELETE_ACTIONS = [
     'ELIMINACION_OBRA', 'ELIMINACION_ARCHIVO',
