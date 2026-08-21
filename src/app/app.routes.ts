@@ -39,6 +39,10 @@ export const routes: Routes = [
         path: 'bitacora/cambios',
         loadComponent: () => import('./features/bitacora/bitacora-cambios.component').then(m => m.BitacoraCambiosComponent)
       },
+      {
+        path: 'audit-logs',
+        loadComponent: () => import('./features/audit/audit-logs.component').then(m => m.AuditLogsComponent)
+      },
     ]
   },
   { path: '**', redirectTo: '/dashboard' }

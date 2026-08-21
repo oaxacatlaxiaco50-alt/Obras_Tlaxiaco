@@ -1,27 +1,51 @@
-import { Injectable, signal, computed } from '@angular/core';
-import { Notificacion } from '../models/notification.model';
+import { Injectable, signal, computed, inject } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Notificacion, NotificacionPage } from '../models/notification.model';
+import { tap } from 'rxjs/operators';
 
-const NOTIF_MOCK: Notificacion[] = [
-  { id: 'n1', titulo: 'Tramo Norte entregado', mensaje: 'Se confirmó la entrega del Tramo Norte en Pavimentación Av. Central.', tipo: 'exito', fecha: new Date(Date.now() - 3600000), leida: false, obraId: 'obra-001', obraNombre: 'Pavimentación Av. Central' },
-  { id: 'n2', titulo: '⚠️ Obra bloqueada automáticamente', mensaje: 'Escuela Primaria lleva 16 días sin actualización. El sistema bloqueó la edición.', tipo: 'error', fecha: new Date(Date.now() - 86400000), leida: false, obraId: 'obra-002', obraNombre: 'Construcción Escuela Primaria' },
-  { id: 'n3', titulo: 'Te falta entregar: Tramo Sur', mensaje: 'El Tramo Sur (km 2-4) en Pavimentación Av. Central sigue pendiente.', tipo: 'advertencia', fecha: new Date(Date.now() - 7200000), leida: false, obraId: 'obra-001', obraNombre: 'Pavimentación Av. Central' },
-  { id: 'n4', titulo: 'Red Hidráulica al 90%', mensaje: 'La obra alcanzó 90% de avance. Solo faltan las pruebas de presión finales.', tipo: 'info', fecha: new Date(Date.now() - 172800000), leida: true, obraId: 'obra-003', obraNombre: 'Rehabilitación Red Hidráulica' },
-  { id: 'n5', titulo: '✅ Mercado Municipal completado', mensaje: 'La modernización del Mercado Municipal fue finalizada y entregada exitosamente.', tipo: 'exito', fecha: new Date('2026-01-31'), leida: true, obraId: 'obra-005', obraNombre: 'Modernización Mercado Municipal' },
-  { id: 'n6', titulo: 'Te falta entregar: Juegos infantiles', mensaje: 'El módulo de juegos infantiles en Parque El Mirador está pendiente de entrega.', tipo: 'advertencia', fecha: new Date(Date.now() - 10800000), leida: false, obraId: 'obra-004', obraNombre: 'Parque Urbano "El Mirador"' },
-];
+const API = 'http://localhost:8081/notificaciones';
 
 @Injectable({ providedIn: 'root' })
 export class NotificacionService {
-  private _notifs = signal<Notificacion[]>(NOTIF_MOCK);
+  private http = inject(HttpClient);
+
+  private _notifs = signal<Notificacion[]>([]);
   notifs = this._notifs.asReadonly();
   noLeidas = computed(() => this._notifs().filter(n => !n.leida).length);
 
-  marcarLeida(id: string): void {
-    this._notifs.update(ns => ns.map(n => n.id === id ? { ...n, leida: true } : n));
+  /** Carga las notificaciones del usuario autenticado desde el backend */
+  cargar(page = 0, size = 30): void {
+    const params = new HttpParams().set('page', page).set('size', size);
+    this.http.get<NotificacionPage>(API, { params }).subscribe({
+      next: (res) => this._notifs.set(res.content),
+      error: () => {} // silencioso si no hay permisos
+    });
+  }
+
+  /** Obtiene el conteo de no leídas (usado para el badge) */
+  cargarConteo(): void {
+    this.http.get<number>(`${API}/no-leidas/count`).subscribe({
+      next: (count) => {
+        // sincroniza badge sin sobreescribir la lista local
+      },
+      error: () => {}
+    });
+  }
+
+  marcarLeida(id: number): void {
+    this.http.patch<Notificacion>(`${API}/${id}/leer`, {}).pipe(
+      tap(updated => {
+        this._notifs.update(ns => ns.map(n => n.id === id ? updated : n));
+      })
+    ).subscribe({ error: () => {} });
   }
 
   marcarTodasLeidas(): void {
-    this._notifs.update(ns => ns.map(n => ({ ...n, leida: true })));
+    this.http.patch<void>(`${API}/leer-todas`, {}).pipe(
+      tap(() => {
+        this._notifs.update(ns => ns.map(n => ({ ...n, leida: true })));
+      })
+    ).subscribe({ error: () => {} });
   }
 
   getIcono(tipo: string): string {
@@ -29,7 +53,8 @@ export class NotificacionService {
     return iconos[tipo] || 'ℹ️';
   }
 
-  tiempoRelativo(fecha: Date): string {
+  tiempoRelativo(fechaStr: string): string {
+    const fecha = new Date(fechaStr);
     const diff = (Date.now() - fecha.getTime()) / 60000;
     if (diff < 60) return `hace ${Math.round(diff)} min`;
     if (diff < 1440) return `hace ${Math.round(diff / 60)} h`;
