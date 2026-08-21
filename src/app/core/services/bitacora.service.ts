@@ -43,22 +43,47 @@ export class BitacoraService {
 
   // ─── Mapeo backend → UI ──────────────────────────────────────────────────
   private mapToEntrada(e: BitacoraEntry): EntradaBitacora {
-    // El campo description del backend tiene formato "ACCION | MODULO | Detalle"
-    // o simplemente la descripción libre. Intentamos parsearlo.
-    const parts = e.description?.split(' | ') ?? [];
-    const accion  = parts.length >= 1 ? parts[0] : 'Ver';
-    const modulo  = parts.length >= 2 ? parts[1] : 'Sistema';
-    const detalle = parts.length >= 3 ? parts.slice(2).join(' | ') : (e.description ?? '');
+    // Mapear acción del backend a etiqueta UI
+    const accionMap: Record<string, string> = {
+      'CREACION_OBRA':           'Crear',
+      'MODIFICACION_OBRA':       'Editar',
+      'ACTUALIZACION_MONTOS_FECHAS': 'Editar',
+      'ASIGNACION_RESPONSABLES': 'Editar',
+      'CAMBIO_ESTATUS':          'Editar',
+      'ELIMINACION_OBRA':        'Eliminar',
+      'SUBIDA_ARCHIVO':          'Subir',
+      'ELIMINACION_ARCHIVO':     'Eliminar',
+      'REGISTRO_AVANCE':         'Crear',
+      'ELIMINACION_AVANCE':      'Eliminar',
+    };
+
+    // Determinar módulo del backend
+    const moduloMap: Record<string, string> = {
+      'CREACION_OBRA':           'Obras',
+      'MODIFICACION_OBRA':       'Obras',
+      'ACTUALIZACION_MONTOS_FECHAS': 'Obras',
+      'ASIGNACION_RESPONSABLES': 'Obras',
+      'CAMBIO_ESTATUS':          'Obras',
+      'ELIMINACION_OBRA':        'Obras',
+      'SUBIDA_ARCHIVO':          'Expedientes',
+      'ELIMINACION_ARCHIVO':     'Expedientes',
+      'REGISTRO_AVANCE':         'Avances',
+      'ELIMINACION_AVANCE':      'Avances',
+    };
+
+    const accion  = accionMap[e.status ?? ''] ?? 'Ver';
+    const modulo  = moduloMap[e.status ?? ''] ?? 'Sistema';
 
     return {
       id: e.id,
       fecha: new Date(e.timestamp),
       usuario: e.userId ? `Usuario #${e.userId}` : 'Sistema',
-      rol: e.status ?? 'user',
+      rol: 'user',
       accion,
       modulo,
-      descripcion: detalle || e.description,
+      descripcion: e.description ?? '',
       obraId: e.obraId ?? undefined,
+      obraNombre: e.obraId ? `Obra #${e.obraId}` : undefined,
     };
   }
 }
