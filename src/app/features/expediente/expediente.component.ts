@@ -807,6 +807,11 @@ import html2canvas from 'html2canvas';
                   <input type="file" #expInput multiple style="display:none;" (change)="onFileSelect($event)">
                   <button class="btn btn-secondary btn-sm" style="margin-top:8px;" (click)="expInput.click()">Seleccionar archivos</button>
                 </div>
+                @if (uploadMsg()) {
+                  <p class="upload-feedback" [class.error]="uploadError()" style="margin-top: 10px; text-align: center; font-size: 0.9rem;">
+                    {{ uploadMsg() }}
+                  </p>
+                }
               }
             </div>
           </div>
@@ -1331,9 +1336,18 @@ export class ExpedienteComponent implements OnInit {
     }, 150);
   }
 
-  getArchivosPorCarpeta(carpeta: string | null) {
-    if (!carpeta) return [];
-    return this.archivosSubidos().filter(a => a.carpeta === carpeta);
+  getArchivosPorCarpeta(carpetaUI: string | null) {
+    if (!carpetaUI) return [];
+    
+    const mapaCarpetas: Record<string, string> = {
+      'Legal': 'LEGAL',
+      'Social': 'SOCIAL',
+      'Técnicos': 'TECNICOS',
+      'Anexo Fotográfico': 'FOTOGRAFICO'
+    };
+    const backendCarpeta = mapaCarpetas[carpetaUI];
+    
+    return this.archivosSubidos().filter(a => a.carpeta === backendCarpeta);
   }
 
   crearNuevoExpediente(e: Event) {
@@ -1570,11 +1584,22 @@ export class ExpedienteComponent implements OnInit {
 
     let uploadedCount = 0;
     Array.from(files).forEach(file => {
-      let carpeta: 'LEGAL' | 'SOCIAL' | 'TECNICOS' | 'FOTOGRAFICO' = 'TECNICOS';
-      if (file.type.startsWith('image/')) carpeta = 'FOTOGRAFICO';
-      else if (file.name.toLowerCase().includes('acta') || file.name.toLowerCase().includes('contrato')) carpeta = 'LEGAL';
+      let carpetaBackend: 'LEGAL' | 'SOCIAL' | 'TECNICOS' | 'FOTOGRAFICO' = 'TECNICOS';
+      
+      if (this.carpetaSeleccionadaExp()) {
+         const mapaCarpetas: Record<string, 'LEGAL' | 'SOCIAL' | 'TECNICOS' | 'FOTOGRAFICO'> = {
+           'Legal': 'LEGAL',
+           'Social': 'SOCIAL',
+           'Técnicos': 'TECNICOS',
+           'Anexo Fotográfico': 'FOTOGRAFICO'
+         };
+         carpetaBackend = mapaCarpetas[this.carpetaSeleccionadaExp()!] || 'TECNICOS';
+      } else {
+         if (file.type.startsWith('image/')) carpetaBackend = 'FOTOGRAFICO';
+         else if (file.name.toLowerCase().includes('acta') || file.name.toLowerCase().includes('contrato')) carpetaBackend = 'LEGAL';
+      }
 
-      this.archivosSvc.subirArchivo(currentObra.id, carpeta, file).subscribe({
+      this.archivosSvc.subirArchivo(currentObra.id, carpetaBackend, file).subscribe({
         next: (nuevoArchivo) => {
           uploadedCount++;
           this.archivosSubidos.update(prev => [nuevoArchivo, ...prev]);
