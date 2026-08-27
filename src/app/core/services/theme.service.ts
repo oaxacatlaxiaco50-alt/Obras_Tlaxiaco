@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 
-export type Theme = 'default' | 'emerald' | 'cyberpunk' | 'sunset' | 'silver' | 'pastel-pink' | 'pastel-blue' | 'pastel-mint';
+export type Theme = 'default' | 'emerald' | 'cyberpunk' | 'sunset' | 'silver' | 'guinda' | 'pastel-blue' | 'pastel-mint';
 
 export interface ThemeConfig {
   theme: Theme;
@@ -19,13 +19,13 @@ const AVAILABLE_FONTS = [
 ];
 
 const PRESET_COLORS = [
+  { name: 'Guinda Institucional', value: '#9D2449' },
   { name: 'Ámbar (Default)', value: '#E8A020' },
   { name: 'Esmeralda', value: '#10B981' },
   { name: 'Zafiro', value: '#3B82F6' },
   { name: 'Rubí', value: '#EF4444' },
   { name: 'Violeta', value: '#8B5CF6' },
   { name: 'Coral', value: '#F97316' },
-  { name: 'Rosa Fuerte', value: '#EC4899' },
   { name: 'Cian', value: '#06B6D4' },
 ];
 
@@ -94,7 +94,7 @@ export class ThemeService {
   }
 
   toggleTheme(): void {
-    const themes: Theme[] = ['default', 'emerald', 'cyberpunk', 'sunset', 'silver', 'pastel-pink', 'pastel-blue', 'pastel-mint'];
+    const themes: Theme[] = ['default', 'emerald', 'cyberpunk', 'sunset', 'silver', 'guinda', 'pastel-blue', 'pastel-mint'];
     const idx = themes.indexOf(this._currentTheme());
     const nextIdx = (idx + 1) % themes.length;
     this.setTheme(themes[nextIdx]);
@@ -123,7 +123,7 @@ export class ThemeService {
     const body = document.body;
     body.classList.remove(
       'theme-default', 'theme-emerald', 'theme-cyberpunk', 'theme-sunset',
-      'theme-silver', 'theme-pastel-pink', 'theme-pastel-blue', 'theme-pastel-mint'
+      'theme-silver', 'theme-guinda', 'theme-pastel-blue', 'theme-pastel-mint'
     );
     body.classList.add(`theme-${theme}`);
   }

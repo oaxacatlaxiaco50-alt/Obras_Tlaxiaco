@@ -40,4 +40,9 @@ export class ArchivosService {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
+
+  /** Descargar archivo como Blob para visualización segura (evita error 401) */
+  descargarArchivoUrl(url: string): Observable<Blob> {
+    return this.http.get(url, { responseType: 'blob' });
+  }
 }

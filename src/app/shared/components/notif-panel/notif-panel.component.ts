@@ -25,7 +25,7 @@ import { NotificacionService } from '../../../core/services/notificacion.service
               <p class="notif-msg">{{ n.mensaje }}</p>
               <div class="notif-meta">
                 @if (n.obraNombre) { <span class="obra-tag">{{ n.obraNombre }}</span> }
-                <span class="notif-time">{{ svc.tiempoRelativo(n.fecha) }}</span>
+                <span class="notif-time">{{ svc.tiempoRelativo(n.createdAt) }}</span>
               </div>
             </div>
             @if (!n.leida) { <div class="unread-dot"></div> }

@@ -135,23 +135,23 @@ body.theme-silver {
   --shadow-glow: 0 0 20px rgba(0, 0, 0, 0.05);
 }
 
-body.theme-pastel-pink {
-  --primary: #F472B6;
-  --primary-light: #F9A8D4;
-  --primary-dark: #DB2777;
-  --accent: #FDA4AF;
-  --accent-light: #FECDD3;
-  --accent-dark: #F43F5E;
-  --bg-dark: #FDF2F8;
-  --bg-surface: #FFFFFF;
-  --bg-surface-hover: #FCE7F3;
-  --bg-card: #FAF5FF;
-  --text-primary: #831843;
-  --text-secondary: #9D174D;
-  --text-muted: #BE185D;
-  --border: rgba(244, 114, 182, 0.2);
-  --border-light: rgba(244, 114, 182, 0.3);
-  --shadow-glow: 0 0 20px rgba(244, 114, 182, 0.15);
+body.theme-guinda {
+  --primary: #9D2449;
+  --primary-light: #B93F62;
+  --primary-dark: #6E1731;
+  --accent: #9D2449;
+  --accent-light: #B93F62;
+  --accent-dark: #6E1731;
+  --bg-dark: #120A0C;
+  --bg-surface: #1E1114;
+  --bg-surface-hover: #2E1A1E;
+  --bg-card: #180D10;
+  --text-primary: #F3E8EB;
+  --text-secondary: #D9B8C1;
+  --text-muted: #B38692;
+  --border: rgba(157, 36, 73, 0.2);
+  --border-light: rgba(157, 36, 73, 0.35);
+  --shadow-glow: 0 0 20px rgba(157, 36, 73, 0.15);
 }
 
 body.theme-pastel-blue {

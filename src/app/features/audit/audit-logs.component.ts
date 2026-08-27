@@ -71,9 +71,9 @@ import { AuditLog } from '../../core/models/audit-log.model';
                   </td>
                   <td><span class="badge-accion" [attr.data-accion]="log.action">{{ log.action }}</span></td>
                   <td class="al-modulo">{{ log.module }}</td>
-                  <td class="al-ip">{{ log.ip ?? '—' }}</td>
-                  <td class="al-data">{{ log.previousData ?? '—' }}</td>
-                  <td class="al-data">{{ log.newData ?? '—' }}</td>
+                  <td class="al-ip">{{ log.ip || '—' }}</td>
+                  <td class="al-data">{{ log.previousData || '—' }}</td>
+                  <td class="al-data">{{ log.newData || '—' }}</td>
                 </tr>
               }
               @if (logs().length === 0) {

@@ -10,6 +10,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ObraResponse, ObraAvance, ObraArchivo, ObraEstatus, ESTATUS_LABEL, ESTATUS_COLOR } from '../../core/models/obra.model';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
 
 @Component({
@@ -37,18 +38,15 @@ import html2canvas from 'html2canvas';
           </div>
           <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
             <button class="btn btn-primary" style="background:#E8A020; border-color:#E8A020; color:#fff; font-weight:700; display:inline-flex; align-items:center; gap:6px;" (click)="irAIntegracionExpediente()">
-              🏛️ Integración del Expediente
+              🏛️ Integración de Expediente Unitario de Obras
             </button>
             @if (auth.hasRole('admin', 'residente')) {
               <button class="btn" style="background:linear-gradient(135deg,#10B981,#059669); color:#fff; border:none; box-shadow:0 4px 12px rgba(16,185,129,0.3); display:inline-flex; align-items:center; gap:6px;" (click)="mostrarModalIntegracionExp.set(true)">
                 📂 Integración de Expedientes
               </button>
-              <button class="btn" style="background:linear-gradient(135deg,#10B981,#059669); color:#fff; border:none; box-shadow:0 4px 12px rgba(16,185,129,0.3); display:inline-flex; align-items:center; gap:6px;" (click)="mostrarModalNuevoExp.set(true)">
-                + Nuevo Expediente
-              </button>
             }
-            @if (auth.hasRole('admin', 'residente') && !svc.isBlocked(obra()!)) {
-              <button class="btn btn-secondary" (click)="generarPDF()" [disabled]="generandoPDF()">
+            @if (auth.hasRole('admin') || (auth.hasRole('residente') && !svc.isBlocked(obra()!))) {
+              <button class="btn btn-secondary" (click)="generarReporteChecklistPDF()" [disabled]="generandoPDF()">
                 {{ generandoPDF() ? '⏳ Procesando PDF...' : '📄 Generar Reporte PDF' }}
               </button>
               <button class="btn btn-primary" (click)="mostrarModalEdicion.set(true)">✏️ Editar Expediente</button>
@@ -119,7 +117,7 @@ import html2canvas from 'html2canvas';
               <div class="foto-grid">
                 @for (foto of fotosPorFase(faseActiva()); track foto.id) {
                   <div class="foto-thumb">
-                    <img [src]="foto.archivoUrl" [alt]="foto.descripcion" loading="lazy" />
+                    <img [src]="getFileUrl(foto.archivoUrl)" [alt]="foto.descripcion" loading="lazy" />
                     <div class="foto-overlay">
                       <span>{{ foto.descripcion }}</span>
                       <span>{{ foto.tipo }}</span>
@@ -175,15 +173,15 @@ import html2canvas from 'html2canvas';
               <div class="docs-list">
                 @for (arch of archivosSubidos(); track arch.id) {
                   <div class="doc-item entregado" style="display:flex; align-items:center; gap:12px;">
-                    <div class="doc-icon">{{ arch.tipoArchivo === 'IMAGEN' ? '🖼️' : '📄' }}</div>
+                    <div class="doc-icon">{{ arch.tipoArchivo === 'FOTO' ? '🖼️' : '📄' }}</div>
                     <div class="doc-info" style="flex:1;">
                       <span class="doc-name">{{ arch.nombreOriginal }}</span>
                       <span class="doc-status">{{ arch.carpeta }} · {{ fmtBytes(arch.tamanioBytes) }}</span>
                     </div>
                     <div style="display:flex; gap:8px; align-items:center;">
-                      <a [href]="getFileUrl(arch.archivoUrl)" target="_blank" [download]="arch.nombreOriginal" class="btn btn-secondary btn-sm" style="text-decoration:none;">
+                      <button class="btn btn-secondary btn-sm" (click)="descargarArchivoSeguro(arch.archivoUrl, arch.nombreOriginal)">
                         👁️ Ver / Descargar
-                      </a>
+                      </button>
                       @if (canDeleteFile()) {
                         <button class="btn btn-danger btn-sm" (click)="eliminarArchivo(arch)" title="Eliminar archivo del expediente">
                           🗑️ Eliminar
@@ -523,13 +521,13 @@ import html2canvas from 'html2canvas';
             <div class="modal-header">
               <h3 class="modal-title">📄 Visor de Expediente Digital</h3>
               <div style="display: flex; gap: 8px; align-items: center;">
-                <a [href]="urlVisor()!" target="_blank" download class="btn btn-secondary btn-sm" style="text-decoration: none;">📥 Descargar</a>
-                <a [href]="urlVisor()!" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration: none;">↗️ Nueva Pestaña</a>
+                <a [href]="urlVisorSafeUrl()!" download="documento" class="btn btn-secondary btn-sm" style="text-decoration: none;">📥 Descargar</a>
+                <a [href]="urlVisorSafeUrl()!" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration: none;">↗️ Nueva Pestaña</a>
                 <button class="btn-close" (click)="cerrarVisorDocumento()">✕</button>
               </div>
             </div>
             <div style="flex: 1; background: #1a1a1a; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 12px;">
-              <iframe [src]="getSanitizedUrl(urlVisor()!)" style="width: 100%; height: 100%; border: none; border-radius: 8px; background: white;"></iframe>
+              <iframe [src]="urlVisorSafeUrl()!" style="width: 100%; height: 100%; border: none; border-radius: 8px; background: white;"></iframe>
             </div>
           </div>
         </div>
@@ -603,12 +601,18 @@ import html2canvas from 'html2canvas';
                   <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px 14px; border-radius:8px;">
                     <span style="font-size:0.82rem; color:var(--text-muted);">Visualizando: <strong>{{ documentoSeleccionado()!.archivoUrl }}</strong></span>
                     <div style="display:flex; gap:8px;">
-                      <a [href]="getFileUrl(documentoSeleccionado()!.archivoUrl!)" target="_blank" download class="btn btn-secondary btn-sm" style="text-decoration:none;">📥 Descargar</a>
-                      <a [href]="getFileUrl(documentoSeleccionado()!.archivoUrl!)" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none;">↗️ Nueva Pestaña</a>
+                      @if (vistaPreviaBlobUrl()) {
+                        <a [href]="vistaPreviaSafeUrl()!" download="documento" class="btn btn-secondary btn-sm" style="text-decoration:none;">📥 Descargar</a>
+                        <a [href]="vistaPreviaSafeUrl()!" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none;">↗️ Nueva Pestaña</a>
+                      }
                     </div>
                   </div>
-                  <div style="flex:1; border-radius:8px; overflow:hidden; border:1px solid var(--border);">
-                    <iframe [src]="getSanitizedUrl(getFileUrl(documentoSeleccionado()!.archivoUrl!))" style="width:100%; height:100%; border:none; background:white;"></iframe>
+                  <div style="flex:1; border-radius:8px; overflow:hidden; border:1px solid var(--border); position:relative;">
+                    @if (vistaPreviaSafeUrl()) {
+                      <iframe [src]="vistaPreviaSafeUrl()!" style="width:100%; height:100%; border:none; background:white;"></iframe>
+                    } @else {
+                      <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:#666;">Cargando documento seguro...</div>
+                    }
                   </div>
                 } @else {
                   <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-muted); gap:12px;">
@@ -699,10 +703,10 @@ import html2canvas from 'html2canvas';
         </div>
       }
 
-      <!-- Modal: Integración de Expedientes (4 Carpetas) -->
+      <!-- Modal: Integración de Expedientes (Gestor de Carpetas) -->
       @if (mostrarModalIntegracionExp()) {
         <div class="modal-overlay animate-fade-in">
-          <div class="modal-content animate-slide-in" style="max-width:650px;">
+          <div class="modal-content animate-slide-in" style="max-width:750px;">
             <div class="modal-header">
               <h2 class="modal-title">🗂️ Integración de Expedientes — {{ obra()!.nombre }}</h2>
               <button class="btn-close" (click)="mostrarModalIntegracionExp.set(false); carpetaSeleccionadaExp.set(null)">✕</button>
@@ -710,9 +714,9 @@ import html2canvas from 'html2canvas';
             <div class="modal-body" style="padding:24px;">
               @if (!carpetaSeleccionadaExp()) {
                 <p style="margin-bottom:20px; color:var(--text-muted); font-size:0.9rem;">
-                  Selecciona una categoría para gestionar los documentos del expediente de esta obra.
+                  Selecciona una categoría para gestionar los documentos o agrega un nuevo expediente completo.
                 </p>
-                <div class="folders-grid">
+                <div class="folders-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
                   <div class="folder-card" (click)="carpetaSeleccionadaExp.set('Legal')">
                     <span class="folder-icon">⚖️</span>
                     <span class="folder-name">Legal</span>
@@ -729,12 +733,74 @@ import html2canvas from 'html2canvas';
                     <span class="folder-icon">📸</span>
                     <span class="folder-name">Anexo Fotográfico</span>
                   </div>
+                  <div class="folder-card" style="border-style:dashed; border-color:var(--accent); background:rgba(16,185,129,0.05);" (click)="carpetaSeleccionadaExp.set('NUEVO')">
+                    <span class="folder-icon">➕</span>
+                    <span class="folder-name" style="color:var(--accent);">Nuevo Expediente</span>
+                  </div>
                 </div>
+              } @else if (carpetaSeleccionadaExp() === 'NUEVO') {
+                <button class="btn btn-secondary btn-sm" style="margin-bottom:16px;" (click)="carpetaSeleccionadaExp.set(null)">
+                  ⬅ Volver a las categorías
+                </button>
+                <h3 style="margin-bottom:16px; color:var(--accent);">📂 Crear Nuevo Expediente</h3>
+                <form class="modal-form" (submit)="crearNuevoExpediente($event)">
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label class="form-label">Número de Licitación / Expediente</label>
+                      <input type="text" class="form-input" placeholder="Ej. LIC-2026-001" required>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Empresa Contratista</label>
+                      <input type="text" class="form-input" placeholder="Ej. Constructora del Sur SA" required>
+                    </div>
+                  </div>
+                  <div class="form-row" style="margin-bottom:24px;">
+                    <div class="form-group">
+                      <label class="form-label">Fecha de Firma (Contrato)</label>
+                      <input type="date" name="fechaFirma" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Fecha Estimada de Término</label>
+                      <input type="date" name="fechaFin" class="form-input" required>
+                    </div>
+                  </div>
+                  <div class="modal-actions" style="margin-top:20px; text-align:right;">
+                    <button type="button" class="btn btn-secondary" (click)="carpetaSeleccionadaExp.set(null)">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="margin-left:10px;">📁 Integrar Expediente</button>
+                  </div>
+                </form>
               } @else {
                 <button class="btn btn-secondary btn-sm" style="margin-bottom:16px;" (click)="carpetaSeleccionadaExp.set(null)">
                   ⬅ Volver a las categorías
                 </button>
                 <h3 style="margin-bottom:16px; color:var(--accent);">Carpeta: {{ carpetaSeleccionadaExp() }}</h3>
+                
+                <div class="docs-list" style="margin-bottom:24px; max-height:300px; overflow-y:auto;">
+                  @for (arch of getArchivosPorCarpeta(carpetaSeleccionadaExp()); track arch.id) {
+                    <div class="doc-item entregado" style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+                      <div class="doc-icon">{{ arch.tipoArchivo === 'FOTO' ? '🖼️' : '📄' }}</div>
+                      <div class="doc-info" style="flex:1;">
+                        <span class="doc-name">{{ arch.nombreOriginal }}</span>
+                        <span class="doc-status">{{ fmtBytes(arch.tamanioBytes) }}</span>
+                      </div>
+                      <div style="display:flex; gap:8px; align-items:center;">
+                        <button class="btn btn-secondary btn-sm" (click)="descargarArchivoSeguro(arch.archivoUrl, arch.nombreOriginal)">
+                          👁️ Ver / Descargar
+                        </button>
+                        @if (canDeleteFile()) {
+                          <button class="btn btn-danger btn-sm" (click)="eliminarArchivo(arch)" title="Eliminar archivo del expediente">
+                            🗑️ Eliminar
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  } @empty {
+                    <div class="empty-state" style="font-size:0.85rem; color:var(--text-muted); text-align:center; padding:16px;">
+                      📁 Ningún archivo subido a la carpeta "{{ carpetaSeleccionadaExp() }}" todavía.
+                    </div>
+                  }
+                </div>
+
                 <div class="drag-drop-zone" (dragover)="$event.preventDefault()" (drop)="onDrop($event)">
                   <div class="drop-icon">📤</div>
                   <p>Arrastra tus archivos aquí o <strong>haz clic para seleccionar</strong></p>
@@ -743,44 +809,6 @@ import html2canvas from 'html2canvas';
                 </div>
               }
             </div>
-          </div>
-        </div>
-      }
-
-      <!-- Modal: Nuevo Expediente -->
-      @if (mostrarModalNuevoExp()) {
-        <div class="modal-overlay animate-fade-in">
-          <div class="modal-content animate-slide-in">
-            <div class="modal-header">
-              <h2 class="modal-title">📂 Crear Nuevo Expediente — {{ obra()!.nombre }}</h2>
-              <button class="btn-close" (click)="mostrarModalNuevoExp.set(false)">✕</button>
-            </div>
-            <form class="modal-form" (submit)="$event.preventDefault(); mostrarModalNuevoExp.set(false)">
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Número de Licitación / Expediente</label>
-                  <input type="text" class="form-input" placeholder="Ej. LIC-2026-001" required>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Empresa Contratista</label>
-                  <input type="text" class="form-input" placeholder="Ej. Constructora del Sur SA" required>
-                </div>
-              </div>
-              <div class="form-row" style="margin-bottom:24px;">
-                <div class="form-group">
-                  <label class="form-label">Fecha de Firma (Contrato)</label>
-                  <input type="date" class="form-input" required>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Fecha Estimada de Término</label>
-                  <input type="date" class="form-input" required>
-                </div>
-              </div>
-              <div class="modal-actions">
-                <button type="button" class="btn btn-secondary" (click)="mostrarModalNuevoExp.set(false)">Cancelar</button>
-                <button type="submit" class="btn btn-primary">📁 Integrar Expediente</button>
-              </div>
-            </form>
           </div>
         </div>
       }
@@ -994,12 +1022,37 @@ export class ExpedienteComponent implements OnInit {
     this.seccionesAbiertas.set(new Set());
   }
 
+  vistaPreviaBlobUrl = signal<string | null>(null);
+  vistaPreviaSafeUrl = signal<SafeResourceUrl | null>(null);
+
   abrirModalGestionDoc(item: ExpedienteObraItem): void {
     this.documentoSeleccionado.set(item);
     this.mostrarModalGestionDoc.set(true);
+    this.vistaPreviaBlobUrl.set(null);
+    this.vistaPreviaSafeUrl.set(null);
+    if (item.archivoUrl) {
+      const urlCompleta = this.getFileUrl(item.archivoUrl);
+      this.archivosSvc.descargarArchivoUrl(urlCompleta).subscribe({
+        next: (blob) => {
+          let mimeType = blob.type;
+          if (!mimeType || mimeType === 'application/octet-stream') {
+            mimeType = item.archivoUrl!.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg';
+          }
+          const safeBlob = new Blob([blob], { type: mimeType });
+          const blobUrl = window.URL.createObjectURL(safeBlob);
+          this.vistaPreviaBlobUrl.set(blobUrl);
+          this.vistaPreviaSafeUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(blobUrl));
+        },
+        error: () => this.toastSvc.show('Error al cargar la vista previa', 'error')
+      });
+    }
   }
 
   cerrarModalGestionDoc(): void {
+    const currentUrl = this.vistaPreviaBlobUrl();
+    if (currentUrl && currentUrl.startsWith('blob:')) window.URL.revokeObjectURL(currentUrl);
+    this.vistaPreviaBlobUrl.set(null);
+    this.vistaPreviaSafeUrl.set(null);
     this.mostrarModalGestionDoc.set(false);
     this.documentoSeleccionado.set(null);
   }
@@ -1017,6 +1070,12 @@ export class ExpedienteComponent implements OnInit {
     const file = input.files?.[0];
     const currentObra = this.obra();
     if (!item || !file || !currentObra) return;
+
+    if (file.size > 20 * 1024 * 1024) {
+      this.toastSvc.show('El archivo es muy pesado. El límite máximo es de 20 MB.', 'warning');
+      input.value = '';
+      return;
+    }
 
     this.expedientesSvc.subirArchivoDocumento(currentObra.id, item.id, file).subscribe({
       next: (updated) => {
@@ -1066,14 +1125,58 @@ export class ExpedienteComponent implements OnInit {
     return this.sanitizer.bypassSecurityTrustResourceUrl(url);
   }
 
+  urlVisorSafeUrl = signal<SafeResourceUrl | null>(null);
+
+  descargarArchivoSeguro(urlRuta: string, nombreArchivo: string): void {
+    if (!urlRuta) return;
+    const urlCompleta = this.getFileUrl(urlRuta);
+    this.toastSvc.show('Descargando archivo...', 'info');
+    this.archivosSvc.descargarArchivoUrl(urlCompleta).subscribe({
+      next: (blob) => {
+        let mimeType = blob.type;
+        if (!mimeType || mimeType === 'application/octet-stream') {
+          mimeType = urlRuta.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg';
+        }
+        const safeBlob = new Blob([blob], { type: mimeType });
+        const url = window.URL.createObjectURL(safeBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nombreArchivo || 'documento';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => this.toastSvc.show('Error al descargar. El token puede haber expirado.', 'error')
+    });
+  }
+
   abrirVisorDocumento(archivoUrl: string): void {
-    this.urlVisor.set(this.getFileUrl(archivoUrl));
-    this.mostrarModalVisor.set(true);
+    if (!archivoUrl) return;
+    const urlCompleta = this.getFileUrl(archivoUrl);
+    this.toastSvc.show('Cargando documento...', 'info');
+    this.archivosSvc.descargarArchivoUrl(urlCompleta).subscribe({
+      next: (blob) => {
+        let mimeType = blob.type;
+        if (!mimeType || mimeType === 'application/octet-stream') {
+          mimeType = archivoUrl.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg';
+        }
+        const safeBlob = new Blob([blob], { type: mimeType });
+        const objectUrl = window.URL.createObjectURL(safeBlob);
+        this.urlVisor.set(objectUrl);
+        this.urlVisorSafeUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(objectUrl));
+        this.mostrarModalVisor.set(true);
+      },
+      error: () => this.toastSvc.show('Error al cargar el documento para visualizar', 'error')
+    });
   }
 
   cerrarVisorDocumento(): void {
+    const currentUrl = this.urlVisor();
+    if (currentUrl && currentUrl.startsWith('blob:')) window.URL.revokeObjectURL(currentUrl);
     this.mostrarModalVisor.set(false);
     this.urlVisor.set(null);
+    this.urlVisorSafeUrl.set(null);
   }
 
   guardarObservaciones(item: ExpedienteObraItem, event: Event): void {
@@ -1126,7 +1229,7 @@ export class ExpedienteComponent implements OnInit {
   getPorcentajeCompletadoSeccion(seccion: SeccionExpedienteChecklist): number {
     const items = this.getItemsPorSeccion(seccion);
     if (items.length === 0) return 0;
-    const completados = items.filter(i => i.estado === 'OK').length;
+    const completados = items.filter(i => i.estado === 'OK' || i.estado === 'NO_APLICA').length;
     return Math.round((completados / items.length) * 100);
   }
 
@@ -1148,6 +1251,12 @@ export class ExpedienteComponent implements OnInit {
     const currentObra = this.obra();
     if (!file || !currentObra) return;
 
+    if (file.size > 20 * 1024 * 1024) {
+      this.toastSvc.show('El archivo es muy pesado. El límite máximo es de 20 MB.', 'warning');
+      input.value = '';
+      return;
+    }
+
     this.expedientesSvc.subirArchivoDocumento(currentObra.id, item.id, file).subscribe({
       next: (updated) => {
         this.checklist.update(list => list.map(i => i.id === updated.id ? updated : i));
@@ -1157,27 +1266,94 @@ export class ExpedienteComponent implements OnInit {
     });
   }
 
-  async generarPDF() {
+  async generarReporteChecklistPDF() {
+    const currentObra = this.obra();
+    if (!currentObra) return;
+    
     this.generandoPDF.set(true);
-    this.toastSvc.show('Generando PDF Ejecutivo del Expediente...', 'info');
-    await new Promise(r => setTimeout(r, 100));
-    const element = document.getElementById('pdfContent');
-    if (!element) { this.generandoPDF.set(false); return; }
-    try {
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#111827' });
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Reporte_Obra_${this.obra()?.id}.pdf`);
-      this.toastSvc.show('PDF Ejecutivo descargado con éxito', 'success');
-    } catch (error) {
-      console.error('Error al generar PDF', error);
-      this.toastSvc.show('Error al generar el reporte PDF', 'error');
-    } finally {
-      this.generandoPDF.set(false);
+    this.toastSvc.show('Generando reporte PDF del Checklist...', 'info');
+    
+    setTimeout(() => {
+      try {
+        const doc = new jsPDF('p', 'pt', 'letter');
+        
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('INTEGRACIÓN DE EXPEDIENTE UNITARIO DE OBRA PÚBLICA EJERCICIO 2026', 40, 40);
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Obra: ${currentObra.nombre}`, 40, 60);
+        doc.text(`Categoría: ${currentObra.categoria || 'N/A'} | Monto: $${currentObra.monto}`, 40, 75);
+        
+        let startY = 100;
+        const secciones: SeccionExpedienteChecklist[] = [
+          'PARTE_SOCIAL', 'PROYECTO_EJECUTIVO', 'PROCESOS_CONTRATACION', 'DOCUMENTOS_COMPROBATORIOS'
+        ];
+        
+        secciones.forEach(seccion => {
+          const items = this.getItemsPorSeccion(seccion);
+          if (items.length === 0) return;
+          const pct = this.getPorcentajeCompletadoSeccion(seccion);
+          
+          doc.setFontSize(11);
+          doc.setFont('helvetica', 'bold');
+          doc.text(`Sección: ${seccion.replace(/_/g, ' ')} (Avance: ${pct}%)`, 40, startY);
+          startY += 10;
+          
+          const tableData = items.map(item => {
+            let estatus: string = item.estado;
+            if (estatus === 'NO_APLICA') estatus = 'N/A';
+            return [ item.documento.nombre, estatus, item.observaciones || '' ];
+          });
+          
+          autoTable(doc, {
+            startY: startY,
+            head: [['Documento Requerido', 'Estatus', 'Observaciones']],
+            body: tableData,
+            theme: 'grid',
+            headStyles: { fillColor: [45, 212, 191] },
+            styles: { fontSize: 8, font: 'helvetica' },
+            columnStyles: { 0: { cellWidth: 240 }, 1: { cellWidth: 70 } }
+          });
+          
+          startY = (doc as any).lastAutoTable.finalY + 30;
+        });
+        
+        doc.save(`Checklist_Expediente_${currentObra.id}.pdf`);
+        this.toastSvc.show('Reporte PDF descargado con éxito', 'success');
+      } catch (error) {
+        console.error('Error al generar PDF', error);
+        this.toastSvc.show('Error al generar el reporte PDF', 'error');
+      } finally {
+        this.generandoPDF.set(false);
+      }
+    }, 150);
+  }
+
+  getArchivosPorCarpeta(carpeta: string | null) {
+    if (!carpeta) return [];
+    return this.archivosSubidos().filter(a => a.carpeta === carpeta);
+  }
+
+  crearNuevoExpediente(e: Event) {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+    
+    const fechaFirma = formData.get('fechaFirma') as string;
+    const fechaFin = formData.get('fechaFin') as string;
+
+    if (fechaFirma && fechaFin) {
+      if (new Date(fechaFin) < new Date(fechaFirma)) {
+        this.toastSvc.show('La fecha de término no puede ser anterior a la fecha de firma.', 'error');
+        return;
+      }
     }
+
+    this.toastSvc.show('Nuevo expediente integrado exitosamente', 'success');
+    this.mostrarModalIntegracionExp.set(false);
+    this.carpetaSeleccionadaExp.set(null);
   }
 
   guardarEdicion(e: Event) {
@@ -1194,6 +1370,17 @@ export class ExpedienteComponent implements OnInit {
     const descripcion = (formData.get('descripcion') as string)?.trim() || current.descripcion;
     const rawPorcentaje = Number(formData.get('porcentaje')) || 0;
     const porcentaje = Math.max(0, Math.min(100, rawPorcentaje));
+
+    if (porcentaje < this.ultimoPorcentaje()) {
+      this.toastSvc.show(`El avance físico (${porcentaje}%) no puede ser menor al avance actual (${this.ultimoPorcentaje()}%).`, 'error');
+      return;
+    }
+
+    const file = this.fotoEdicionFile();
+    if (porcentaje === 100 && !file && this.ultimoPorcentaje() !== 100) {
+      this.toastSvc.show('Para reportar el 100% de avance es OBLIGATORIO adjuntar una evidencia fotográfica terminada.', 'error');
+      return;
+    }
 
     this.svc.updateObra(current.id, {
       nombre,
@@ -1212,18 +1399,35 @@ export class ExpedienteComponent implements OnInit {
             error: (err) => console.error('Error al cambiar estatus', err)
           });
         }
-        if (porcentaje > 0 && porcentaje !== this.ultimoPorcentaje()) {
+        
+        // Registrar avance si el porcentaje cambió o si hay foto
+        if ((porcentaje > 0 && porcentaje !== this.ultimoPorcentaje()) || file) {
           this.avancesSvc.registrarAvance(current.id, {
             titulo: `Actualización a ${porcentaje}%`,
             fechaAvance: new Date().toISOString().slice(0, 10),
             porcentaje,
             observaciones: descripcion
           }).subscribe({
-            next: () => this.ultimoPorcentaje.set(porcentaje),
+            next: (avance) => {
+              this.ultimoPorcentaje.set(porcentaje);
+              if (file) {
+                const fase = porcentaje === 100 ? 'DESPUES' : 'DURANTE';
+                this.avancesSvc.subirEvidencia(current.id, avance.id, file, fase as any, descripcion).subscribe({
+                  next: () => {
+                    this.avancesSvc.getAvances(current.id).subscribe(list => this.avances.set(list));
+                    this.toastSvc.show('Avance y fotografía guardados con éxito', 'success');
+                  },
+                  error: () => this.toastSvc.show('Error al subir la fotografía del avance', 'error')
+                });
+              } else {
+                this.avancesSvc.getAvances(current.id).subscribe(list => this.avances.set(list));
+              }
+            },
             error: () => {}
           });
         }
-        this.toastSvc.show('Cambios guardados correctamente', 'success');
+        
+        if (!file) this.toastSvc.show('Cambios guardados correctamente', 'success');
         this.quitarFotoEdicion();
         this.mostrarModalEdicion.set(false);
       },
@@ -1267,17 +1471,38 @@ export class ExpedienteComponent implements OnInit {
     this.fotoEdicionFile.set(null);
   }
 
+  calcularPorcentajeAuto(): void {
+    const items = this.checklist();
+    if (items.length === 0) return;
+    const completados = items.filter(i => i.estado === 'OK' || i.estado === 'NO_APLICA').length;
+    const porcentaje = Math.round((completados / items.length) * 100);
+    const form = document.querySelector('form') as HTMLFormElement;
+    if (form) {
+      const input = form.querySelector('input[name="porcentaje"]') as HTMLInputElement;
+      if (input) input.value = porcentaje.toString();
+    }
+    this.toastSvc.show(`Calculado: ${porcentaje}% basado en los documentos del expediente.`, 'info');
+  }
+
   getFileUrl(url: string): string {
     if (!url) return '#';
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    const cleanPath = url.startsWith('/') ? url : '/' + url;
+    
+    let cleanPath = url;
+    if (!cleanPath.startsWith('/')) {
+      cleanPath = '/' + cleanPath;
+    }
+    if (!cleanPath.startsWith('/uploads/')) {
+      cleanPath = '/uploads' + cleanPath;
+    }
+    
     return 'http://localhost:8081' + cleanPath;
   }
 
   canDeleteFile(): boolean {
     const currentObra = this.obra();
     if (!currentObra) return false;
-    return this.auth.hasRole('admin') && !this.svc.isBlocked(currentObra);
+    return this.auth.hasRole('admin');
   }
 
   eliminarArchivo(arch: ObraArchivo): void {
@@ -1302,7 +1527,7 @@ export class ExpedienteComponent implements OnInit {
   fotosPorFase(fase: string) {
     return this.avances()
       .flatMap(a => a.evidencias)
-      .filter(e => e.fase === fase.toUpperCase() && e.tipo === 'IMAGEN');
+      .filter(e => e.fase === fase.toUpperCase() && e.tipo === 'FOTO');
   }
 
   areasEntregadas = computed(() => 0);

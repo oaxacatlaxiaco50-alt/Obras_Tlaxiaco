@@ -8,9 +8,9 @@ export type ObraEstatus =
   | 'INACTIVA';
 
 export type FaseEvidencia = 'ANTES' | 'DURANTE' | 'DESPUES';
-export type TipoEvidencia = 'IMAGEN' | 'VIDEO' | 'DOCUMENTO';
+export type TipoEvidencia = 'FOTO' | 'VIDEO' | 'DOCUMENTO';
 export type CarpetaTipo = 'LEGAL' | 'SOCIAL' | 'TECNICOS' | 'FOTOGRAFICO';
-export type TipoArchivo = 'IMAGEN' | 'VIDEO' | 'DOCUMENTO';
+export type TipoArchivo = 'FOTO' | 'VIDEO' | 'DOCUMENTO';
 
 // ─── Mapeo visual (backend → UI) ────────────────────────────────────────────
 export const ESTATUS_LABEL: Record<ObraEstatus, string> = {

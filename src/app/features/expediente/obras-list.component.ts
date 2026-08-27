@@ -89,7 +89,7 @@ import * as L from 'leaflet';
                 <tr class="interactive-row" (click)="abrirExpediente(obra.id)">
                   <td>
                     <div class="obra-name-cell">
-                      <span class="obra-code">{{ obra.codigo ?? obra.id }}</span>
+                      <span class="obra-code">{{ obra.codigo || obra.id }}</span>
                       <span class="obra-name">{{ obra.nombre }}</span>
                       <span class="obra-location">🏷️ {{ obra.categoria || 'Infraestructura General' }} · {{ obra.direccion || 'Tlaxiaco' }}</span>
                     </div>

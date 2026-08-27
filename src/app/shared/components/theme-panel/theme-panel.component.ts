@@ -37,8 +37,8 @@ import { ThemeService, Theme } from '../../../core/services/theme.service';
             <button class="preset-btn theme-silver" [class.active]="themeSvc.currentTheme() === 'silver'" (click)="themeSvc.setTheme('silver')">
               <span class="preset-indicator"></span> Plata (Claro)
             </button>
-            <button class="preset-btn theme-pastel-pink" [class.active]="themeSvc.currentTheme() === 'pastel-pink'" (click)="themeSvc.setTheme('pastel-pink')">
-              <span class="preset-indicator"></span> Rosa Pastel
+            <button class="preset-btn theme-guinda" [class.active]="themeSvc.currentTheme() === 'guinda'" (click)="themeSvc.setTheme('guinda')">
+              <span class="preset-indicator"></span> Guinda Institucional
             </button>
             <button class="preset-btn theme-pastel-blue" [class.active]="themeSvc.currentTheme() === 'pastel-blue'" (click)="themeSvc.setTheme('pastel-blue')">
               <span class="preset-indicator"></span> Azul Pastel
@@ -147,7 +147,7 @@ import { ThemeService, Theme } from '../../../core/services/theme.service';
     .theme-cyberpunk .preset-indicator { background: #00FFCC; }
     .theme-sunset .preset-indicator { background: #F97316; }
     .theme-silver .preset-indicator { background: #64748B; }
-    .theme-pastel-pink .preset-indicator { background: #F472B6; }
+    .theme-guinda .preset-indicator { background: #9D2449; }
     .theme-pastel-blue .preset-indicator { background: #60A5FA; }
     .theme-pastel-mint .preset-indicator { background: #34D399; }
 
