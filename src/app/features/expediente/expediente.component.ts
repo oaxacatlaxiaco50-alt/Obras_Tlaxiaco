@@ -157,6 +157,7 @@ import html2canvas from 'html2canvas';
                 <span class="text-success">✅ {{ areasEntregadas() }} entregadas</span>
                 <span class="text-warning">⏳ {{ areasPendientes() }} pendientes</span>
               </div>
+              }
             </div>
           </div>
 
