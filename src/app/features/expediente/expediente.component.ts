@@ -131,10 +131,18 @@ import html2canvas from 'html2canvas';
             </div>
 
             <!-- Areas -->
-            <div class="card">
-              <h3 class="sec-title">📋 Áreas del Proyecto</h3>
-              <div class="areas-list">
-                @if (avances().length === 0) {
+            <div class="card" style="padding:0; overflow:hidden;">
+              <div class="seccion-header interactive-accordion-header" (click)="areasAbiertas.set(!areasAbiertas())" style="padding:14px 18px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; border-bottom:1px solid var(--border);">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span class="accordion-icon" style="color:var(--accent); font-weight:bold; font-size:0.85rem;">{{ areasAbiertas() ? '▼' : '►' }}</span>
+                  <h3 style="font-size:1.1rem; font-weight:800; color:var(--text-primary); margin:0;">📋 Áreas del Proyecto</h3>
+                  <span class="badge badge-secondary" style="font-size:0.72rem;">{{ avances().length }} Avances</span>
+                </div>
+              </div>
+              
+              @if (areasAbiertas()) {
+                <div class="areas-list" style="padding: 24px; animation: fadeIn 0.3s ease;">
+                  @if (avances().length === 0) {
                   <div class="empty-state">Sin registros de avance aun</div>
                 }
                 @for (avance of avances(); track avance.id) {
@@ -168,9 +176,17 @@ import html2canvas from 'html2canvas';
               }
             </div>
 
-            <div class="card docs-card">
-              <h3 class="sec-title">📑 Archivos Subidos al Expediente ({{ archivosSubidos().length }})</h3>
-              <div class="docs-list">
+            <div class="card docs-card" style="padding:0; overflow:hidden;">
+              <div class="seccion-header interactive-accordion-header" (click)="archivosAbiertos.set(!archivosAbiertos())" style="padding:14px 18px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; border-bottom:1px solid var(--border);">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span class="accordion-icon" style="color:var(--accent); font-weight:bold; font-size:0.85rem;">{{ archivosAbiertos() ? '▼' : '►' }}</span>
+                  <h3 style="font-size:1.1rem; font-weight:800; color:var(--text-primary); margin:0;">📁 Archivos Subidos al Expediente</h3>
+                  <span class="badge badge-secondary" style="font-size:0.72rem;">{{ archivosSubidos().length }} Documentos</span>
+                </div>
+              </div>
+              
+              @if (archivosAbiertos()) {
+                <div class="docs-list" style="padding: 24px; animation: fadeIn 0.3s ease;">
                 @for (arch of archivosSubidos(); track arch.id) {
                   <div class="doc-item entregado" style="display:flex; align-items:center; gap:12px;">
                     <div class="doc-icon">{{ arch.tipoArchivo === 'FOTO' ? '🖼️' : '📄' }}</div>
@@ -198,7 +214,8 @@ import html2canvas from 'html2canvas';
                     📁 Ningún archivo subido a este expediente todavía.
                   </div>
                 }
-              </div>
+                </div>
+              }
             </div>
           </div>
         }
@@ -969,6 +986,8 @@ import html2canvas from 'html2canvas';
 })
 export class ExpedienteComponent implements OnInit {
   faseActiva = signal<string>('ANTES');
+  areasAbiertas = signal(true);
+  archivosAbiertos = signal(true);
   uploadMsg = signal('');
   uploadError = signal(false);
   mostrarModalEdicion = signal(false);
@@ -1208,7 +1227,12 @@ export class ExpedienteComponent implements OnInit {
           error: () => this.cargando.set(false)
         });
         this.avancesSvc.getAvances(id).subscribe({
-          next: (list) => this.avances.set(list),
+          next: (list) => {
+             this.avances.set(list);
+             if (this.fotosPorFase('DESPUES').length > 0) this.faseActiva.set('DESPUES');
+             else if (this.fotosPorFase('DURANTE').length > 0) this.faseActiva.set('DURANTE');
+             else if (this.fotosPorFase('ANTES').length > 0) this.faseActiva.set('ANTES');
+          },
           error: () => {}
         });
         this.avancesSvc.getUltimoPorcentaje(id).subscribe({
@@ -1428,7 +1452,10 @@ export class ExpedienteComponent implements OnInit {
                 const fase = porcentaje === 100 ? 'DESPUES' : 'DURANTE';
                 this.avancesSvc.subirEvidencia(current.id, avance.id, file, fase as any, descripcion).subscribe({
                   next: () => {
-                    this.avancesSvc.getAvances(current.id).subscribe(list => this.avances.set(list));
+                    this.avancesSvc.getAvances(current.id).subscribe(list => {
+                       this.avances.set(list);
+                       this.faseActiva.set(fase);
+                    });
                     this.toastSvc.show('Avance y fotografía guardados con éxito', 'success');
                   },
                   error: () => this.toastSvc.show('Error al subir la fotografía del avance', 'error')
