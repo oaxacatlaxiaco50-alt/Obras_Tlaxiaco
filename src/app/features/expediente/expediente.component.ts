@@ -143,20 +143,20 @@ import html2canvas from 'html2canvas';
               @if (areasAbiertas()) {
                 <div class="areas-list" style="padding: 24px; animation: fadeIn 0.3s ease;">
                   @if (avances().length === 0) {
-                  <div class="empty-state">Sin registros de avance aun</div>
-                }
-                @for (avance of avances(); track avance.id) {
-                  <div class="area-item">
-                    <span class="area-icon">📊</span>
-                    <span class="area-name">{{ avance.titulo }} — {{ avance.porcentaje }}%</span>
-                    <span class="badge badge-success">{{ avance.fechaAvance }}</span>
-                  </div>
-                }
-              </div>
-              <div class="areas-summary">
-                <span class="text-success">✅ {{ areasEntregadas() }} entregadas</span>
-                <span class="text-warning">⏳ {{ areasPendientes() }} pendientes</span>
-              </div>
+                    <div class="empty-state">Sin registros de avance aun</div>
+                  }
+                  @for (avance of avances(); track avance.id) {
+                    <div class="area-item">
+                      <span class="area-icon">📊</span>
+                      <span class="area-name">{{ avance.titulo }} — {{ avance.porcentaje }}%</span>
+                      <span class="badge badge-success">{{ avance.fechaAvance }}</span>
+                    </div>
+                  }
+                </div>
+                <div class="areas-summary">
+                  <span class="text-success">✅ {{ areasEntregadas() }} entregadas</span>
+                  <span class="text-warning">⏳ {{ areasPendientes() }} pendientes</span>
+                </div>
               }
             </div>
           </div>
