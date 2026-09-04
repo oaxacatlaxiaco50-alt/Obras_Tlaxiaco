@@ -119,7 +119,9 @@ export interface ObraAvance {
 export interface ObraAvanceRequest {
   titulo: string;
   fechaAvance: string;
-  porcentaje: number;
+  metaId?: number;
+  cantidadEjecutada?: number;
+  porcentaje?: number;
   observaciones?: string;
 }
 
@@ -147,3 +149,93 @@ export interface ObraMapaGeoJSON {
   type: 'FeatureCollection';
   features: ObraMapaFeature[];
 }
+
+// ─── Metas y Conceptos Dinámicos ─────────────────────────────────────────────
+export type MetaEstado = 'PENDIENTE' | 'EN_PROCESO' | 'COMPLETADO';
+
+export interface ObraMeta {
+  id?: number;
+  obraId: number;
+  concepto: string;
+  unidadMedida: string;
+  cantidadMeta: number;
+  avanceAcumulado?: number;
+  porcentaje?: number;
+  estado?: MetaEstado;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ConceptoSugerido {
+  nombre: string;
+  unidadSugerida: string;
+}
+
+export const CATEGORIAS_METAS_CATALOG: Record<string, ConceptoSugerido[]> = {
+  '🛣️ Pavimentación y Vialidades': [
+    { nombre: 'Pavimentación', unidadSugerida: 'm²' },
+    { nombre: 'Recarpeteo', unidadSugerida: 'm²' },
+    { nombre: 'Bacheo', unidadSugerida: 'm²' },
+    { nombre: 'Guarniciones', unidadSugerida: 'm' },
+    { nombre: 'Banquetas', unidadSugerida: 'm²' },
+    { nombre: 'Terracerías', unidadSugerida: 'm³' },
+    { nombre: 'Señalamiento vial', unidadSugerida: 'piezas' },
+    { nombre: 'Otro concepto', unidadSugerida: 'N/A' }
+  ],
+  '💧 Agua Potable y Drenaje': [
+    { nombre: 'Tubería de agua potable', unidadSugerida: 'm' },
+    { nombre: 'Red de distribución', unidadSugerida: 'm' },
+    { nombre: 'Tomas domiciliarias', unidadSugerida: 'piezas' },
+    { nombre: 'Pozos', unidadSugerida: 'piezas' },
+    { nombre: 'Tanques de almacenamiento', unidadSugerida: 'litros' },
+    { nombre: 'Drenaje sanitario', unidadSugerida: 'm' },
+    { nombre: 'Drenaje pluvial', unidadSugerida: 'm' },
+    { nombre: 'Colectores', unidadSugerida: 'm' },
+    { nombre: 'Pozos de visita', unidadSugerida: 'piezas' },
+    { nombre: 'Otro concepto', unidadSugerida: 'N/A' }
+  ],
+  '⚡ Electrificación y Alumbrado': [
+    { nombre: 'Instalación de postes', unidadSugerida: 'piezas' },
+    { nombre: 'Luminarias', unidadSugerida: 'piezas' },
+    { nombre: 'Cableado eléctrico', unidadSugerida: 'm' },
+    { nombre: 'Transformadores', unidadSugerida: 'piezas' },
+    { nombre: 'Acometidas', unidadSugerida: 'piezas' },
+    { nombre: 'Red eléctrica', unidadSugerida: 'm' },
+    { nombre: 'Alumbrado público', unidadSugerida: 'm' },
+    { nombre: 'Paneles solares', unidadSugerida: 'piezas' },
+    { nombre: 'Otro concepto', unidadSugerida: 'N/A' }
+  ],
+  '🏫 Educación y Escuelas': [
+    { nombre: 'Aulas', unidadSugerida: 'aulas' },
+    { nombre: 'Sanitarios', unidadSugerida: 'piezas' },
+    { nombre: 'Techumbres', unidadSugerida: 'm²' },
+    { nombre: 'Bardas perimetrales', unidadSugerida: 'm' },
+    { nombre: 'Canchas', unidadSugerida: 'm²' },
+    { nombre: 'Rehabilitación de aulas', unidadSugerida: 'aulas' },
+    { nombre: 'Instalaciones eléctricas', unidadSugerida: 'lotes' },
+    { nombre: 'Mobiliario', unidadSugerida: 'piezas' },
+    { nombre: 'Otro concepto', unidadSugerida: 'N/A' }
+  ],
+  '🏥 Salud y Espacios Públicos': [
+    { nombre: 'Parques', unidadSugerida: 'lotes' },
+    { nombre: 'Áreas verdes', unidadSugerida: 'm²' },
+    { nombre: 'Juegos infantiles', unidadSugerida: 'piezas' },
+    { nombre: 'Gimnasios al aire libre', unidadSugerida: 'lotes' },
+    { nombre: 'Canchas deportivas', unidadSugerida: 'm²' },
+    { nombre: 'Rehabilitación de espacios', unidadSugerida: 'm²' },
+    { nombre: 'Consultorios', unidadSugerida: 'piezas' },
+    { nombre: 'Sanitarios', unidadSugerida: 'piezas' },
+    { nombre: 'Otro concepto', unidadSugerida: 'N/A' }
+  ],
+  '🏗️ Infraestructura General': [
+    { nombre: 'Construcción', unidadSugerida: 'm²' },
+    { nombre: 'Rehabilitación', unidadSugerida: 'm²' },
+    { nombre: 'Obra civil', unidadSugerida: 'lotes' },
+    { nombre: 'Estructuras', unidadSugerida: 'toneladas' },
+    { nombre: 'Muros', unidadSugerida: 'm²' },
+    { nombre: 'Techumbres', unidadSugerida: 'm²' },
+    { nombre: 'Instalaciones', unidadSugerida: 'lotes' },
+    { nombre: 'Equipamiento', unidadSugerida: 'lotes' },
+    { nombre: 'Otro concepto personalizado', unidadSugerida: 'N/A' }
+  ]
+};

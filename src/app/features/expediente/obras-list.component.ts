@@ -6,7 +6,8 @@ import { ObrasService } from '../../core/services/obras.service';
 import { AuthService } from '../../core/services/auth.service';
 import { UsuariosService } from '../../core/services/usuarios.service';
 import { ToastService } from '../../core/services/toast.service';
-import { ObraResponse, ObraEstatus, ESTATUS_LABEL, ESTATUS_COLOR } from '../../core/models/obra.model';
+import { MetasService } from '../../core/services/metas.service';
+import { ObraResponse, ObraEstatus, ESTATUS_LABEL, ESTATUS_COLOR, CATEGORIAS_METAS_CATALOG, ObraMeta } from '../../core/models/obra.model';
 import { UserResponse } from '../../core/models/user.model';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -204,13 +205,13 @@ import * as L from 'leaflet';
               </div>
               <div class="form-group">
                 <label class="form-label">Categoría de Obra *</label>
-                <select class="form-input" name="categoria" required>
-                  <option value="Pavimentación y Vialidades">🛣️ Pavimentación y Vialidades</option>
-                  <option value="Agua Potable y Drenaje">💧 Agua Potable y Drenaje</option>
-                  <option value="Electrificación y Alumbrado">⚡ Electrificación y Alumbrado</option>
-                  <option value="Educación y Escuelas">🏫 Educación y Escuelas</option>
-                  <option value="Salud y Espacios Públicos">🏥 Salud y Espacios Públicos</option>
-                  <option value="Infraestructura General" selected>🏗️ Infraestructura General</option>
+                <select class="form-input" name="categoria" required [value]="valCategoria()" (change)="actualizarCategoriaSugerida($any($event.target).value)">
+                  <option value="🛣️ Pavimentación y Vialidades">🛣️ Pavimentación y Vialidades</option>
+                  <option value="💧 Agua Potable y Drenaje">💧 Agua Potable y Drenaje</option>
+                  <option value="⚡ Electrificación y Alumbrado">⚡ Electrificación y Alumbrado</option>
+                  <option value="🏫 Educación y Escuelas">🏫 Educación y Escuelas</option>
+                  <option value="🏥 Salud y Espacios Públicos">🏥 Salud y Espacios Públicos</option>
+                  <option value="🏗️ Infraestructura General" selected>🏗️ Infraestructura General</option>
                 </select>
               </div>
             </div>
@@ -263,6 +264,47 @@ import * as L from 'leaflet';
                   </span>
                 </div>
               </div>
+            </div>
+
+            <!-- Panel de Selección de Metas -->
+            <div class="form-group" style="margin-bottom: 24px; padding: 20px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);">
+              <label class="form-label" style="font-size: 1.1rem; color: var(--accent); margin-bottom: 12px; display: block;">🎯 Selecciona las metas físicas que aplican a esta obra:</label>
+              
+              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                @for (sug of conceptosSugeridos(); track sug.nombre) {
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s;">
+                    <input type="checkbox" [checked]="conceptosSeleccionados().includes(sug.nombre)" (change)="toggleConcepto(sug.nombre, sug.unidadSugerida)" style="width: 18px; height: 18px; accent-color: var(--accent);">
+                    <div style="display: flex; flex-direction: column;">
+                      <span style="font-size: 0.9rem; color: var(--text-primary); font-weight: 600;">{{ sug.nombre }}</span>
+                      <span style="font-size: 0.75rem; color: var(--text-muted);">Unidad: {{ sug.unidadSugerida }}</span>
+                    </div>
+                  </label>
+                }
+              </div>
+
+              @if (metasTemporales().length > 0) {
+                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
+                  <label class="form-label" style="font-size: 0.95rem; color: var(--text-primary); margin-bottom: 12px; display: block;">Captura las cantidades para las metas seleccionadas:</label>
+                  <div style="display: flex; flex-direction: column; gap: 12px;">
+                    @for (meta of metasTemporales(); track meta.concepto; let i = $index) {
+                      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; align-items: center; background: rgba(0,0,0,0.3); padding: 16px; border-radius: 8px; border: 1px solid var(--accent);">
+                        <div>
+                          <label class="form-label" style="font-size: 0.75rem; color: var(--text-secondary);">META</label>
+                          <div style="font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">{{ meta.concepto }}</div>
+                        </div>
+                        <div>
+                          <label class="form-label" style="font-size: 0.75rem; color: var(--text-secondary);">Unidad</label>
+                          <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted); margin-top: 4px;">{{ meta.unidadMedida }}</div>
+                        </div>
+                        <div>
+                          <label class="form-label" style="font-size: 0.75rem; color: var(--accent);">Cantidad Total *</label>
+                          <input type="number" class="form-input" [(ngModel)]="meta.cantidadMeta" name="cantidad_{{i}}" placeholder="Ej. 100" required style="font-size: 1.1rem; font-weight: bold; padding: 8px 12px; border-color: var(--accent); background: rgba(0,0,0,0.5);">
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
             </div>
 
             <div class="modal-actions">
@@ -491,6 +533,7 @@ export class ObrasListComponent implements OnInit {
   router = inject(Router);
   usuariosSvc = inject(UsuariosService);
   toastSvc = inject(ToastService);
+  metasSvc = inject(MetasService);
 
   mostrarModalNuevaObra = signal(false);
   mostrarModalNuevoExpediente = signal(false);
@@ -501,6 +544,13 @@ export class ObrasListComponent implements OnInit {
   valFechaInicio = signal('');
   valFechaFin = signal('');
   valDescripcionTexto = signal('');
+  valCategoria = signal('🏗️ Infraestructura General');
+
+  // Metas dinámicas
+  catalogoMetas = CATEGORIAS_METAS_CATALOG;
+  conceptosSeleccionados = signal<string[]>([]);
+  metasTemporales = signal<Partial<ObraMeta>[]>([]);
+  conceptosSugeridos = computed(() => this.catalogoMetas[this.valCategoria()] || []);
 
   responsableSeleccionado = signal('');
   responsables = signal<UserResponse[]>([]);
@@ -631,6 +681,8 @@ export class ObrasListComponent implements OnInit {
 
   abrirModal(tipo: 'obra' | 'expediente'): void {
     if (tipo === 'obra') {
+      this.valCategoria.set('🛣️ Pavimentación y Vialidades');
+      this.actualizarCategoriaSugerida('🛣️ Pavimentación y Vialidades');
       this.mostrarModalNuevaObra.set(true);
       this.initModalMap();
     } else {
@@ -647,6 +699,8 @@ export class ObrasListComponent implements OnInit {
     this.valFechaInicio.set('');
     this.valFechaFin.set('');
     this.valDescripcionTexto.set('');
+    this.conceptosSeleccionados.set([]);
+    this.metasTemporales.set([]);
     this.mostrarModalNuevaObra.set(false);
   }
 
@@ -693,6 +747,23 @@ export class ObrasListComponent implements OnInit {
         }
       });
     }, 150);
+  }
+
+  actualizarCategoriaSugerida(categoria: string) {
+    this.valCategoria.set(categoria);
+    this.conceptosSeleccionados.set([]);
+    this.metasTemporales.set([]);
+  }
+
+  toggleConcepto(concepto: string, unidad: string) {
+    const seleccionados = this.conceptosSeleccionados();
+    if (seleccionados.includes(concepto)) {
+      this.conceptosSeleccionados.set(seleccionados.filter(c => c !== concepto));
+      this.metasTemporales.update(m => m.filter(meta => meta.concepto !== concepto));
+    } else {
+      this.conceptosSeleccionados.set([...seleccionados, concepto]);
+      this.metasTemporales.update(m => [...m, { concepto, unidadMedida: unidad, cantidadMeta: null as any }]);
+    }
   }
 
   crearObra(e: Event) {
@@ -777,8 +848,31 @@ export class ObrasListComponent implements OnInit {
     }).subscribe({
       next: (nueva) => {
         this.todasLasObras.update(list => [nueva, ...list]);
-        this.toastSvc.show('¡Obra creada exitosamente con su ubicación GPS!', 'success');
-        this.cerrarModalNuevaObra();
+        
+        // Guardar metas temporales si existen
+        const metas = this.metasTemporales().filter(m => m.concepto && m.unidadMedida && m.cantidadMeta);
+        if (metas.length > 0) {
+          let guardadas = 0;
+          metas.forEach(metaReq => {
+            this.metasSvc.crearMeta(nueva.id, metaReq as any).subscribe({
+              next: () => {
+                guardadas++;
+                if (guardadas === metas.length) {
+                  this.toastSvc.show('¡Obra y metas creadas exitosamente!', 'success');
+                  this.cerrarModalNuevaObra();
+                }
+              },
+              error: () => {
+                guardadas++;
+                this.toastSvc.show(`Error al guardar la meta: ${metaReq.concepto}`, 'error');
+                if (guardadas === metas.length) this.cerrarModalNuevaObra();
+              }
+            });
+          });
+        } else {
+          this.toastSvc.show('¡Obra creada exitosamente con su ubicación GPS!', 'success');
+          this.cerrarModalNuevaObra();
+        }
       },
       error: (err) => {
         console.error('Error al crear obra:', err);

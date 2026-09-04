@@ -1,14 +1,16 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ObrasService } from '../../core/services/obras.service';
 import { AvancesService } from '../../core/services/avances.service';
 import { ArchivosService } from '../../core/services/archivos.service';
 import { ExpedientesService, ExpedienteObraItem, EstadoDocumentoChecklist, SeccionExpedienteChecklist } from '../../core/services/expedientes.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
-import { ObraResponse, ObraAvance, ObraArchivo, ObraEstatus, ESTATUS_LABEL, ESTATUS_COLOR } from '../../core/models/obra.model';
+import { ObraResponse, ObraAvance, ObraArchivo, ObraEstatus, ESTATUS_LABEL, ESTATUS_COLOR, ObraMeta, ConceptoSugerido, CATEGORIAS_METAS_CATALOG } from '../../core/models/obra.model';
+import { MetasService } from '../../core/services/metas.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
@@ -16,7 +18,7 @@ import html2canvas from 'html2canvas';
 @Component({
   selector: 'app-expediente',
   standalone: true,
-  imports: [DatePipe],
+  imports: [DatePipe, DecimalPipe, FormsModule],
   template: `
     @if (obra()) {
       <div class="expediente animate-fade-in" id="pdfContent">
@@ -1002,7 +1004,22 @@ export class ExpedienteComponent implements OnInit {
     { key: 'DESPUES', icon: '🟢', label: 'Después' },
   ];
 
+  private metasService = inject(MetasService);
+
+  // --- State Signals ---
   obra = signal<ObraResponse | null>(null);
+  
+  // Metas State
+  metas = signal<ObraMeta[]>([]);
+  metasAbiertas = signal<boolean>(true);
+  mostrarModalMeta = signal<boolean>(false);
+  mostrarModalAvanceMeta = signal<boolean>(false);
+  conceptosSugeridos = signal<ConceptoSugerido[]>([]);
+  
+  nuevaMeta: Partial<ObraMeta> = { concepto: '', unidadMedida: '', cantidadMeta: 0 };
+  metaSeleccionada = signal<ObraMeta | null>(null);
+  nuevoAvanceMeta = { cantidad: null as number|null, fecha: new Date().toISOString().split('T')[0], observaciones: '' };
+
   avances = signal<ObraAvance[]>([]);
   ultimoPorcentaje = signal(0);
   cargando = signal(true);
@@ -1248,7 +1265,93 @@ export class ExpedienteComponent implements OnInit {
           next: (items) => this.checklist.set(items),
           error: (err) => console.error('Error cargando checklist:', err)
         });
+        this.cargarMetas();
       }
+    });
+  }
+
+  cargarMetas() {
+    const id = this.obra()?.id || Number(this.route.snapshot.paramMap.get('id'));
+    if (!id) return;
+    this.metasService.listarMetas(id).subscribe({
+      next: (m) => this.metas.set(m),
+      error: () => this.toastSvc.show('Error al cargar metas', 'error')
+    });
+  }
+
+  getMetaColor(porcentaje: number): string {
+    if (porcentaje >= 100) return '#10B981';
+    if (porcentaje >= 50) return '#F59E0B';
+    return '#3B82F6';
+  }
+
+  getMetaEstadoClass(estado?: string): string {
+    switch(estado) {
+      case 'COMPLETADO': return 'badge-success';
+      case 'EN_PROCESO': return 'badge-warning';
+      default: return 'badge-secondary';
+    }
+  }
+
+  abrirModalMeta(event: Event) {
+    event.stopPropagation();
+    const cat = this.obra()?.categoria || '🏗️ Infraestructura General';
+    let conceptos = CATEGORIAS_METAS_CATALOG[cat];
+    if (!conceptos) conceptos = CATEGORIAS_METAS_CATALOG['🏗️ Infraestructura General'];
+    this.conceptosSugeridos.set(conceptos);
+    this.nuevaMeta = { concepto: '', unidadMedida: '', cantidadMeta: null as any };
+    this.mostrarModalMeta.set(true);
+  }
+
+  onConceptoChange() {
+    const seleccionado = this.conceptosSugeridos().find(c => c.nombre === this.nuevaMeta.concepto);
+    if (seleccionado && seleccionado.unidadSugerida !== 'N/A') {
+      this.nuevaMeta.unidadMedida = seleccionado.unidadSugerida;
+    }
+  }
+
+  guardarMeta() {
+    const id = this.obra()?.id;
+    if (!id || !this.nuevaMeta.concepto || !this.nuevaMeta.unidadMedida || !this.nuevaMeta.cantidadMeta) return;
+    this.metasService.crearMeta(id, this.nuevaMeta).subscribe({
+      next: () => {
+        this.toastSvc.show('Meta agregada correctamente', 'success');
+        this.mostrarModalMeta.set(false);
+        this.cargarMetas();
+      },
+      error: () => this.toastSvc.show('No se pudo guardar la meta', 'error')
+    });
+  }
+
+  abrirModalAvanceMeta(meta: ObraMeta) {
+    this.metaSeleccionada.set(meta);
+    this.nuevoAvanceMeta = { cantidad: null, fecha: new Date().toISOString().split('T')[0], observaciones: '' };
+    this.mostrarModalAvanceMeta.set(true);
+  }
+
+  guardarAvanceMeta() {
+    const id = this.obra()?.id;
+    const meta = this.metaSeleccionada();
+    if (!id || !meta || !this.nuevoAvanceMeta.cantidad) return;
+    
+    const req = {
+      titulo: 'Avance: ' + meta.concepto,
+      fechaAvance: this.nuevoAvanceMeta.fecha,
+      metaId: meta.id,
+      cantidadEjecutada: this.nuevoAvanceMeta.cantidad,
+      observaciones: this.nuevoAvanceMeta.observaciones
+    };
+    
+    this.avancesSvc.registrarAvance(id, req).subscribe({
+      next: () => {
+        this.toastSvc.show('Avance de meta registrado', 'success');
+        this.mostrarModalAvanceMeta.set(false);
+        this.cargarMetas();
+        
+        // Recargar el porcentaje global
+        this.avancesSvc.getUltimoPorcentaje(id).subscribe(p => this.ultimoPorcentaje.set(p));
+      },
+      error: (e) => this.toastSvc.show(e.error?.message || 'Error al registrar avance', 'error')
     });
   }
 
