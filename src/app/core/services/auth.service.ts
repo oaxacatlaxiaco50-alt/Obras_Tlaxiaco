@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { LoginResponse, Rol } from '../models/user.model';
 import { tap, catchError } from 'rxjs/operators';
 import { throwError, Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -12,7 +13,7 @@ export class AuthService {
   usuario = this._usuario.asReadonly();
   isAuthenticated = computed(() => !!this._usuario());
 
-  private readonly API_URL = 'http://localhost:8081/auth';
+  private readonly API_URL = `${environment.apiUrl}/auth`;
   private readonly TOKEN_KEY = 'jwt_token';
   private readonly USER_KEY = 'user_data';
 

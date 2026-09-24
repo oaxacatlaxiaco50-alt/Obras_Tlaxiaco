@@ -1,9 +1,10 @@
+import { environment } from '../../../environments/environment';
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ObraArchivo, CarpetaTipo } from '../models/obra.model';
 
-const API = 'http://localhost:8081';
+const API = environment.apiUrl;
 
 @Injectable({ providedIn: 'root' })
 export class ArchivosService {

@@ -1,8 +1,9 @@
+import { environment } from '../../../environments/environment';
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
-const API = 'http://localhost:8081';
+const API = environment.apiUrl;
 
 export type EstadoDocumentoChecklist = 'OK' | 'FALTANTE' | 'CORREGIR' | 'NO_APLICA';
 export type SeccionExpedienteChecklist = 'PARTE_SOCIAL' | 'PROYECTO_EJECUTIVO' | 'PROCESOS_CONTRATACION' | 'DOCUMENTOS_COMPROBATORIOS';

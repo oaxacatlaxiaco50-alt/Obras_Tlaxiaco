@@ -112,6 +112,9 @@ export interface ObraAvance {
   porcentaje: number;
   observaciones?: string;
   registradoPor?: number;
+  metaId?: number;
+  cantidadEjecutada?: number;
+  acumuladoActual?: number;
   createdAt: string;
   evidencias: AvanceEvidencia[];
 }

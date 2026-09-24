@@ -14,6 +14,7 @@ import { MetasService } from '../../core/services/metas.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
+import * as XLSX from 'xlsx';
 
 @Component({
   selector: 'app-expediente',
@@ -39,26 +40,44 @@ import html2canvas from 'html2canvas';
             </div>
           </div>
           <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-            <button class="btn btn-primary" style="background:#E8A020; border-color:#E8A020; color:#fff; font-weight:700; display:inline-flex; align-items:center; gap:6px;" (click)="irAIntegracionExpediente()">
-              🏛️ Integración de Expediente Unitario de Obras
-            </button>
-            @if (auth.hasRole('admin', 'residente')) {
-              <button class="btn" style="background:linear-gradient(135deg,#10B981,#059669); color:#fff; border:none; box-shadow:0 4px 12px rgba(16,185,129,0.3); display:inline-flex; align-items:center; gap:6px;" (click)="mostrarModalIntegracionExp.set(true)">
-                📂 Integración de Expedientes
-              </button>
+            
+            
+            @if (tabActiva() !== 'editar') {
+              @if (auth.hasRole('admin')) {
+                <button class="btn" style="background:var(--danger); color:white; border:none; box-shadow:0 4px 12px rgba(239, 68, 68, 0.3); display:inline-flex; align-items:center; gap:6px;" (click)="tabActiva.set('editar')">
+                  ✏️ Editar Obra
+                </button>
+              }
+              @if (auth.hasRole('admin', 'residente')) {
+                <button class="btn" style="background:linear-gradient(135deg,#10B981,#059669); color:#fff; border:none; box-shadow:0 4px 12px rgba(16,185,129,0.3); display:inline-flex; align-items:center; gap:6px;" (click)="mostrarModalIntegracionExp.set(true)">
+                  📂 Integración de Expedientes
+                </button>
+              }
+              @if (auth.hasRole('admin') || (auth.hasRole('residente') && !svc.isBlocked(obra()!))) {
+                <button class="btn btn-secondary" (click)="mostrarModalReportes.set(true)">📄 Generar Reporte</button>
+              }
+            } @else {
+              <button class="btn btn-secondary" (click)="tabActiva.set('resumen')">Cancelar</button>
+              <button class="btn btn-primary" type="submit" form="editarObraForm">💾 Guardar Cambios</button>
             }
-            @if (auth.hasRole('admin') || (auth.hasRole('residente') && !svc.isBlocked(obra()!))) {
-              <button class="btn btn-secondary" (click)="generarReporteChecklistPDF()" [disabled]="generandoPDF()">
-                {{ generandoPDF() ? '⏳ Procesando PDF...' : '📄 Generar Reporte PDF' }}
-              </button>
-              <button class="btn btn-primary" (click)="mostrarModalEdicion.set(true)">✏️ Editar Expediente</button>
-            }
+
           </div>
+        </div>
+
+        
+        <!-- TABS NAV -->
+        <div class="exp-tabs-nav" style="display:flex; gap:8px; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:12px; overflow-x:auto;">
+          <button class="tab-pill" [class.active]="tabActiva() === 'resumen'" (click)="tabActiva.set('resumen')">📊 Resumen General</button>
+          @if (auth.hasRole('admin', 'residente')) {
+            <button class="tab-pill" [class.active]="tabActiva() === 'archivos'" (click)="tabActiva.set('archivos')">📁 Archivos y Evidencias</button>
+            <button class="tab-pill" [class.active]="tabActiva() === 'avances'" (click)="tabActiva.set('avances')" style="color:var(--accent);">🎯 Actualizar Avances</button>
+          }
+          
         </div>
 
         <!-- KPI Strip -->
         @if (auth.hasRole('admin', 'residente')) {
-          <div class="kpi-strip">
+          <div class="kpi-strip" [style.display]="tabActiva() === 'resumen' ? '' : 'none'">
             <div class="strip-item">
               <span class="strip-label">💰 Monto</span>
               <span class="strip-val accent">{{ svc.formatMonto(obra()!.monto) }}</span>
@@ -90,7 +109,7 @@ import html2canvas from 'html2canvas';
             </div>
           </div>
           <!-- Progress bar -->
-          <div class="exp-progress-wrap">
+          <div class="exp-progress-wrap" [style.display]="tabActiva() === 'resumen' ? '' : 'none'">
             <div class="progress-bar" style="height:12px">
               <div class="progress-fill" [style.width.%]="ultimoPorcentaje()"></div>
             </div>
@@ -98,13 +117,13 @@ import html2canvas from 'html2canvas';
         }
 
         <!-- Description -->
-        <div class="card exp-desc-card">
+        <div class="card exp-desc-card" [style.display]="tabActiva() === 'resumen' ? '' : 'none'">
           <h3 class="sec-title">📝 Descripción del Proyecto</h3>
           <p>{{ obra()!.descripcion }}</p>
         </div>
 
         @if (auth.hasRole('admin', 'residente')) {
-          <div class="exp-grid">
+          <div class="exp-grid" [style.display]="(tabActiva() === 'resumen' || tabActiva() === 'archivos') ? '' : 'none'">
             <!-- Timeline de Fotos -->
             <div class="card">
               <h3 class="sec-title">📸 Línea de Tiempo</h3>
@@ -118,7 +137,7 @@ import html2canvas from 'html2canvas';
               </div>
               <div class="foto-grid">
                 @for (foto of fotosPorFase(faseActiva()); track foto.id) {
-                  <div class="foto-thumb">
+                  <div class="foto-thumb" (click)="fotoVisorActiva.set(foto)">
                     <img [src]="getFileUrl(foto.archivoUrl)" [alt]="foto.descripcion" loading="lazy" />
                     <div class="foto-overlay">
                       <span>{{ foto.descripcion }}</span>
@@ -164,10 +183,20 @@ import html2canvas from 'html2canvas';
           </div>
 
           <!-- Upload + Camera -->
-          <div class="exp-grid-2">
+          <div class="exp-grid-2" [style.display]="tabActiva() === 'archivos' ? '' : 'none'">
             <div class="card upload-card">
-              <h3 class="sec-title">📂 Subir Archivos</h3>
-              <div class="upload-zone" (dragover)="$event.preventDefault()" (drop)="onDrop($event)">
+              <h3 class="sec-title">📁 Subir Archivos</h3>
+
+                <div style="margin-bottom: 16px;">
+                  <label class="form-label" style="display:block; margin-bottom:8px; font-weight:600;">Destino / Clasificacion del Archivo</label>
+                  <select class="form-input" #faseUpload (change)="faseSubida.set(faseUpload.value)">
+                    <option value="GENERAL">Documento del Expediente (General)</option>
+                    <option value="ANTES">Evidencia Fotografica (Antes)</option>
+                    <option value="DURANTE">Evidencia Fotografica (Durante)</option>
+                    <option value="DESPUES">Evidencia Fotografica (Despues)</option>
+                  </select>
+                </div>
+                <div class="upload-zone" (dragover)="$event.preventDefault()" (drop)="onDrop($event)">
                 <div class="upload-icon">⬆️</div>
                 <p class="upload-text">Arrastra archivos aquí o haz clic para seleccionar</p>
                 <p class="upload-hint">Imágenes, videos y documentos · Máximo <strong>30 MB</strong> por archivo</p>
@@ -224,6 +253,7 @@ import html2canvas from 'html2canvas';
         }
 
         <!-- SECCIÓN DE CHECKLIST UNITARIO OFICIAL (FORMATO TLAXIACO 2026) -->
+        <div [style.display]="tabActiva() === 'archivos' ? '' : 'none'">
         <div class="card checklist-official-card" id="section-checklist" style="margin-top:24px; border:2px solid var(--border-light); background:var(--bg-surface);">
             <div class="checklist-header" style="background:var(--bg-dark); padding:20px 24px; border-bottom:2px solid var(--border); display:flex; flex-direction:column; gap:12px;">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
@@ -534,7 +564,178 @@ import html2canvas from 'html2canvas';
             </div>
           </div>
 
-      <!-- Modal Previsualizador de Documentos -->
+              </div>
+
+              <div class="card" [style.display]="tabActiva() === 'avances' ? '' : 'none'" style="margin-top:20px;">
+          <h3 class="sec-title">🎯 Actualización de Avances o Metas</h3>
+          <div class="metas-list" style="display:flex; flex-direction:column; gap:12px;">
+            @for (meta of metas(); track meta.id) {
+              <div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:16px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                  <strong style="font-size:1.05rem;">{{ meta.concepto }}</strong>
+                  <span style="font-size:0.85rem; font-weight:700; color:var(--accent); background:rgba(var(--accent-rgb), 0.1); padding:4px 10px; border-radius:20px;">
+                    {{ meta.avanceAcumulado }} / {{ meta.cantidadMeta }} {{ meta.unidadMedida }} ({{ meta.porcentaje }}%)
+                  </span>
+                </div>
+                <div style="height:6px; background:rgba(0,0,0,0.1); border-radius:3px; overflow:hidden; margin-bottom:16px;">
+                  <div style="height:100%; background:var(--accent); border-radius:3px; transition:width 0.3s;" [style.width.%]="meta.porcentaje"></div>
+                </div>
+                
+                @if (meta.estado === 'COMPLETADO') {
+                  <div style="margin-bottom:16px; padding:8px; background:rgba(var(--success-rgb), 0.1); color:var(--success); border-radius:6px; font-weight:600; text-align:center;">
+                    ✅ Meta Completada
+                  </div>
+                } @else {
+                  <div style="display:flex; gap:8px; align-items:center; margin-bottom: 16px;">
+                    <input type="date" #inputFecha class="form-input" style="width: 140px;" [min]="obra()?.fechaInicio" [max]="obra()?.fechaFin">
+                    <input type="number" #inputAvance class="form-input" style="flex:1;" [placeholder]="'Ingresa el avance (ej. ' + meta.cantidadMeta + ' ' + meta.unidadMedida + ')'">
+                    <button class="btn btn-primary btn-sm" (click)="reportarAvanceMeta(meta, inputAvance.value, inputFecha.value); inputAvance.value=''; inputFecha.value=''">Guardar</button>
+                  </div>
+                }
+
+                <details style="background: rgba(255,255,255,0.02); border-radius: 6px; padding: 8px;">
+                  <summary style="cursor: pointer; font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">Ver Historial de Avances</summary>
+                  <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+                    @for (avance of getAvancesPorMeta(meta.id!); track avance.id) {
+                      <div style="display:flex; justify-content:space-between; font-size:0.8rem; padding:8px; background:rgba(0,0,0,0.2); border-radius:4px;">
+                        <span>📅 {{ avance.fechaAvance | date:'dd/MM/yyyy' }}</span>
+                        <span style="color:var(--success);">+{{ avance.cantidadEjecutada }} {{ meta.unidadMedida }}</span>
+                        <span style="color:var(--text-muted);">Acumulado: {{ avance.acumuladoActual }}</span>
+                      </div>
+                    } @empty {
+                      <div style="font-size:0.8rem; color:var(--text-muted); padding:4px;">No hay reportes de avance aún.</div>
+                    }
+                  </div>
+                </details>
+
+              </div>
+            } @empty {
+              <div class="empty-state">No hay metas asignadas a esta obra.</div>
+            }
+          </div>
+        </div>
+        
+        <div class="card" [style.display]="tabActiva() === 'editar' ? '' : 'none'" style="margin-top:20px;">
+          <h3 class="sec-title">⚙️ Editar Obra y Gestor de Metas</h3>
+          
+          <form class="modal-form" (submit)="guardarEdicionObra($event)" id="editarObraForm">
+            <div class="form-group"><label class="form-label">Nombre del Proyecto</label><input type="text" name="nombre" class="form-input" [value]="obra()!.nombre" required></div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Estatus</label>
+                <select name="estatus" class="form-input" [value]="obra()!.estatus">
+                  <option value="PLANIFICADA">Planificada</option><option value="EN_PROCESO">En Proceso</option><option value="COMPLETADA">Completada</option><option value="CANCELADA">Cancelada</option><option value="INACTIVA">Inactiva</option>
+                </select>
+              </div>
+              <div class="form-group"><label class="form-label">Categoría de Obra</label><input type="text" name="categoria" class="form-input" [value]="obra()!.categoria || ''" readonly></div>
+            </div>
+            <div class="form-group" style="margin-bottom: 24px;"><label class="form-label">Descripción</label><textarea name="descripcion" class="form-input" rows="4">{{ obra()!.descripcion }}</textarea></div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              
+              <button type="button" class="btn btn-danger" (click)="eliminarObraAdmin()">🗑️ Eliminar Obra Permanentemente</button>
+            </div>
+          </form>
+
+          <hr style="margin:24px 0; border-color:var(--border);">
+          <h3 class="sec-title">🎯 Gestor de Metas</h3>
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:16px;">
+            <input type="text" #nmConcepto class="form-input" placeholder="Concepto (Ej. Muros)" style="flex:1;">
+            <input type="number" #nmCant class="form-input" placeholder="Cant" style="width:100px;">
+            <select #nmUni class="form-input" style="width:150px;">
+                <option value="" disabled selected>Unidad...</option>
+                <option value="piezas">piezas</option>
+                <option value="m">m (lineales)</option>
+                <option value="m2">m² (cuadrados)</option>
+                <option value="m3">m³ (cúbicos)</option>
+                <option value="km">km</option>
+                <option value="kg">kg</option>
+                <option value="ton">toneladas</option>
+                <option value="litros">litros</option>
+                <option value="lotes">lotes</option>
+                <option value="salidas">salidas</option>
+                <option value="tomas">tomas</option>
+                <option value="servicios">servicios</option>
+                <option value="viajes">viajes</option>
+                <option value="global">global</option>
+              </select>
+            <button class="btn btn-secondary" (click)="agregarMetaNueva(nmConcepto.value, nmCant.value, nmUni.value); nmConcepto.value=''; nmCant.value=''; nmUni.value=''">➕ Agregar</button>
+          </div>
+          <ul style="list-style:none; padding:0; margin:0;">
+            @for (meta of metas(); track meta.id) {
+              <li style="display:flex; justify-content:space-between; padding:12px; background:rgba(255,255,255,0.05); margin-bottom:8px; border-radius:6px; align-items:center;">
+                <span>{{ meta.concepto }} ({{ meta.cantidadMeta }} {{ meta.unidadMedida }})</span>
+                <button class="btn btn-danger btn-sm" (click)="eliminarMetaAdmin(meta.id!)">🗑️ Eliminar</button>
+              </li>
+            }
+          </ul>
+        </div>
+
+
+  
+  <!-- Modal Visor de Fotos -->
+        @if (fotoVisorActiva()) {
+          <div class="modal-overlay animate-fade-in" style="z-index: 3000; padding:20px; display:flex; justify-content:center; align-items:center;" (click)="fotoVisorActiva.set(null)" (window:keydown.escape)="fotoVisorActiva.set(null)">
+            <div style="position:relative; max-width:90vw; max-height:90vh; display:flex; flex-direction:column;" (click)="$event.stopPropagation()">
+              
+              <img [src]="getFileUrl(fotoVisorActiva().archivoUrl)" style="max-width:100%; max-height:70vh; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.5); object-fit:contain;" />
+              
+              <div style="margin-top:16px; display:flex; justify-content:space-between; align-items:center; background:var(--bg-surface); padding:16px 20px; border-radius:8px; box-shadow: var(--shadow-lg);">
+                <div style="text-align:left;">
+                  <h4 style="margin:0; color:var(--text-primary); font-size:1.1rem;">{{ fotoVisorActiva().descripcion }}</h4>
+                  <span style="font-size:0.85rem; color:var(--text-muted); padding:2px 8px; background:rgba(255,255,255,0.05); border-radius:12px; display:inline-block; margin-top:4px;">{{ fotoVisorActiva().tipo }}</span>
+                </div>
+                <div style="display:flex; gap:12px;">
+                  @if (canDeleteFile()) {
+                    <button class="btn btn-danger" (click)="eliminarFotoVisor()">
+                      🗑️ Eliminar Foto
+                    </button>
+                  }
+                  <button class="btn btn-primary" (click)="descargarArchivoSeguro(fotoVisorActiva().archivoUrl, 'Evidencia_' + fotoVisorActiva().tipo + '_' + fotoVisorActiva().id)">
+                    ⬇️ Descargar
+                  </button>
+                  <button class="btn btn-secondary" (click)="fotoVisorActiva.set(null)">
+                    ✖️ Cerrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+
+
+  
+  <!-- Modal Reportes -->
+        @if (mostrarModalReportes()) {
+          <div class="modal-overlay animate-fade-in" style="z-index: 4000; padding:20px; display:flex; justify-content:center; align-items:center;" (click)="mostrarModalReportes.set(false)" (window:keydown.escape)="mostrarModalReportes.set(false)">
+            <div class="modal-content animate-slide-in" style="max-width:550px;" (click)="$event.stopPropagation()">
+              <div class="modal-header">
+                <h2 class="modal-title">📑 Seleccionar Tipo de Reporte</h2>
+                <button class="btn-close" (click)="mostrarModalReportes.set(false)">✖</button>
+              </div>
+              <div class="modal-body" style="padding:24px; display:flex; flex-direction:column; gap:16px;">
+                
+                <button class="btn btn-secondary" style="justify-content:flex-start; text-align:left; padding:16px; border:1px solid var(--border); box-shadow:var(--shadow-sm);" (click)="generarReporteChecklistPDF()" [disabled]="generandoPDF()">
+                  <div style="font-size:1.1rem; font-weight:bold; color:var(--text-primary); margin-bottom:4px;">📄 1. Integración de Expediente Unitario</div>
+                  <div style="font-size:0.85rem; color:var(--text-muted); white-space:normal;">Lista de verificación de documentos (Proyecto, Contratación, etc.)</div>
+                </button>
+
+                <button class="btn btn-secondary" style="justify-content:flex-start; text-align:left; padding:16px; border:1px solid var(--border); box-shadow:var(--shadow-sm);" (click)="generarFichaTecnicaPDF()" [disabled]="generandoPDF()">
+                  <div style="font-size:1.1rem; font-weight:bold; color:var(--text-primary); margin-bottom:4px;">📄 2. Ficha Técnica de la Obra</div>
+                  <div style="font-size:0.85rem; color:var(--text-muted); white-space:normal;">Reporte en PDF con la información general y lista de metas.</div>
+                </button>
+
+                <button class="btn btn-primary" style="justify-content:flex-start; text-align:left; padding:16px; border:1px solid transparent; box-shadow:var(--shadow-md);" (click)="generarExcelAvances()">
+                  <div style="font-size:1.1rem; font-weight:bold; color:#fff; margin-bottom:4px;">📊 3. Reporte Completo de Avances (Excel)</div>
+                  <div style="font-size:0.85rem; color:rgba(255,255,255,0.8); white-space:normal;">Hoja de cálculo con todos los datos, metas e historial de reportes.</div>
+                </button>
+                
+              </div>
+            </div>
+          </div>
+        }
+
+
+  <!-- Modal Previsualizador de Documentos -->
       @if (mostrarModalVisor() && urlVisor()) {
         <div class="modal-overlay animate-fade-in" style="z-index: 2000;">
           <div class="modal-content animate-slide-in" style="max-width: 900px; width: 95%; height: 85vh; display: flex; flex-direction: column;">
@@ -848,6 +1049,22 @@ import html2canvas from 'html2canvas';
     }
   `,
   styles: [`
+      .exp-tabs-nav {
+        display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 2px solid var(--border); padding-bottom: 16px; overflow-x: auto;
+      }
+      .tab-pill {
+        padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer;
+        border: 1px solid transparent; background: transparent; color: var(--text-secondary);
+        transition: all 0.2s ease; display: flex; align-items: center; gap: 8px; white-space: nowrap;
+      }
+      .tab-pill:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
+      .tab-pill.active {
+        background: var(--bg-surface); border-color: var(--border); color: var(--text-primary);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1); transform: translateY(-2px);
+      }
+      .tab-pill.active[style*="color:var(--accent)"] { border-color: var(--accent); color: var(--accent) !important; }
+      .tab-pill.active[style*="background:var(--danger)"] { background: var(--danger) !important; color: white !important; }
+
     .expediente { display: flex; flex-direction: column; gap: 24px; }
     .exp-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; }
     .exp-breadcrumb { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; }
@@ -988,6 +1205,8 @@ import html2canvas from 'html2canvas';
   `]
 })
 export class ExpedienteComponent implements OnInit {
+  tabActiva = signal<'resumen'|'fotos'|'archivos'|'checklist'|'avances'|'editar'>('resumen');
+  faseSubida = signal<string>('GENERAL');
   faseActiva = signal<string>('ANTES');
   areasAbiertas = signal(true);
   archivosAbiertos = signal(true);
@@ -1168,6 +1387,8 @@ export class ExpedienteComponent implements OnInit {
   }
 
   urlVisorSafeUrl = signal<SafeResourceUrl | null>(null);
+  mostrarModalReportes = signal<boolean>(false);
+  fotoVisorActiva = signal<any>(null);
 
   descargarArchivoSeguro(urlRuta: string, nombreArchivo: string): void {
     if (!urlRuta) return;
@@ -1234,6 +1455,25 @@ export class ExpedienteComponent implements OnInit {
       },
       error: () => this.toastSvc.show('Error al guardar observación', 'error')
     });
+  }
+
+
+  eliminarFotoVisor() {
+    const foto = this.fotoVisorActiva();
+    if (!foto) return;
+    
+    if (confirm('¿Estás seguro de que deseas eliminar esta fotografía de la línea de tiempo? Esta acción no se puede deshacer.')) {
+      this.archivosSvc.eliminarArchivo(this.obra()!.id, foto.id).subscribe({
+        next: () => {
+          this.archivosSubidos.update(list => list.filter(a => a.id !== foto.id));
+          this.toastSvc.show('Foto eliminada con éxito', 'info');
+          this.fotoVisorActiva.set(null);
+        },
+        error: (err) => {
+          this.toastSvc.show(err.error?.message || 'Error al eliminar la foto.', 'error');
+        }
+      });
+    }
   }
 
   ngOnInit() {
@@ -1397,6 +1637,137 @@ export class ExpedienteComponent implements OnInit {
       },
       error: (err) => this.toastSvc.show('Error al subir archivo de documento', 'error')
     });
+  }
+
+
+  async generarFichaTecnicaPDF() {
+    const currentObra = this.obra();
+    if (!currentObra) return;
+    
+    this.generandoPDF.set(true);
+    setTimeout(() => {
+      try {
+        const doc = new jsPDF('p', 'pt', 'letter');
+        
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('FICHA TÉCNICA DE OBRA', 40, 40);
+        
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        
+        doc.text(`Nombre de la Obra: ${currentObra.nombre}`, 40, 70);
+        doc.text(`Código/ID: ${currentObra.codigo || currentObra.id}`, 40, 90);
+        doc.text(`Estatus: ${currentObra.estatus}`, 40, 110);
+        doc.text(`Categoría: ${currentObra.categoria || 'N/A'}`, 40, 130);
+        doc.text(`Monto: ${this.svc.formatMonto(currentObra.monto)}`, 40, 150);
+        doc.text(`Fecha de Inicio: ${this.fmtDate(currentObra.fechaInicio)}`, 40, 170);
+        doc.text(`Fecha de Término: ${this.fmtDate(currentObra.fechaFin)}`, 40, 190);
+        doc.text(`Ubicación: No especificada`, 40, 210);
+        
+        doc.setFont('helvetica', 'bold');
+        doc.text('Descripción:', 40, 240);
+        doc.setFont('helvetica', 'normal');
+        const descLines = doc.splitTextToSize(currentObra.descripcion || 'Sin descripción', 500);
+        doc.text(descLines, 40, 255);
+        
+        let startY = 255 + (descLines.length * 15) + 20;
+
+        doc.setFont('helvetica', 'bold');
+        doc.text('Metas del Proyecto:', 40, startY);
+        
+        const metasRows = this.metas().map(m => [
+          m.concepto,
+          m.cantidadMeta.toString(),
+          m.unidadMedida,
+          m.avanceAcumulado?.toString() || '0',
+          `${m.porcentaje || 0}%`,
+          m.estado?.toString() || ''
+        ]);
+        
+        autoTable(doc, {
+          startY: startY + 10,
+          head: [['Concepto', 'Meta', 'Unidad', 'Avance', '%', 'Estado']],
+          body: metasRows,
+          theme: 'grid',
+          headStyles: { fillColor: [41, 128, 185] }
+        });
+        
+        doc.save(`Ficha_Tecnica_${currentObra.id}.pdf`);
+        this.toastSvc.show('Ficha Técnica descargada con éxito', 'success');
+      } catch (error) {
+        console.error('Error al generar PDF', error);
+        this.toastSvc.show('Error al generar Ficha Técnica', 'error');
+      } finally {
+        this.generandoPDF.set(false);
+        this.mostrarModalReportes.set(false);
+      }
+    }, 150);
+  }
+
+  generarExcelAvances() {
+    const currentObra = this.obra();
+    if (!currentObra) return;
+
+    try {
+      const wb = XLSX.utils.book_new();
+
+      const wsInfoData = [
+        ['FICHA TÉCNICA Y REPORTE DE AVANCES'],
+        [],
+        ['Nombre del Proyecto', currentObra.nombre],
+        ['Código / ID', currentObra.codigo || currentObra.id],
+        ['Estatus', currentObra.estatus],
+        ['Categoría', currentObra.categoria],
+        ['Monto', currentObra.monto],
+        ['Fecha Inicio', currentObra.fechaInicio],
+        ['Fecha Término', currentObra.fechaFin],
+        ['Ubicación', 'No especificada'],
+        ['Descripción', currentObra.descripcion]
+      ];
+      const wsInfo = XLSX.utils.aoa_to_sheet(wsInfoData);
+      XLSX.utils.book_append_sheet(wb, wsInfo, 'Información General');
+
+      const wsMetasData = [['ID', 'Concepto', 'Meta', 'Unidad', 'Avance', 'Porcentaje', 'Estado']];
+      this.metas().forEach(m => {
+        wsMetasData.push([
+          m.id?.toString() || '',
+          m.concepto,
+          m.cantidadMeta.toString(),
+          m.unidadMedida,
+          m.avanceAcumulado?.toString() || '0',
+          (m.porcentaje || 0) + '%',
+          m.estado?.toString() || ''
+        ]);
+      });
+      const wsMetas = XLSX.utils.aoa_to_sheet(wsMetasData);
+      XLSX.utils.book_append_sheet(wb, wsMetas, 'Metas del Proyecto');
+
+      const wsAvancesData = [['ID', 'Fecha de Avance', 'Concepto', 'Cantidad Reportada', 'Acumulado', 'Registrado Por', 'Observaciones']];
+      this.avances().forEach(a => {
+        const meta = this.metas().find(m => m.id === a.metaId);
+        const concepto = meta ? meta.concepto : a.titulo;
+
+        wsAvancesData.push([
+          a.id?.toString() || '',
+          a.fechaAvance || '',
+          concepto,
+          a.cantidadEjecutada?.toString() || '',
+          a.acumuladoActual?.toString() || '',
+          a.registradoPor?.toString() || '',
+          a.observaciones || ''
+        ]);
+      });
+      const wsAvances = XLSX.utils.aoa_to_sheet(wsAvancesData);
+      XLSX.utils.book_append_sheet(wb, wsAvances, 'Historial de Avances');
+
+      XLSX.writeFile(wb, `Reporte_Obra_${currentObra.id}.xlsx`);
+      this.toastSvc.show('Archivo Excel generado con éxito', 'success');
+      this.mostrarModalReportes.set(false);
+    } catch (e) {
+      console.error(e);
+      this.toastSvc.show('Error al generar el Excel', 'error');
+    }
   }
 
   async generarReporteChecklistPDF() {
@@ -1713,41 +2084,176 @@ export class ExpedienteComponent implements OnInit {
     this.uploadError.set(false);
     this.uploadMsg.set(`⏳ Subiendo ${files.length} archivo(s) al servidor...`);
 
+    const faseDestino = this.faseSubida();
     let uploadedCount = 0;
-    Array.from(files).forEach(file => {
-      let carpetaBackend: 'LEGAL' | 'SOCIAL' | 'TECNICOS' | 'FOTOGRAFICO' = 'TECNICOS';
-      
-      if (this.carpetaSeleccionadaExp()) {
-         const mapaCarpetas: Record<string, 'LEGAL' | 'SOCIAL' | 'TECNICOS' | 'FOTOGRAFICO'> = {
-           'Legal': 'LEGAL',
-           'Social': 'SOCIAL',
-           'Técnicos': 'TECNICOS',
-           'Anexo Fotográfico': 'FOTOGRAFICO'
-         };
-         carpetaBackend = mapaCarpetas[this.carpetaSeleccionadaExp()!] || 'TECNICOS';
-      } else {
-         if (file.type.startsWith('image/')) carpetaBackend = 'FOTOGRAFICO';
-         else if (file.name.toLowerCase().includes('acta') || file.name.toLowerCase().includes('contrato')) carpetaBackend = 'LEGAL';
-      }
 
-      this.archivosSvc.subirArchivo(currentObra.id, carpetaBackend, file).subscribe({
-        next: (nuevoArchivo) => {
-          uploadedCount++;
-          this.archivosSubidos.update(prev => [nuevoArchivo, ...prev]);
-          if (uploadedCount === files.length) {
-            this.uploadMsg.set(`✅ ¡${uploadedCount} archivo(s) subido(s) exitosamente al servidor!`);
-          }
-        },
-        error: (err) => {
-          this.uploadError.set(true);
-          this.uploadMsg.set(`❌ Error subiendo ${file.name}: ${err.error?.message || 'Error de servidor'}`);
+    Array.from(files).forEach(file => {
+      if (faseDestino === 'GENERAL') {
+        let carpetaBackend = 'TECNICOS';
+        if (this.carpetaSeleccionadaExp()) {
+          const mapaCarpetas = {
+            'Legal': 'LEGAL',
+            'Social': 'SOCIAL',
+            'Técnicos': 'TECNICOS',
+            'Fotográfico': 'FOTOGRAFICO'
+          };
+          carpetaBackend = (mapaCarpetas as any)[this.carpetaSeleccionadaExp()!] || 'TECNICOS';
         }
-      });
+        if (file.type.startsWith('image/')) carpetaBackend = 'FOTOGRAFICO';
+
+        this.archivosSvc.subirArchivo(currentObra.id, carpetaBackend as any, file).subscribe({
+          next: (nuevoArchivo) => {
+            uploadedCount++;
+            this.archivosSubidos.update(prev => [nuevoArchivo, ...prev]);
+            if (uploadedCount === files.length) {
+              this.uploadMsg.set('✅ Todos los archivos subidos exitosamente.');
+              setTimeout(() => this.uploadMsg.set(''), 3000);
+            }
+          },
+          error: (err) => {
+            this.uploadError.set(true);
+            this.uploadMsg.set(err.error?.message || '❌ Ocurrió un error al subir un archivo.');
+          }
+        });
+      } else {
+        this.avancesSvc.registrarAvance(currentObra.id, {
+          titulo: `Evidencia Fotográfica (${faseDestino})`,
+          fechaAvance: new Date().toISOString().slice(0, 10),
+          porcentaje: this.ultimoPorcentaje(),
+          observaciones: 'Subido desde el panel general de archivos'
+        }).subscribe({
+          next: (avance) => {
+            this.avancesSvc.subirEvidencia(currentObra.id, avance.id, file, faseDestino as any, '').subscribe({
+              next: () => {
+                uploadedCount++;
+                if (uploadedCount === files.length) {
+                  this.uploadMsg.set('✅ Evidencias fotográficas subidas correctamente.');
+                  setTimeout(() => this.uploadMsg.set(''), 3000);
+                  this.avancesSvc.getAvances(currentObra.id).subscribe(list => {
+                    this.avances.set(list);
+                  });
+                }
+              },
+              error: () => {
+                this.uploadError.set(true);
+                this.uploadMsg.set('❌ Error al subir el archivo de evidencia.');
+              }
+            });
+          },
+          error: () => {
+            this.uploadError.set(true);
+            this.uploadMsg.set('❌ Error al crear el registro para la evidencia.');
+          }
+        });
+      }
     });
   }
+
   onDrop(e: DragEvent): void {
     e.preventDefault();
     const dt = e.dataTransfer;
     if (dt?.files) this.onFileSelect({ target: { files: dt.files } } as any);
   }
+
+  reportarAvanceMeta(meta: any, cantidad: string, fecha: string) {
+    const val = parseFloat(cantidad);
+    if (isNaN(val) || val <= 0) { this.toastSvc.show('Cantidad inválida', 'warning'); return; }
+    if (!fecha) { this.toastSvc.show('Selecciona la fecha del avance', 'warning'); return; }
+
+    const fechaAvance = new Date(fecha);
+    const fechaInicio = new Date(this.obra()!.fechaInicio);
+    const fechaFin = new Date(this.obra()!.fechaFin);
+
+    // Ignorar horas para la validación
+    fechaAvance.setUTCHours(0,0,0,0);
+    fechaInicio.setUTCHours(0,0,0,0);
+    fechaFin.setUTCHours(0,0,0,0);
+
+    if (fechaAvance < fechaInicio || fechaAvance > fechaFin) {
+      this.toastSvc.show(`La fecha debe estar entre el inicio (${this.obra()!.fechaInicio}) y término (${this.obra()!.fechaFin}) de la obra.`, 'warning');
+      return;
+    }
+
+    this.avancesSvc.registrarAvance(this.obra()!.id, {
+      titulo: `Avance: ${meta.concepto}`,
+      fechaAvance: fecha,
+      metaId: meta.id,
+      cantidadEjecutada: val,
+      porcentaje: 0 // Prevents NullPointerException if backend needs it, although 0 is handled. Wait, backend checks if it's null.
+    }).subscribe({
+      next: () => { 
+        this.toastSvc.show('Avance guardado', 'success'); 
+        this.cargarMetas(); 
+        this.svc.getObraById(this.obra()!.id).subscribe(o => { this.obra.set(o); });
+        this.avancesSvc.getAvances(this.obra()!.id).subscribe(list => { this.avances.set(list); });
+      },
+      error: (err) => this.toastSvc.show(err.error?.message || 'Error al guardar avance', 'error')
+    });
+  }
+
+  getAvancesPorMeta(metaId: number) {
+    return this.avances().filter(a => a.metaId === metaId);
+  }
+
+  agregarMetaNueva(concepto: string, cant: string, unidad: string) {
+    const c = parseFloat(cant);
+    if (!concepto || isNaN(c) || c <= 0 || !unidad) { this.toastSvc.show('Datos incompletos', 'warning'); return; }
+    const newMeta = { concepto, cantidadMeta: c, unidadMedida: unidad };
+    this.metasService.crearMeta(this.obra()!.id, newMeta as any).subscribe({
+      next: () => { this.toastSvc.show('Meta agregada', 'success'); this.cargarMetas(); },
+      error: () => this.toastSvc.show('Error al agregar', 'error')
+    });
+  }
+
+  eliminarMetaAdmin(metaId: number) {
+    if(confirm('¿Eliminar esta meta?')) {
+      this.metasService.eliminarMeta(this.obra()!.id, metaId).subscribe({
+        next: () => { this.toastSvc.show('Meta eliminada', 'success'); this.cargarMetas(); },
+        error: () => this.toastSvc.show('Error', 'error')
+      });
+    }
+  }
+
+  guardarEdicionObra(event: Event) {
+    event.preventDefault();
+    const form = event.target as HTMLFormElement;
+    const estatusVal = (form.elements.namedItem('estatus') as HTMLSelectElement).value;
+    const updateReq = {
+      nombre: (form.elements.namedItem('nombre') as HTMLInputElement).value,
+      categoria: (form.elements.namedItem('categoria') as HTMLInputElement).value,
+        descripcion: (form.elements.namedItem('descripcion') as HTMLTextAreaElement).value,
+        direccion: (form.elements.namedItem('direccion') as HTMLInputElement).value
+    };
+    
+    // 1. Update basic info
+    this.svc.updateObra(this.obra()!.id, updateReq).subscribe({
+      next: (res) => {
+        // 2. Update estatus
+        this.svc.cambiarEstatus(this.obra()!.id, estatusVal as any).subscribe({
+          next: (res2) => {
+            this.obra.set(res2);
+            this.toastSvc.show('Obra actualizada correctamente', 'success');
+          },
+          error: () => this.toastSvc.show('Error al actualizar estatus', 'error')
+        });
+      },
+      error: () => this.toastSvc.show('Error al actualizar', 'error')
+    });
+  }
+
+  eliminarObraAdmin() {
+    if (confirm('🚨 ADVERTENCIA: Estás a punto de eliminar lógicamente esta obra. Desaparecerá de las listas principales pero se mantendrá en la base de datos por auditoría. ¿Estás seguro de continuar?')) {
+      this.svc.cambiarEstatus(this.obra()!.id, 'INACTIVA' as any).subscribe({
+        next: () => {
+          this.toastSvc.show('Obra eliminada (INACTIVA) exitosamente.', 'success');
+          window.location.href = '/dashboard';
+        },
+        error: (err) => {
+          console.error('Error al eliminar obra:', err);
+          this.toastSvc.show('Error al eliminar lógicamente la obra.', 'error');
+        }
+      });
+    }
+  }
 }
+

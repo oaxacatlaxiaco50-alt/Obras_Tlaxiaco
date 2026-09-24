@@ -1,3 +1,4 @@
+import { environment } from '../../../environments/environment';
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
@@ -11,7 +12,7 @@ import {
   Page,
 } from '../models/obra.model';
 
-const API = 'http://localhost:8081';
+const API = environment.apiUrl;
 
 @Injectable({ providedIn: 'root' })
 export class ObrasService {
@@ -69,6 +70,11 @@ export class ObrasService {
   cambiarEstatus(id: number, estatus: ObraEstatus): Observable<ObraResponse> {
     const body: ObraEstatusRequest = { estatus };
     return this.http.patch<ObraResponse>(`${API}/obras/${id}/estatus`, body);
+  }
+
+  /** Eliminar obra permanentemente */
+  deleteObra(id: number): Observable<void> {
+    return this.http.delete<void>(`${API}/obras/${id}`);
   }
 
   /** GeoJSON para el mapa */

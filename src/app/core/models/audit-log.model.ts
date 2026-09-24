@@ -7,6 +7,8 @@ export interface AuditLog {
   ip: string;
   previousData?: string;
   newData?: string;
+  obraId?: number;
+  description?: string;
 }
 
 export interface AuditLogPage {

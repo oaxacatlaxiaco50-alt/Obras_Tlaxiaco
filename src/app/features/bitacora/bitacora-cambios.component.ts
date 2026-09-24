@@ -71,8 +71,8 @@ export type PeriodoFiltro = 'dia' | 'semana' | 'mes' | 'todo';
                 <th>Administrador / Usuario</th>
                 <th>Acción</th>
                 <th>Módulo</th>
-                <th>Descripción</th>
                 <th>Obra Afectada</th>
+                <th>Detalle del Cambio</th>
               </tr>
             </thead>
             <tbody>
@@ -98,9 +98,11 @@ export type PeriodoFiltro = 'dia' | 'semana' | 'mes' | 'todo';
                     </span>
                   </td>
                   <td class="bc-modulo">{{ e.module }}</td>
-                  <td class="bc-desc">{{ e.newData ? 'Actualización de obra' : e.action }}</td>
                   <td class="bc-obra">
-                    <span class="obra-link">{{ e.module }}</span>
+                    <span class="obra-link">{{ getNombreObra(e) }}</span>
+                  </td>
+                  <td class="bc-desc" style="max-width:300px;">
+                    <span title="{{ getDetalleCompleto(e) }}">{{ getDetalleCambio(e) }}</span>
                   </td>
                 </tr>
               }
@@ -253,11 +255,15 @@ export class BitacoraCambiosComponent implements OnInit {
   private readonly EDIT_ACTIONS = [
     'CREACION_OBRA', 'MODIFICACION_OBRA', 'ACTUALIZACION_MONTOS_FECHAS',
     'ASIGNACION_RESPONSABLES', 'CAMBIO_ESTATUS',
-    'CREATE', 'UPDATE', 'PATCH'
+    'CREATE', 'UPDATE', 'PATCH',
+    'SUBIDA_ARCHIVO', 'ACTUALIZACION_CHECKLIST', 'SUBIDA_DOCUMENTO_CHECKLIST',
+    'CREACION_GEOCERCA', 'MODIFICACION_GEOCERCA',
+    'SUBIDA_EVIDENCIA', 'REGISTRO_AVANCE'
   ];
   private readonly DELETE_ACTIONS = [
     'ELIMINACION_OBRA', 'ELIMINACION_ARCHIVO',
-    'ELIMINACION_AVANCE', 'DELETE'
+    'ELIMINACION_AVANCE', 'DELETE',
+    'ELIMINACION_GEOCERCA'
   ];
 
   private _todos = signal<AuditLog[]>([]);
@@ -301,6 +307,84 @@ export class BitacoraCambiosComponent implements OnInit {
     if (this.DELETE_ACTIONS.includes(e.action ?? '')) return 'Eliminar';
     if (this.EDIT_ACTIONS.includes(e.action ?? ''))   return 'Editar';
     return 'Otro';
+  }
+
+  /** Extrae el nombre de la obra del prefijo [nombre] en description o del JSON de newData/previousData */
+  getNombreObra(e: AuditLog): string {
+    // Extract name from description format "[Obra Name] detail..."
+    if (e.description) {
+      const match = e.description.match(/^\[(.+?)\]/);
+      if (match) return match[1];
+    }
+    // Fallback: try parsing JSON
+    try {
+      const data = e.newData ? JSON.parse(e.newData) : e.previousData ? JSON.parse(e.previousData) : null;
+      if (data?.nombre) return data.nombre;
+      if (data?.obraId) return `Obra #${data.obraId}`;
+    } catch {}
+    return e.module || '—';
+  }
+
+  /** Genera un resumen corto y legible de qué cambió */
+  getDetalleCambio(e: AuditLog): string {
+    const full = this.getDetalleCompleto(e);
+    return full.length > 80 ? full.substring(0, 77) + '...' : full;
+  }
+
+  /** Genera el detalle completo comparando campos anteriores vs nuevos */
+  getDetalleCompleto(e: AuditLog): string {
+    // Use the description field from backend if available (new events)
+    if (e.description) {
+      const withoutPrefix = e.description.replace(/^\[.+?\] /, '');
+      return withoutPrefix;
+    }
+    // Legacy fallback: parse from JSON
+    try {
+      // Acciones sin datos anteriores = Creación
+      if (e.action === 'CREACION_OBRA') {
+        const nd = e.newData ? JSON.parse(e.newData) : null;
+        return nd?.nombre ? `Se creó la obra "${nd.nombre}"` : 'Se registró una nueva obra';
+      }
+      if (e.action === 'ELIMINACION_OBRA') {
+        const pd = e.previousData ? JSON.parse(e.previousData) : null;
+        return pd?.nombre ? `Se eliminó la obra "${pd.nombre}"` : 'Se eliminó una obra';
+      }
+      if (e.action === 'ELIMINACION_ARCHIVO') return 'Se eliminó un archivo del expediente';
+
+      // Comparar previousData vs newData para mostrar qué campos cambiaron
+      if (e.previousData && e.newData) {
+        const prev = JSON.parse(e.previousData);
+        const next = JSON.parse(e.newData);
+        const LABELS: Record<string, string> = {
+          nombre: 'Nombre', estatus: 'Estatus', monto: 'Monto',
+          fechaInicio: 'Fecha inicio', fechaFin: 'Fecha término',
+          descripcion: 'Descripción', categoria: 'Categoría',
+          responsableId: 'Responsable', direccion: 'Ubicación',
+          porcentajeAvance: 'Avance %'
+        };
+        const cambios: string[] = [];
+        for (const key of Object.keys(LABELS)) {
+          if (prev[key] !== undefined && next[key] !== undefined && prev[key] !== next[key]) {
+            cambios.push(`${LABELS[key]}: "${prev[key]}" → "${next[key]}"`);
+          }
+        }
+        if (cambios.length > 0) return cambios.join(' | ');
+      }
+
+      // Acción sin previousData = solo newData disponible
+      if (e.newData && !e.previousData) {
+        const nd = JSON.parse(e.newData);
+        if (e.action === 'ACTUALIZACION_MONTOS_FECHAS') return 'Se actualizaron montos o fechas de la obra';
+        if (e.action === 'CAMBIO_ESTATUS') return `Estatus cambiado a: ${nd?.estatus || ''}`;
+        if (nd?.cantidadEjecutada != null) return `Se registró un avance de ${nd.cantidadEjecutada} ${nd.unidadMedida || ''}`;
+        if (nd?.archivoUrl) return 'Se subió un nuevo documento o archivo';
+        return 'Se modificó la información de la obra';
+      }
+
+      return 'Modificación registrada';
+    } catch {
+      return e.action || 'Acción registrada';
+    }
   }
 
   totalCambios       = computed(() => this.entradas().length);

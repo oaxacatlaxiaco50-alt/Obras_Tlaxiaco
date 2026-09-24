@@ -309,7 +309,9 @@ import * as L from 'leaflet';
 
             <div class="modal-actions">
               <button type="button" class="btn btn-secondary" (click)="cerrarModalNuevaObra()">Cancelar</button>
-              <button type="submit" class="btn btn-primary">💾 Guardar Proyecto</button>
+              <button type="submit" class="btn btn-primary" [disabled]="creandoObra()">
+                {{ creandoObra() ? '⏳ Guardando...' : '💾 Guardar Proyecto' }}
+              </button>
             </div>
           </form>
         </div>
@@ -536,6 +538,7 @@ export class ObrasListComponent implements OnInit {
   metasSvc = inject(MetasService);
 
   mostrarModalNuevaObra = signal(false);
+  creandoObra = signal(false);
   mostrarModalNuevoExpediente = signal(false);
   mostrarModalIntegracion = signal(false);
 
@@ -768,6 +771,9 @@ export class ObrasListComponent implements OnInit {
 
   crearObra(e: Event) {
     e.preventDefault();
+    if (this.creandoObra()) return;
+    this.creandoObra.set(true);
+    
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
 
@@ -786,46 +792,55 @@ export class ObrasListComponent implements OnInit {
     // --- VALIDACIONES DE CAMPOS ---
     if (!nombre || nombre.length < 5) {
       this.toastSvc.show('⚠️ El nombre de la obra debe contener al menos 5 caracteres.', 'warning');
+      this.creandoObra.set(false);
       return;
     }
 
     if (nombre.length > 150) {
       this.toastSvc.show('⚠️ El nombre de la obra no debe superar los 150 caracteres.', 'warning');
+      this.creandoObra.set(false);
       return;
     }
 
     if (!fechaInicio) {
       this.toastSvc.show('⚠️ Debes seleccionar una Fecha de Inicio válida.', 'warning');
+      this.creandoObra.set(false);
       return;
     }
 
     if (!fechaFin) {
       this.toastSvc.show('⚠️ Debes seleccionar una Fecha de Término válida.', 'warning');
+      this.creandoObra.set(false);
       return;
     }
 
     if (fechaFin < fechaInicio) {
       this.toastSvc.show('⚠️ La fecha de término no puede ser anterior a la fecha de inicio de la obra.', 'warning');
+      this.creandoObra.set(false);
       return;
     }
 
     if (!rawMonto || monto <= 0) {
       this.toastSvc.show('⚠️ El presupuesto asignado debe ser mayor a $0.00.', 'warning');
+      this.creandoObra.set(false);
       return;
     }
 
     if (!responsableId) {
       this.toastSvc.show('⚠️ Debes seleccionar un Responsable a cargo para la obra.', 'warning');
+      this.creandoObra.set(false);
       return;
     }
 
     if (descripcion && descripcion.length < 10) {
       this.toastSvc.show('⚠️ La descripción breve debe contener al menos 10 caracteres.', 'warning');
+      this.creandoObra.set(false);
       return;
     }
 
     if (descripcion && descripcion.length > 500) {
       this.toastSvc.show(`⚠️ La descripción breve supera el máximo permitido de 500 caracteres (Actual: ${descripcion.length}).`, 'warning');
+      this.creandoObra.set(false);
       return;
     }
 
@@ -858,6 +873,7 @@ export class ObrasListComponent implements OnInit {
               next: () => {
                 guardadas++;
                 if (guardadas === metas.length) {
+                  this.creandoObra.set(false);
                   this.toastSvc.show('¡Obra y metas creadas exitosamente!', 'success');
                   this.cerrarModalNuevaObra();
                 }
@@ -865,16 +881,21 @@ export class ObrasListComponent implements OnInit {
               error: () => {
                 guardadas++;
                 this.toastSvc.show(`Error al guardar la meta: ${metaReq.concepto}`, 'error');
-                if (guardadas === metas.length) this.cerrarModalNuevaObra();
+                if (guardadas === metas.length) {
+                  this.creandoObra.set(false);
+                  this.cerrarModalNuevaObra();
+                }
               }
             });
           });
         } else {
+          this.creandoObra.set(false);
           this.toastSvc.show('¡Obra creada exitosamente con su ubicación GPS!', 'success');
           this.cerrarModalNuevaObra();
         }
       },
       error: (err) => {
+        this.creandoObra.set(false);
         console.error('Error al crear obra:', err);
         const detail = err.error?.message || err.error?.detail || err.statusText || 'Error inesperado';
         this.toastSvc.show(`Error al crear obra: ${detail}`, 'error');
