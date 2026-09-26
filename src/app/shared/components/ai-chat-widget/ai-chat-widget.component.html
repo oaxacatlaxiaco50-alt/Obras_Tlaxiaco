@@ -1,0 +1,110 @@
+@if (canAccessAi()) {
+  <div class="ai-widget-container">
+    <!-- Floating Trigger Button -->
+    <button 
+      class="ai-trigger-btn" 
+      [class.active]="isOpen()" 
+      (click)="toggleChat()"
+      title="Asistente de IA (Gemma / Spring AI)"
+      id="ai-widget-toggle-btn"
+    >
+      <div class="sparkle-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+          <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" />
+        </svg>
+      </div>
+      <span class="btn-label">IA Asistente</span>
+      <span class="online-indicator"></span>
+    </button>
+
+    <!-- Chat Drawer / Modal Pop-up -->
+    @if (isOpen()) {
+      <div class="ai-chat-card" id="ai-chat-modal">
+        <!-- Header -->
+        <div class="chat-header">
+          <div class="header-info">
+            <div class="ai-avatar">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="header-title">Asistente IA Obras</h3>
+              <p class="header-subtitle">Gemma-2B &bull; Spring AI Context</p>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button class="icon-btn" (click)="clearChat()" title="Limpiar conversación">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </svg>
+            </button>
+            <button class="icon-btn close-btn" (click)="toggleChat()" title="Cerrar">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Message Stream -->
+        <div class="chat-messages" #scrollContainer>
+          @for (msg of messages(); track msg.id) {
+            <div class="message-wrapper" [class.user]="msg.sender === 'user'" [class.ai]="msg.sender === 'ai'">
+              @if (msg.sender === 'ai') {
+                <div class="msg-avatar">✨</div>
+              }
+              <div class="message-bubble">
+                <div class="message-text" [innerHTML]="msg.text"></div>
+                
+                @if (msg.suggestedFollowUps && msg.suggestedFollowUps.length > 0) {
+                  <div class="suggested-chips">
+                    @for (chip of msg.suggestedFollowUps; track chip) {
+                      <button class="chip-btn" (click)="sendMessage(chip)">
+                        {{ chip }}
+                      </button>
+                    }
+                  </div>
+                }
+                <span class="message-time">{{ msg.timestamp | date:'shortTime' }}</span>
+              </div>
+            </div>
+          }
+
+          <!-- Typing Indicator -->
+          @if (isLoading()) {
+            <div class="message-wrapper ai">
+              <div class="msg-avatar">✨</div>
+              <div class="message-bubble typing-bubble">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- Input Footer -->
+        <div class="chat-footer">
+          <form (submit)="sendMessage(); $event.preventDefault()" class="input-form">
+            <input 
+              type="text" 
+              class="chat-input" 
+              placeholder="Haz una pregunta sobre el sistema u obras..." 
+              [ngModel]="userMessage()" 
+              (ngModelChange)="userMessage.set($event)"
+              name="message"
+              [disabled]="isLoading()"
+              id="ai-chat-input"
+            />
+            <button type="submit" class="send-btn" [disabled]="!userMessage().trim() || isLoading()" id="ai-chat-send-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+              </svg>
+            </button>
+          </form>
+        </div>
+      </div>
+    }
+  </div>
+}

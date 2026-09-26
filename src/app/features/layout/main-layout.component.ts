@@ -4,11 +4,12 @@ import { SidebarComponent } from '../../shared/components/sidebar/sidebar.compon
 import { NavbarComponent } from '../../shared/components/navbar/navbar.component';
 import { ThemePanelComponent } from '../../shared/components/theme-panel/theme-panel.component';
 import { ToastComponent } from '../../shared/components/toast/toast.component';
+import { AiChatWidgetComponent } from '../../shared/components/ai-chat-widget/ai-chat-widget.component';
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent, NavbarComponent, ThemePanelComponent, ToastComponent],
+  imports: [RouterOutlet, SidebarComponent, NavbarComponent, ThemePanelComponent, ToastComponent, AiChatWidgetComponent],
   templateUrl: './main-layout.component.html',
   styleUrl: './main-layout.component.css'
 })
