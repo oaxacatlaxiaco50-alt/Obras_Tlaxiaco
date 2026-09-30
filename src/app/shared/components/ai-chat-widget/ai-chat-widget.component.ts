@@ -34,12 +34,12 @@ export class AiChatWidgetComponent implements AfterViewChecked {
     {
       id: 'welcome',
       sender: 'ai',
-      text: '¡Hola! 👋 Soy tu **Asistente Virtual de IA** para la supervisión de Obras Públicas de Tlaxiaco.\n\nPuedes hacerme **preguntas abiertas** sobre el estado de las obras, presupuestos, auditoría de archivos o guías de uso del sistema.',
+      text: '¡Hola! 👋 Soy tu **Asistente Virtual de IA** para la supervisión de Obras Públicas de Tlaxiaco.\n\nPuedes hacerme preguntas directas sobre obras, presupuestos, auditoría de archivos o guías de uso del sistema.',
       timestamp: new Date(),
       suggestedFollowUps: [
-        '📊 Resumen general de obras',
+        '⚙️ ¿Cómo funciona el sistema?',
         '🏆 ¿Cuál es la obra con mayor presupuesto?',
-        '🛡️ ¿Cómo funciona el control de archivos duplicados?'
+        '🛡️ ¿Cómo funciona el control de duplicados?'
       ]
     }
   ]);
@@ -90,7 +90,7 @@ export class AiChatWidgetComponent implements AfterViewChecked {
         this.isLoading.set(false);
       },
       error: (err) => {
-        console.warn('Error al conectar con el backend de IA, ejecutando respuesta contextual de respaldo.', err);
+        console.warn('Error al conectar con el backend de IA, ejecutando respuesta de respaldo.', err);
         const fallbackMsg = this.getOfflineAiResponse(text);
         this.messages.update(msgs => [...msgs, fallbackMsg]);
         this.isLoading.set(false);
@@ -101,24 +101,27 @@ export class AiChatWidgetComponent implements AfterViewChecked {
   private getOfflineAiResponse(prompt: string): ChatMessage {
     const p = prompt.toLowerCase();
     let responseText = '';
-    let followUps = ['📊 Resumen general de obras', '📁 Expedientes técnicos', '📜 Bitácora de auditoría'];
+    let followUps = ['⚙️ ¿Cómo funciona el sistema?', '📊 Resumen de obras', '📜 Bitácora de auditoría'];
 
     if (p.includes('hola') || p.includes('saludos') || p.includes('buenos')) {
-      responseText = '¡Hola! 👋 Soy tu **Asistente Virtual de IA**.\n\nPuedes hacerme preguntas abiertas sobre obras, presupuestos, catálogo de 57 documentos o bitácora de auditoría.';
-    } else if (p.includes('monto') || p.includes('presupuesto') || p.includes('inversion') || p.includes('cara')) {
-      responseText = '### 💰 Información Presupuestal\n\n• **Inversión Total Registrada:** $1,520,110.00 MXN\n• **Total Obras:** 11 obras en sistema\n• **Obra con Mayor Presupuesto:** OB-2026-001 ($450,000.00 MXN)\n\n💡 *Puedes consultar la lista completa en el módulo de Obras.*';
-      followUps = ['🏗️ Ver lista de obras', '📜 Bitácora de auditoría'];
+      responseText = '¡Hola! 👋 Soy tu **Asistente Virtual de IA**.\n\nPuedes hacerme preguntas sobre obras, presupuestos, expedientes o auditoría.';
+    } else if (p.includes('como funciona') || p.includes('funciona el sistema') || p.includes('que hace')) {
+      responseText = '### ⚙️ ¿Cómo funciona el Sistema de Obras Públicas?\n\n1. **Obras**: Registro con código, presupuesto, fechas y ubicación GPS.\n2. **Expedientes**: Control de 57 documentos clasificados.\n3. **Anti-Duplicados**: Algoritmo por firma Hash (SHA-256) que rechaza archivos repetidos.\n4. **Avances**: Carga de fotos por fases (*Antes, Durante, Después*).\n5. **Geolocalización**: Mapa interactivo de Tlaxiaco.\n6. **Auditoría**: Bitácora inalterable de acciones de usuarios.';
+      followUps = ['📊 Resumen de obras', '🛡️ Detección de duplicados', '📁 Catálogo de expedientes'];
     } else if (p.includes('duplicado') || p.includes('rechaz') || p.includes('archivo')) {
-      responseText = '### 🛡️ Detección de Archivos Duplicados\n\nEl backend analiza el Hash SHA-256, el nombre original y el tamaño en bytes de cada archivo. Si intentas subir un documento idéntico, la operación se **rechaza automáticamente** y genera un evento `RECHAZO_DOCUMENTO_DUPLICADO` en la bitácora.';
+      responseText = '### 🛡️ Detección de Archivos Duplicados\n\nEl sistema analiza el Hash SHA-256, el nombre original y el tamaño en bytes. Si intentas subir un documento idéntico, la operación se **rechaza automáticamente** y genera un evento en la bitácora (`RECHAZO_DOCUMENTO_DUPLICADO`).';
       followUps = ['📜 Ver eventos de auditoría', '📁 Catálogo de 57 documentos'];
+    } else if (p.includes('monto') || p.includes('presupuesto') || p.includes('inversion') || p.includes('cara')) {
+      responseText = '### 💰 Información Presupuestal\n\n• **Obra con Mayor Presupuesto:** OB-2026-001 ($450,000.00 MXN)\n• **Obra con Menor Presupuesto:** OB-2026-003 ($85,000.00 MXN)\n\n💡 *Para ver el resumen completo de inversión, solicita "resumen ejecutivo".*';
+      followUps = ['🏗️ Ver lista de obras', '📊 Resumen de inversión'];
     } else if (p.includes('expediente') || p.includes('documento') || p.includes('catalogo')) {
-      responseText = '### 📁 Expediente Técnico Oficial (57 Documentos)\n\nDividido en 3 carpetas normativas:\n1. **Parte Social**: Actas de asamblea y contraloría social.\n2. **Parte Técnica**: Proyecto ejecutivo, planos y presupuestos.\n3. **Contratación**: Licitación, contrato y estimaciones.';
+      responseText = '### 📁 Expediente Técnico Oficial (57 Documentos)\n\nDividido en 3 carpetas normativas:\n1. **Parte Social**: Actas de asamblea y contraloría social.\n2. **Parte Técnica**: Proyecto ejecutivo y presupuestos.\n3. **Contratación**: Licitación, contrato y estimaciones.';
       followUps = ['🛡️ Control anti-duplicados', '📊 Resumen general'];
     } else if (p.includes('auditoria') || p.includes('bitacora') || p.includes('historial')) {
       responseText = '### 📜 Bitácora e Historial de Auditoría\n\nEl sistema mantiene un registro inalterable que almacena fecha, hora, usuario, IP y tipo de acción realizada (*creación, edición o rechazo*).';
       followUps = ['📊 Resumen de obras', '🛡️ Detección de duplicados'];
     } else {
-      responseText = `### 🤖 Asistente de IA (Obras Tlaxiaco)\n\nAnalicé tu consulta: *"${prompt}"*\n\nActualmente el sistema cuenta con **11 obras activas** por $1,520,110.00 MXN, módulo de geolocalización GPS, expedientes técnicos de 57 documentos y auditoría inalterable.\n\n¿Deseas consultar sobre alguna obra en particular o guía de uso?`;
+      responseText = `### 🤖 Asistente de IA\n\nRespecto a: *"${prompt}"*\n\nPuedes consultarme sobre:\n• **Obras**: Lista, montos y geolocalización.\n• **Expedientes**: Estructura de documentos y control de duplicados.\n• **Auditoría**: Bitácora inalterable e historial de eventos.`;
     }
 
     return {
@@ -138,8 +141,8 @@ export class AiChatWidgetComponent implements AfterViewChecked {
         text: 'Historial reiniciado. ¿En qué consulta te puedo asistir?',
         timestamp: new Date(),
         suggestedFollowUps: [
-          '📊 Resumen general de obras',
-          '🏆 ¿Cuál es la obra con mayor presupuesto?'
+          '⚙️ ¿Cómo funciona el sistema?',
+          '📊 Resumen general de obras'
         ]
       }
     ]);
