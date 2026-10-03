@@ -269,7 +269,7 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   textoBusqueda = signal('');
   activeFilters = signal<Set<string>>(new Set(['EN_PROCESO', 'PLANIFICADA', 'INACTIVA', 'COMPLETADA', 'CANCELADA']));
 
-  capaMapaActual = signal<'dark' | 'osm' | 'satellite'>('dark');
+  capaMapaActual = signal<'dark' | 'osm' | 'satellite'>('osm');
   modoPantallaCompleta = signal(false);
 
   modoTrazar = signal(false);
@@ -378,7 +378,7 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.map) return;
 
     this.map = L.map('leaflet-map', { center: [this.DEFAULT_CENTER.lat, this.DEFAULT_CENTER.lng], zoom: 14 });
-    this.aplicarCapaMapa('dark');
+    this.aplicarCapaMapa('osm');
 
     this.map.on('click', (e: L.LeafletMouseEvent) => {
       if (this.modoTrazar()) {
@@ -402,7 +402,7 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
       this.map.removeLayer(this.currentTileLayer);
     }
 
-    let url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    let url = 'https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png';
     let attrib = '&copy; OpenStreetMap &copy; CARTO';
 
     if (tipo === 'osm') {

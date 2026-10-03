@@ -1,5 +1,7 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute, Router } from '@angular/router';
+import { environment } from '../../../environments/environment';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -15,6 +17,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-expediente',
@@ -597,10 +600,15 @@ import * as XLSX from 'xlsx';
                   <summary style="cursor: pointer; font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">Ver Historial de Avances</summary>
                   <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
                     @for (avance of getAvancesPorMeta(meta.id!); track avance.id) {
-                      <div style="display:flex; justify-content:space-between; font-size:0.8rem; padding:8px; background:rgba(0,0,0,0.2); border-radius:4px;">
-                        <span>📅 {{ avance.fechaAvance | date:'dd/MM/yyyy' }}</span>
-                        <span style="color:var(--success);">+{{ avance.cantidadEjecutada }} {{ meta.unidadMedida }}</span>
-                        <span style="color:var(--text-muted);">Acumulado: {{ avance.acumuladoActual }}</span>
+                      <div style="display:flex; justify-content:space-between; font-size:0.8rem; padding:8px; background:rgba(0,0,0,0.2); border-radius:4px; align-items:center;">
+                        <div style="display:flex; gap: 8px;">
+                          <span>📅 {{ avance.fechaAvance | date:'dd/MM/yyyy' }}</span>
+                          <span style="color:var(--success);">+{{ avance.cantidadEjecutada }} {{ meta.unidadMedida }}</span>
+                          <span style="color:var(--text-muted);">Acumulado: {{ avance.acumuladoActual }}</span>
+                        </div>
+                        <button class="btn btn-sm" style="font-size:0.7rem; padding: 4px 8px; background:var(--accent); color:white; border:none; border-radius:4px; cursor:pointer;" (click)="auditarAvanceConIA(avance.id)">
+                          🤖 Auditar con IA
+                        </button>
                       </div>
                     } @empty {
                       <div style="font-size:0.8rem; color:var(--text-muted); padding:4px;">No hay reportes de avance aún.</div>
@@ -632,7 +640,7 @@ import * as XLSX from 'xlsx';
             <div class="form-group" style="margin-bottom: 24px;"><label class="form-label">Descripción</label><textarea name="descripcion" class="form-input" rows="4">{{ obra()!.descripcion }}</textarea></div>
             <div style="display:flex; justify-content:space-between; align-items:center;">
               
-              <button type="button" class="btn btn-danger" (click)="eliminarObraAdmin()">🗑️ Eliminar Obra Permanentemente</button>
+              <button type="button" class="btn btn-danger" (click)="eliminarObraAdmin()">🗑️ Eliminar Obra</button>
             </div>
           </form>
 
@@ -1040,6 +1048,52 @@ import * as XLSX from 'xlsx';
       }
 
       </div>
+      <!-- Modal de Auditoría IA -->
+      @if (auditandoId()) {
+        <div class="modal-overlay animate-fade-in" style="z-index: 5000;">
+          <div class="modal-content animate-slide-in" style="max-width: 400px; text-align: center; padding: 40px;">
+            <style>
+              @keyframes spin-ai { 100% { transform: rotate(360deg); } }
+            </style>
+            <div style="font-size: 3rem; margin-bottom: 20px; animation: spin-ai 2s linear infinite;">⚙️</div>
+            <h3 style="color: var(--accent); margin-bottom: 10px;">Auditando Avance con IA</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Analizando evidencia y correlacionando datos del avance. Por favor espera...</p>
+          </div>
+        </div>
+      }
+
+      @if (mostrarModalAuditoria() && resultadoAuditoria()) {
+        <div class="modal-overlay animate-fade-in" style="z-index: 5000;">
+          <div class="modal-content animate-slide-in" style="max-width: 600px;">
+            <div class="modal-header">
+              <h2 class="modal-title">🤖 Resultado de Auditoría IA</h2>
+              <button class="btn-close" (click)="mostrarModalAuditoria.set(false)">✕</button>
+            </div>
+            <div class="modal-body" style="padding: 24px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; background: var(--bg-dark); padding: 16px; border-radius: 8px;">
+                <span style="font-size: 1.1rem; font-weight: bold;">Score de Confianza:</span>
+                <span style="font-size: 1.5rem; font-weight: 800; padding: 4px 12px; border-radius: 20px; border: 2px solid" [style.borderColor]="resultadoAuditoria()!.score < 100 ? 'var(--danger)' : 'var(--success)'" [style.color]="resultadoAuditoria()!.score < 100 ? 'var(--danger)' : 'var(--success)'">
+                  {{ resultadoAuditoria()!.score }}%
+                </span>
+              </div>
+              
+              <h4 style="margin-bottom: 10px; color: var(--text-primary);">Observaciones de la IA:</h4>
+              <ul style="padding-left: 20px; margin-bottom: 24px; color: var(--text-secondary); font-size: 0.95rem;">
+                @for (obs of resultadoAuditoria()!.observaciones; track $index) {
+                  <li style="margin-bottom: 8px;">{{ obs }}</li>
+                }
+              </ul>
+
+              <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border); padding-top: 16px;">
+                <button class="btn btn-secondary" (click)="mostrarModalAuditoria.set(false)">Cerrar</button>
+                @if (resultadoAuditoria()!.score < 100 && avanceSeleccionadoParaAuditoria()) {
+                  <button class="btn btn-danger" (click)="rechazarAvance(avanceSeleccionadoParaAuditoria()!)">Rechazar Avance</button>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      }
     } @else {
       <div class="not-found">
         <span style="font-size:3rem">🔍</span>
@@ -1243,6 +1297,53 @@ export class ExpedienteComponent implements OnInit {
   ultimoPorcentaje = signal(0);
   cargando = signal(true);
 
+  // AI Audit State
+  auditandoId = signal<number | null>(null);
+  mostrarModalAuditoria = signal(false);
+  resultadoAuditoria = signal<{score: number, observaciones: string[]} | null>(null);
+  avanceSeleccionadoParaAuditoria = signal<number | null>(null);
+  http = inject(HttpClient);
+
+  auditarAvanceConIA(avanceId: number) {
+    this.auditandoId.set(avanceId);
+    this.avanceSeleccionadoParaAuditoria.set(avanceId);
+    
+    this.http.post<any>(`${environment.apiUrl}/ai/audit/avance/${avanceId}`, {}).subscribe({
+      next: (res) => {
+        this.auditandoId.set(null);
+        this.resultadoAuditoria.set({
+          score: res.score,
+          observaciones: res.observaciones
+        });
+        this.mostrarModalAuditoria.set(true);
+      },
+      error: (err) => {
+        this.auditandoId.set(null);
+        this.toastSvc.show('Error al auditar el avance con IA', 'error');
+      }
+    });
+  }
+
+  rechazarAvance(avanceId: number) {
+    const currentObra = this.obra();
+    if (!currentObra) return;
+    
+    this.http.post(`${environment.apiUrl}/avances/${avanceId}/rechazar`, {}).subscribe({
+      next: () => {
+        this.toastSvc.show('Avance rechazado y revertido exitosamente', 'success');
+        this.mostrarModalAuditoria.set(false);
+        this.avanceSeleccionadoParaAuditoria.set(null);
+        this.resultadoAuditoria.set(null);
+        this.cargarMetas();
+        this.avancesSvc.getAvances(currentObra.id).subscribe(list => {
+          this.avances.set(list);
+        });
+        this.avancesSvc.getUltimoPorcentaje(currentObra.id).subscribe(p => this.ultimoPorcentaje.set(p));
+      },
+      error: () => this.toastSvc.show('Error al rechazar el avance', 'error')
+    });
+  }
+
   archivosSubidos = signal<ObraArchivo[]>([]);
   expedientesSvc = inject(ExpedientesService);
   sanitizer = inject(DomSanitizer);
@@ -1381,6 +1482,7 @@ export class ExpedienteComponent implements OnInit {
   archivosSvc = inject(ArchivosService);
   auth = inject(AuthService);
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
   getSanitizedUrl(url: string): SafeResourceUrl {
     return this.sanitizer.bypassSecurityTrustResourceUrl(url);
@@ -1656,14 +1758,16 @@ export class ExpedienteComponent implements OnInit {
         doc.setFontSize(11);
         doc.setFont('helvetica', 'normal');
         
+        const sanitizeText = (txt: string) => txt.replace(/[^\x20-\x7E\xA0-\xFF\u00D1\u00F1\u00C1\u00E1\u00C9\u00E9\u00CD\u00ED\u00D3\u00F3\u00DA\u00FA\u00DC\u00FC]/g, '').trim();
+
         doc.text(`Nombre de la Obra: ${currentObra.nombre}`, 40, 70);
         doc.text(`Código/ID: ${currentObra.codigo || currentObra.id}`, 40, 90);
         doc.text(`Estatus: ${currentObra.estatus}`, 40, 110);
-        doc.text(`Categoría: ${currentObra.categoria || 'N/A'}`, 40, 130);
+        doc.text(`Categoría: ${sanitizeText(currentObra.categoria || 'N/A')}`, 40, 130);
         doc.text(`Monto: ${this.svc.formatMonto(currentObra.monto)}`, 40, 150);
         doc.text(`Fecha de Inicio: ${this.fmtDate(currentObra.fechaInicio)}`, 40, 170);
         doc.text(`Fecha de Término: ${this.fmtDate(currentObra.fechaFin)}`, 40, 190);
-        doc.text(`Ubicación: No especificada`, 40, 210);
+        doc.text(`Ubicación: ${currentObra.direccion || 'No especificada'}`, 40, 210);
         
         doc.setFont('helvetica', 'bold');
         doc.text('Descripción:', 40, 240);
@@ -2242,18 +2346,31 @@ export class ExpedienteComponent implements OnInit {
   }
 
   eliminarObraAdmin() {
-    if (confirm('🚨 ADVERTENCIA: Estás a punto de eliminar lógicamente esta obra. Desaparecerá de las listas principales pero se mantendrá en la base de datos por auditoría. ¿Estás seguro de continuar?')) {
-      this.svc.cambiarEstatus(this.obra()!.id, 'INACTIVA' as any).subscribe({
-        next: () => {
-          this.toastSvc.show('Obra eliminada (INACTIVA) exitosamente.', 'success');
-          window.location.href = '/dashboard';
-        },
-        error: (err) => {
-          console.error('Error al eliminar obra:', err);
-          this.toastSvc.show('Error al eliminar lógicamente la obra.', 'error');
-        }
-      });
-    }
+    Swal.fire({
+      title: '¿Estás seguro?',
+      text: '🚨 ADVERTENCIA: Estás a punto de eliminar permanentemente esta obra y todo su expediente. Esta acción NO se puede deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#EF4444',
+      cancelButtonColor: '#4B5563',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      background: '#1F2937',
+      color: '#F9FAFB'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.svc.cambiarEstatus(this.obra()!.id, 'INACTIVA' as any).subscribe({
+          next: () => {
+            this.toastSvc.show('Obra eliminada exitosamente.', 'success');
+            this.router.navigate(['/dashboard']);
+          },
+          error: (err) => {
+            console.error('Error al eliminar obra:', err);
+            this.toastSvc.show('Error al eliminar la obra.', 'error');
+          }
+        });
+      }
+    });
   }
 }
 

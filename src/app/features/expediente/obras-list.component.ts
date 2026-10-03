@@ -122,8 +122,16 @@ import * as L from 'leaflet';
                   </td>
                   <td style="text-align: right;" (click)="$event.stopPropagation()">
                     <div class="actions-cell" style="display:inline-flex; gap:6px;">
-                      <a [routerLink]="['/obras', obra.id]" class="btn btn-primary btn-sm table-btn" style="background:#E8A020; border-color:#E8A020; color:#fff; font-weight:700;">
-                        🏛️ Expediente (4 Cat.)
+                      <a [routerLink]="['/obras', obra.id]" class="btn btn-sm table-btn btn-expediente-outline">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 6px;">
+                          <path d="M10 4H4C2.89 4 2.01 4.89 2.01 6L2 18C2 19.11 2.89 20 4 20H20C21.11 20 22 19.11 22 18V8C22 6.89 21.11 6 20 6H12L10 4Z" fill="#F59E0B"/>
+                          <rect x="8" y="10" width="8" height="10" rx="1" fill="#F9FAFB"/>
+                          <path d="M10 12H14M10 14H14M10 16H12" stroke="#9CA3AF" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        <div style="display: flex; flex-direction: column; text-align: left; line-height: 1.1;">
+                          <span>Expediente</span>
+                          <span style="font-size: 0.65rem; opacity: 0.9;">(4 Cat.)</span>
+                        </div>
                       </a>
                     </div>
                   </td>
@@ -298,7 +306,7 @@ import * as L from 'leaflet';
                         </div>
                         <div>
                           <label class="form-label" style="font-size: 0.75rem; color: var(--accent);">Cantidad Total *</label>
-                          <input type="number" class="form-input" [(ngModel)]="meta.cantidadMeta" name="cantidad_{{i}}" placeholder="Ej. 100" required style="font-size: 1.1rem; font-weight: bold; padding: 8px 12px; border-color: var(--accent); background: rgba(0,0,0,0.5);">
+                          <input type="number" class="form-input" [(ngModel)]="meta.cantidadMeta" name="cantidad_{{i}}" placeholder="Ej. 100" min="1" required style="font-size: 1.1rem; font-weight: bold; padding: 8px 12px; border-color: var(--accent); background: rgba(0,0,0,0.5);">
                         </div>
                       </div>
                     }
@@ -485,7 +493,19 @@ import * as L from 'leaflet';
     .badge-bloqueada { background: var(--danger-bg); color: var(--danger); }
     
     .actions-cell { display: flex; justify-content: flex-end; }
-    .table-btn { font-size: 0.78rem; font-weight: 600; padding: 6px 14px; }
+    .table-btn { font-size: 0.78rem; font-weight: 700; padding: 6px 14px; display: inline-flex; align-items: center; justify-content: center; }
+    
+    .btn-expediente-outline {
+      background: transparent;
+      border: 1px solid #F59E0B;
+      color: #F59E0B;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    .btn-expediente-outline:hover {
+      background: rgba(245, 158, 11, 0.1);
+      transform: translateY(-1px);
+    }
     
     .empty-table-cell { padding: 48px 0; }
     .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
@@ -511,14 +531,14 @@ import * as L from 'leaflet';
     .drag-drop-zone:hover { border-color: var(--accent); background: rgba(232, 160, 32, 0.05); }
     .drag-drop-zone.dragover { border-color: var(--success); background: rgba(45, 212, 191, 0.1); transform: scale(1.02); }
     .drop-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.8; }
-    .file-input-hidden { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+    .file-input-hidden { position: absolute; top: 0; left: 0; width: 100%; height: 100%; right: 0; bottom: 0; opacity: 0; cursor: pointer; }
     .file-list { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
     .file-item { display: flex; align-items: center; gap: 12px; background: var(--bg-surface); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-light); }
     .file-name { flex: 1; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .file-size { font-size: 0.75rem; color: var(--text-muted); }
 
     /* Modal Overlay Styles */
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: flex; align-items: flex-start; justify-content: center; z-index: 10000; overflow-y: auto; padding-top: 120px; padding-bottom: 60px; }
+    .modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: flex; align-items: flex-start; justify-content: center; z-index: 10000; overflow-y: auto; padding-top: 120px; padding-bottom: 60px; }
     .modal-content { background: var(--bg-surface); width: 90%; max-width: 500px; border-radius: var(--radius-lg); border: 1px solid var(--border-light); box-shadow: var(--shadow-lg); overflow: hidden; display: flex; flex-direction: column; margin: auto; }
     .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); }
     .modal-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
@@ -721,8 +741,8 @@ export class ObrasListComponent implements OnInit {
       this.longitudSeleccionada.set(initialLng);
 
       this.modalMap = L.map('modal-map', { center: [initialLat, initialLng], zoom: 14 });
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
       }).addTo(this.modalMap);
 
       const icon = L.divIcon({
@@ -842,6 +862,16 @@ export class ObrasListComponent implements OnInit {
       this.toastSvc.show(`⚠️ La descripción breve supera el máximo permitido de 500 caracteres (Actual: ${descripcion.length}).`, 'warning');
       this.creandoObra.set(false);
       return;
+    }
+
+    // Validar que las metas no sean negativas o cero
+    const metasSeleccionadas = this.metasTemporales();
+    for (const meta of metasSeleccionadas) {
+      if (meta.cantidadMeta === null || meta.cantidadMeta === undefined || meta.cantidadMeta <= 0) {
+        this.toastSvc.show(`⚠️ La cantidad para la meta "${meta.concepto}" debe ser mayor a 0.`, 'warning');
+        this.creandoObra.set(false);
+        return;
+      }
     }
 
     // Generar código único válido
