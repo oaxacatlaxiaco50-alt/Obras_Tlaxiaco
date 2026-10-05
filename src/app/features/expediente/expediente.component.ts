@@ -2357,7 +2357,7 @@ export class ExpedienteComponent implements OnInit {
       cancelButtonText: 'Cancelar',
       background: '#1F2937',
       color: '#F9FAFB'
-    }).then((result) => {
+    }).then((result: any) => {
       if (result.isConfirmed) {
         this.svc.cambiarEstatus(this.obra()!.id, 'INACTIVA' as any).subscribe({
           next: () => {
