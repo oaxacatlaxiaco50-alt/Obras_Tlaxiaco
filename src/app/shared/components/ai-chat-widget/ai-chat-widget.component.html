@@ -1,11 +1,14 @@
 @if (canAccessAi()) {
   <div class="ai-widget-container">
-    <!-- Floating Trigger Button -->
+    <!-- Floating Trigger Button (Draggable / Movible con el Ratón) -->
     <button 
       class="ai-trigger-btn" 
       [class.active]="isOpen()" 
-      (click)="toggleChat()"
-      title="Asistente de IA (Gemma / Spring AI)"
+      [class.is-moved]="btnPositionX() !== null"
+      [style.left.px]="btnPositionX() !== null ? btnPositionX() : null"
+      [style.top.px]="btnPositionY() !== null ? btnPositionY() : null"
+      (mousedown)="startTriggerDrag($event)"
+      title="Haz clic para abrir o arrastra con el ratón para mover a cualquier lado"
       id="ai-widget-toggle-btn"
     >
       <div class="sparkle-icon">
@@ -15,6 +18,11 @@
       </div>
       <span class="btn-label">IA Asistente</span>
       <span class="online-indicator"></span>
+      <div class="btn-drag-dots" title="Arrastra este botón a cualquier lado">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
+          <path d="M8.5 4.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm7 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-7 6a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm7 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-7 6a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm7 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/>
+        </svg>
+      </div>
     </button>
 
     <!-- Chat Drawer / Modal Pop-up (Draggable & Expandable) -->

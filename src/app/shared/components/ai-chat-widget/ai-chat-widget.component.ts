@@ -31,15 +31,26 @@ export class AiChatWidgetComponent implements AfterViewChecked {
   userMessage = signal<string>('');
   conversationId = signal<string>('');
 
-  // Draggable window coordinates
+  // Draggable window coordinates (Chat Card)
   positionX = signal<number | null>(null);
   positionY = signal<number | null>(null);
   isDragging = signal<boolean>(false);
+
+  // Draggable Floating Trigger Button coordinates
+  btnPositionX = signal<number | null>(null);
+  btnPositionY = signal<number | null>(null);
+  isTriggerDragging = signal<boolean>(false);
 
   private dragStartX = 0;
   private dragStartY = 0;
   private initialX = 0;
   private initialY = 0;
+
+  private triggerDragStartX = 0;
+  private triggerDragStartY = 0;
+  private triggerInitialX = 0;
+  private triggerInitialY = 0;
+  private hasMovedTrigger = false;
 
   messages = signal<ChatMessage[]>([
     {
@@ -66,18 +77,106 @@ export class AiChatWidgetComponent implements AfterViewChecked {
   }
 
   toggleChat() {
-    this.isOpen.update(v => !v);
+    this.isOpen.update(v => {
+      const nextState = !v;
+      if (nextState && this.positionX() === null && this.btnPositionX() !== null) {
+        this.calculateModalPositionNearBtn();
+      }
+      return nextState;
+    });
   }
 
   toggleMaximize() {
     this.isMaximized.update(v => !v);
   }
 
-  // --- DRAGGABLE FEATURE ---
+  // --- DRAGGABLE TRIGGER BUTTON FEATURE ---
+  startTriggerDrag(event: MouseEvent) {
+    if (event.button !== 0) return;
+
+    this.hasMovedTrigger = false;
+    this.triggerDragStartX = event.clientX;
+    this.triggerDragStartY = event.clientY;
+
+    const btn = document.getElementById('ai-widget-toggle-btn');
+    if (btn) {
+      const rect = btn.getBoundingClientRect();
+      this.triggerInitialX = rect.left;
+      this.triggerInitialY = rect.top;
+    }
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = moveEvent.clientX - this.triggerDragStartX;
+      const deltaY = moveEvent.clientY - this.triggerDragStartY;
+
+      if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+        this.hasMovedTrigger = true;
+        this.isTriggerDragging.set(true);
+
+        let newX = this.triggerInitialX + deltaX;
+        let newY = this.triggerInitialY + deltaY;
+
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+        const btnWidth = btn?.offsetWidth || 160;
+        const btnHeight = btn?.offsetHeight || 48;
+
+        newX = Math.max(10, Math.min(newX, windowWidth - btnWidth - 10));
+        newY = Math.max(10, Math.min(newY, windowHeight - btnHeight - 10));
+
+        this.btnPositionX.set(newX);
+        this.btnPositionY.set(newY);
+
+        // If modal is open and hasn't been manually dragged, update its position relative to button
+        if (this.isOpen() && this.positionX() === null && !this.isMaximized()) {
+          this.calculateModalPositionNearBtn();
+        }
+      }
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+
+      if (!this.hasMovedTrigger) {
+        this.toggleChat();
+      }
+      setTimeout(() => {
+        this.isTriggerDragging.set(false);
+      }, 50);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
+
+  private calculateModalPositionNearBtn() {
+    const btnX = this.btnPositionX();
+    const btnY = this.btnPositionY();
+    if (btnX === null || btnY === null) return;
+
+    const modalWidth = 520;
+    const modalHeight = 650;
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+
+    let modalX = Math.max(10, Math.min(btnX, windowWidth - modalWidth - 10));
+    let modalY = btnY - modalHeight - 15;
+
+    // If not enough space above, place below
+    if (modalY < 10) {
+      modalY = Math.min(btnY + 60, windowHeight - modalHeight - 10);
+    }
+
+    this.positionX.set(modalX);
+    this.positionY.set(modalY);
+  }
+
+  // --- DRAGGABLE CHAT WINDOW FEATURE ---
   startDrag(event: MouseEvent) {
     if (this.isMaximized()) return;
 
-    // Ignore drag if clicking on buttons in header
+    // Ignore drag if clicking on header action buttons
     const target = event.target as HTMLElement;
     if (target.closest('.header-actions') || target.closest('button')) return;
 
@@ -100,7 +199,6 @@ export class AiChatWidgetComponent implements AfterViewChecked {
       let newX = this.initialX + deltaX;
       let newY = this.initialY + deltaY;
 
-      // Restrain within viewport
       const windowWidth = window.innerWidth;
       const windowHeight = window.innerHeight;
       const modalWidth = modal?.offsetWidth || 520;
@@ -126,6 +224,8 @@ export class AiChatWidgetComponent implements AfterViewChecked {
   resetPosition() {
     this.positionX.set(null);
     this.positionY.set(null);
+    this.btnPositionX.set(null);
+    this.btnPositionY.set(null);
   }
 
   sendMessage(textToSend?: string) {
@@ -168,7 +268,7 @@ export class AiChatWidgetComponent implements AfterViewChecked {
     });
   }
 
-  // --- MARKDOWN TO HTML PARSER (Elimina asteriscos y da formato limpio) ---
+  // --- MARKDOWN TO HTML PARSER ---
   formatMessageText(rawText: string): string {
     if (!rawText) return '';
 

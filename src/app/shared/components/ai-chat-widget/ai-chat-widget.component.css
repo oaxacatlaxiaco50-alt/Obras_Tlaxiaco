@@ -6,7 +6,7 @@
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* Floating Trigger Button */
+/* Floating Trigger Button (Draggable / Movible) */
 .ai-trigger-btn {
   display: flex;
   align-items: center;
@@ -14,25 +14,51 @@
   background: #1e293b;
   color: #ffffff;
   border: none;
-  padding: 12px 20px;
+  padding: 12px 18px;
   border-radius: 9999px;
-  cursor: pointer;
+  cursor: grab;
   font-weight: 600;
   font-size: 0.95rem;
   box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.5), 0 8px 10px -6px rgba(139, 92, 246, 0.4);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
+  transition: box-shadow 0.3s ease, background 0.3s ease, transform 0.2s ease;
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  user-select: none;
+  touch-action: none;
+  z-index: 999999;
+}
+
+.ai-trigger-btn:active {
+  cursor: grabbing;
+}
+
+.ai-trigger-btn.is-moved {
+  bottom: auto !important;
+  right: auto !important;
 }
 
 .ai-trigger-btn:hover {
-  transform: translateY(-3px) scale(1.03);
+  transform: translateY(-2px) scale(1.02);
   box-shadow: 0 14px 30px -5px rgba(99, 102, 241, 0.65), 0 10px 12px -5px rgba(217, 70, 239, 0.5);
 }
 
 .ai-trigger-btn.active {
   background: #1e1b4b;
   box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+
+.btn-drag-dots {
+  display: flex;
+  align-items: center;
+  color: #94a3b8;
+  margin-left: 2px;
+  opacity: 0.7;
+}
+
+.ai-trigger-btn:hover .btn-drag-dots {
+  color: #a5b4fc;
+  opacity: 1;
 }
 
 .sparkle-icon {
@@ -70,8 +96,9 @@
   flex-direction: column;
   overflow: hidden;
   animation: slide-up-fade 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  transition: width 0.3s ease, height 0.3s ease, transform 0.2s ease;
+  transition: width 0.3s ease, height 0.3s ease;
   user-select: none;
+  z-index: 999998;
 }
 
 .ai-chat-card.is-dragged {
@@ -252,7 +279,7 @@
   font-weight: 500;
 }
 
-/* Formatted HTML Elements inside AI Messages (Sin asteriscos) */
+/* Formatted HTML Elements inside AI Messages */
 ::ng-deep .ai-msg-h4 {
   margin: 8px 0 6px 0;
   font-size: 1.05rem;
