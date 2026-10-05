@@ -27,14 +27,25 @@ export class AiChatWidgetComponent implements AfterViewChecked {
 
   isOpen = signal<boolean>(false);
   isLoading = signal<boolean>(false);
+  isMaximized = signal<boolean>(false);
   userMessage = signal<string>('');
   conversationId = signal<string>('');
+
+  // Draggable window coordinates
+  positionX = signal<number | null>(null);
+  positionY = signal<number | null>(null);
+  isDragging = signal<boolean>(false);
+
+  private dragStartX = 0;
+  private dragStartY = 0;
+  private initialX = 0;
+  private initialY = 0;
 
   messages = signal<ChatMessage[]>([
     {
       id: 'welcome',
       sender: 'ai',
-      text: '¡Hola! 👋 Soy tu **Asistente Virtual de IA** para la supervisión de Obras Públicas de Tlaxiaco.\n\nPuedes hacerme preguntas directas sobre obras, presupuestos, auditoría de archivos o guías de uso del sistema.',
+      text: '¡Hola! 👋 Soy tu **Asistente Virtual de IA** para Obras Públicas de Tlaxiaco.\n\nPuedes hacerme preguntas sobre el estado de las obras, presupuestos, expedientes normativos o la bitácora de auditoría.',
       timestamp: new Date(),
       suggestedFollowUps: [
         '⚙️ ¿Cómo funciona el sistema?',
@@ -56,6 +67,65 @@ export class AiChatWidgetComponent implements AfterViewChecked {
 
   toggleChat() {
     this.isOpen.update(v => !v);
+  }
+
+  toggleMaximize() {
+    this.isMaximized.update(v => !v);
+  }
+
+  // --- DRAGGABLE FEATURE ---
+  startDrag(event: MouseEvent) {
+    if (this.isMaximized()) return;
+
+    // Ignore drag if clicking on buttons in header
+    const target = event.target as HTMLElement;
+    if (target.closest('.header-actions') || target.closest('button')) return;
+
+    this.isDragging.set(true);
+    this.dragStartX = event.clientX;
+    this.dragStartY = event.clientY;
+
+    const modal = document.getElementById('ai-chat-modal');
+    if (modal) {
+      const rect = modal.getBoundingClientRect();
+      this.initialX = rect.left;
+      this.initialY = rect.top;
+    }
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!this.isDragging()) return;
+      const deltaX = moveEvent.clientX - this.dragStartX;
+      const deltaY = moveEvent.clientY - this.dragStartY;
+
+      let newX = this.initialX + deltaX;
+      let newY = this.initialY + deltaY;
+
+      // Restrain within viewport
+      const windowWidth = window.innerWidth;
+      const windowHeight = window.innerHeight;
+      const modalWidth = modal?.offsetWidth || 520;
+      const modalHeight = modal?.offsetHeight || 650;
+
+      newX = Math.max(10, Math.min(newX, windowWidth - modalWidth - 10));
+      newY = Math.max(10, Math.min(newY, windowHeight - modalHeight - 10));
+
+      this.positionX.set(newX);
+      this.positionY.set(newY);
+    };
+
+    const onMouseUp = () => {
+      this.isDragging.set(false);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
+
+  resetPosition() {
+    this.positionX.set(null);
+    this.positionY.set(null);
   }
 
   sendMessage(textToSend?: string) {
@@ -98,6 +168,69 @@ export class AiChatWidgetComponent implements AfterViewChecked {
     });
   }
 
+  // --- MARKDOWN TO HTML PARSER (Elimina asteriscos y da formato limpio) ---
+  formatMessageText(rawText: string): string {
+    if (!rawText) return '';
+
+    let formatted = rawText;
+
+    // Convert Headers (### -> <h4>)
+    formatted = formatted.replace(/^### (.*$)/gim, '<h4 class="ai-msg-h4">$1</h4>');
+    formatted = formatted.replace(/^## (.*$)/gim, '<h3 class="ai-msg-h3">$1</h3>');
+
+    // Convert Bold (**bold** -> <strong>)
+    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong class="ai-msg-bold">$1</strong>');
+
+    // Convert Italics (*italic* -> <em>)
+    formatted = formatted.replace(/\*(.*?)\*/g, '<em class="ai-msg-italic">$1</em>');
+
+    // Convert Code (`code` -> <code class="ai-msg-code">)
+    formatted = formatted.replace(/`(.*?)`/g, '<code class="ai-msg-code">$1</code>');
+
+    // Convert Bullet points (• or -)
+    formatted = formatted.replace(/^[•\-]\s+(.*$)/gim, '<li class="ai-msg-li">$1</li>');
+
+    // Convert Numbered list (1. item)
+    formatted = formatted.replace(/^(\d+)\.\s+(.*$)/gim, '<li class="ai-msg-li-num"><span class="num-badge">$1</span> $2</li>');
+
+    // Wrap consecutive list items
+    formatted = formatted.replace(/(<li class="ai-msg-li">.*<\/li>\n?)+/g, (match) => {
+      return `<ul class="ai-msg-ul">${match}</ul>`;
+    });
+
+    formatted = formatted.replace(/(<li class="ai-msg-li-num">.*<\/li>\n?)+/g, (match) => {
+      return `<ol class="ai-msg-ol">${match}</ol>`;
+    });
+
+    // Convert double line breaks into paragraphs
+    const lines = formatted.split(/\n{2,}/);
+    formatted = lines.map(p => {
+      if (p.startsWith('<h') || p.startsWith('<ul') || p.startsWith('<ol')) {
+        return p;
+      }
+      return `<div class="ai-msg-p">${p.replace(/\n/g, '<br>')}</div>`;
+    }).join('');
+
+    return formatted;
+  }
+
+  // --- FRIENDLY DATE FORMATTING WITH DAY NAMES ---
+  getFriendlyDate(d: Date | string): string {
+    const dateObj = typeof d === 'string' ? new Date(d) : d;
+    if (isNaN(dateObj.getTime())) return '';
+
+    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+    const dayName = days[dateObj.getDay()];
+    const dayNum = dateObj.getDate();
+    const monthName = months[dateObj.getMonth()];
+    const hours = dateObj.getHours().toString().padStart(2, '0');
+    const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+
+    return `${dayName} ${dayNum} de ${monthName}, ${hours}:${minutes} hs`;
+  }
+
   private getOfflineAiResponse(prompt: string): ChatMessage {
     const p = prompt.toLowerCase();
     let responseText = '';
@@ -106,7 +239,7 @@ export class AiChatWidgetComponent implements AfterViewChecked {
     if (p.includes('hola') || p.includes('saludos') || p.includes('buenos')) {
       responseText = '¡Hola! 👋 Soy tu **Asistente Virtual de IA**.\n\nPuedes hacerme preguntas sobre obras, presupuestos, expedientes o auditoría.';
     } else if (p.includes('como funciona') || p.includes('funciona el sistema') || p.includes('que hace')) {
-      responseText = '### ⚙️ ¿Cómo funciona el Sistema de Obras Públicas?\n\n1. **Obras**: Registro con código, presupuesto, fechas y ubicación GPS.\n2. **Expedientes**: Control de 57 documentos clasificados.\n3. **Anti-Duplicados**: Algoritmo por firma Hash (SHA-256) que rechaza archivos repetidos.\n4. **Avances**: Carga de fotos por fases (*Antes, Durante, Después*).\n5. **Geolocalización**: Mapa interactivo de Tlaxiaco.\n6. **Auditoría**: Bitácora inalterable de acciones de usuarios.';
+      responseText = '### ⚙️ ¿Cómo funciona el Sistema de Obras Públicas?\n\n1. **Obras**: Registro con código, presupuesto, fechas y ubicación GPS.\n2. **Expedientes**: Control de 57 documentos clasificados.\n3. **Anti-Duplicados**: Algoritmo por firma Hash (SHA-256) que rechaza archivos repetidos.\n4. **Avances**: Carga de fotos por fases (*Antes, Durante, Después*).\n5. **Geolocalización**: Mapa interactivo de Tlaxiaco.\n6. **Auditoría**: Bitácora inalterable de acciones de usuarios con fecha y hora.';
       followUps = ['📊 Resumen de obras', '🛡️ Detección de duplicados', '📁 Catálogo de expedientes'];
     } else if (p.includes('duplicado') || p.includes('rechaz') || p.includes('archivo')) {
       responseText = '### 🛡️ Detección de Archivos Duplicados\n\nEl sistema analiza el Hash SHA-256, el nombre original y el tamaño en bytes. Si intentas subir un documento idéntico, la operación se **rechaza automáticamente** y genera un evento en la bitácora (`RECHAZO_DOCUMENTO_DUPLICADO`).';
@@ -121,7 +254,7 @@ export class AiChatWidgetComponent implements AfterViewChecked {
       responseText = '### 📜 Bitácora e Historial de Auditoría\n\nEl sistema mantiene un registro inalterable que almacena fecha, hora, usuario, IP y tipo de acción realizada (*creación, edición o rechazo*).';
       followUps = ['📊 Resumen de obras', '🛡️ Detección de duplicados'];
     } else {
-      responseText = `### 🤖 Asistente de IA\n\nRespecto a: *"${prompt}"*\n\nPuedes consultarme sobre:\n• **Obras**: Lista, montos y geolocalización.\n• **Expedientes**: Estructura de documentos y control de duplicados.\n• **Auditoría**: Bitácora inalterable e historial de eventos.`;
+      responseText = `### 🤖 Asistente de IA\n\nRespecto a: *"${prompt}"*\n\nPuedes consultarme sobre:\n• **Obras**: Lista, montos, fechas y geolocalización.\n• **Expedientes**: Estructura de documentos y control de duplicados.\n• **Auditoría**: Bitácora inalterable e historial de eventos con fechas.`;
     }
 
     return {

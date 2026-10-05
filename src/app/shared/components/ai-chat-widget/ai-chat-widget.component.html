@@ -17,11 +17,23 @@
       <span class="online-indicator"></span>
     </button>
 
-    <!-- Chat Drawer / Modal Pop-up -->
+    <!-- Chat Drawer / Modal Pop-up (Draggable & Expandable) -->
     @if (isOpen()) {
-      <div class="ai-chat-card" id="ai-chat-modal">
-        <!-- Header -->
-        <div class="chat-header">
+      <div 
+        class="ai-chat-card" 
+        [class.is-maximized]="isMaximized()"
+        [class.is-dragged]="positionX() !== null && !isMaximized()"
+        [style.left.px]="!isMaximized() && positionX() !== null ? positionX() : null"
+        [style.top.px]="!isMaximized() && positionY() !== null ? positionY() : null"
+        id="ai-chat-modal"
+      >
+        <!-- Header (Draggable Handle) -->
+        <div class="chat-header" (mousedown)="startDrag($event)" title="Arrastra para mover la ventana de la IA">
+          <div class="drag-handle">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+              <path d="M8.5 4.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm7 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-7 6a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm7 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-7 6a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm7 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/>
+            </svg>
+          </div>
           <div class="header-info">
             <div class="ai-avatar">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
@@ -30,15 +42,29 @@
             </div>
             <div>
               <h3 class="header-title">Asistente IA Obras</h3>
-              <p class="header-subtitle">Gemma-2B &bull; Spring AI Context</p>
+              <p class="header-subtitle">Gemma-2B &bull; Contexto Vivo</p>
             </div>
           </div>
           <div class="header-actions">
+            <!-- Maximize / Restore Button -->
+            <button class="icon-btn" (click)="toggleMaximize()" [title]="isMaximized() ? 'Restaurar tamaño' : 'Maximizar ventana'">
+              @if (!isMaximized()) {
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                </svg>
+              } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5M15 15l5.25 5.25" />
+                </svg>
+              }
+            </button>
+            <!-- Clear Chat Button -->
             <button class="icon-btn" (click)="clearChat()" title="Limpiar conversación">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
               </svg>
             </button>
+            <!-- Close Button -->
             <button class="icon-btn close-btn" (click)="toggleChat()" title="Cerrar">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -55,7 +81,7 @@
                 <div class="msg-avatar">✨</div>
               }
               <div class="message-bubble">
-                <div class="message-text" [innerHTML]="msg.text"></div>
+                <div class="message-text" [innerHTML]="formatMessageText(msg.text)"></div>
                 
                 @if (msg.suggestedFollowUps && msg.suggestedFollowUps.length > 0) {
                   <div class="suggested-chips">
@@ -66,7 +92,7 @@
                     }
                   </div>
                 }
-                <span class="message-time">{{ msg.timestamp | date:'shortTime' }}</span>
+                <span class="message-time">📅 {{ getFriendlyDate(msg.timestamp) }}</span>
               </div>
             </div>
           }
