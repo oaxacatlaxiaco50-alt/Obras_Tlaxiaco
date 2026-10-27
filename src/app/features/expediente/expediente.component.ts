@@ -18,6 +18,7 @@ import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
 import Swal from 'sweetalert2';
+import { fichaTecnicaBgBase64 } from './ficha-bg';
 
 @Component({
   selector: 'app-expediente',
@@ -25,7 +26,7 @@ import Swal from 'sweetalert2';
   imports: [DatePipe, DecimalPipe, FormsModule],
   template: `
     @if (obra()) {
-      <div class="expediente animate-fade-in" id="pdfContent">
+      <div class="expediente" id="pdfContent">
         <!-- Header -->
         <div class="exp-header">
           <div class="exp-header-left">
@@ -61,7 +62,7 @@ import Swal from 'sweetalert2';
               }
             } @else {
               <button class="btn btn-secondary" (click)="tabActiva.set('resumen')">Cancelar</button>
-              <button class="btn btn-primary" type="submit" form="editarObraForm">💾 Guardar Cambios</button>
+              <button class="btn btn-primary" type="button" (click)="guardarEdicionObra($event)">💾 Guardar Cambios</button>
             }
 
           </div>
@@ -631,13 +632,18 @@ import Swal from 'sweetalert2';
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">Estatus</label>
-                <select name="estatus" class="form-input" [value]="obra()!.estatus">
-                  <option value="PLANIFICADA">Planificada</option><option value="EN_PROCESO">En Proceso</option><option value="COMPLETADA">Completada</option><option value="CANCELADA">Cancelada</option><option value="INACTIVA">Inactiva</option>
+                <select name="estatus" class="form-input">
+                  <option value="PLANIFICADA" [selected]="obra()!.estatus === 'PLANIFICADA'">Planificada</option><option value="EN_PROCESO" [selected]="obra()!.estatus === 'EN_PROCESO'">En Proceso</option><option value="COMPLETADA" [selected]="obra()!.estatus === 'COMPLETADA'">Completada</option><option value="CANCELADA" [selected]="obra()!.estatus === 'CANCELADA'">Cancelada</option><option value="INACTIVA" [selected]="obra()!.estatus === 'INACTIVA'">Inactiva</option>
                 </select>
               </div>
-              <div class="form-group"><label class="form-label">Categoría de Obra</label><input type="text" name="categoria" class="form-input" [value]="obra()!.categoria || ''" readonly></div>
+              <div class="form-group"><label class="form-label">Categoría de Obra</label><input type="text" name="categoria" class="form-input" [value]="obra()!.categoria || ''"></div>
             </div>
             <div class="form-group" style="margin-bottom: 24px;"><label class="form-label">Descripción</label><textarea name="descripcion" class="form-input" rows="4">{{ obra()!.descripcion }}</textarea></div>
+            <h4 style="margin:8px 0 12px; color:var(--text-primary);">📄 Datos para Ficha Técnica y Expediente</h4>
+            <div class="form-group"><label class="form-label">Contratista (Razón Social)</label><input type="text" name="contratista" class="form-input" placeholder="Ej. INGENIERÍA EN INFRAESTRUCTURA BARICHARA S.A. DE C.V. (Opcional si aún no se asigna)" [value]="obra()!.contratista || ''"></div>
+            <div class="form-group"><label class="form-label">Fuente de Financiamiento</label><textarea name="fuenteFinanciamiento" class="form-input" rows="2" placeholder="Ej. RAMO 33, FAISMUN">{{ obra()!.fuenteFinanciamiento || '' }}</textarea></div>
+            <div class="form-group"><label class="form-label">Beneficiarios</label><textarea name="beneficiarios" class="form-input" rows="2" placeholder="Ej. 40 HOGARES, 120 MUJERES Y 100 HOMBRES">{{ obra()!.beneficiarios || '' }}</textarea></div>
+            <div class="form-group" style="margin-bottom: 24px;"><label class="form-label">Impacto Social</label><textarea name="impactoSocial" class="form-input" rows="3" placeholder="Describe el impacto social de la obra">{{ obra()!.impactoSocial || '' }}</textarea></div>
             <div style="display:flex; justify-content:space-between; align-items:center;">
               
               <button type="button" class="btn btn-danger" (click)="eliminarObraAdmin()">🗑️ Eliminar Obra</button>
@@ -764,8 +770,8 @@ import Swal from 'sweetalert2';
 
       <!-- MODAL ESPACIO DEDICADO DE GESTIÓN Y PREVISUALIZACIÓN DE DOCUMENTO -->
       @if (mostrarModalGestionDoc() && documentoSeleccionado()) {
-        <div class="modal-overlay animate-fade-in" style="z-index: 2100;">
-          <div class="modal-content animate-slide-in" style="max-width: 1100px; width: 95%; height: 90vh; display: flex; flex-direction: column; background: var(--bg-surface); overflow: hidden;">
+        <div class="modal-overlay animate-fade-in" style="z-index: 2100; padding: 24px;" (click)="cerrarModalGestionDoc()">
+          <div class="modal-content animate-slide-in" style="max-width: 1050px; width: 92%; height: 82vh; margin: auto; display: flex; flex-direction: column; background: var(--bg-surface); overflow: hidden; border-radius: 16px;" (click)="$event.stopPropagation()">
             <!-- Header -->
             <div class="modal-header" style="background: var(--bg-dark); padding: 16px 24px; border-bottom: 2px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
               <div>
@@ -1698,7 +1704,11 @@ export class ExpedienteComponent implements OnInit {
   }
 
   getItemsPorSeccion(seccion: SeccionExpedienteChecklist): ExpedienteObraItem[] {
-    return this.checklist().filter(i => i.documento.seccion === seccion);
+    const camposInformativos = ['contratista (razón social)', 'no. de contrato', 'monto del contrato'];
+    return this.checklist().filter(i =>
+      i.documento.seccion === seccion &&
+      !camposInformativos.includes(i.documento.nombre.toLowerCase().trim())
+    );
   }
 
   getPorcentajeCompletadoSeccion(seccion: SeccionExpedienteChecklist): number {
@@ -1751,57 +1761,79 @@ export class ExpedienteComponent implements OnInit {
       try {
         const doc = new jsPDF('p', 'pt', 'letter');
         
-        doc.setFontSize(16);
+        // Agregar fondo base64 (Logos y borde)
+        doc.addImage(fichaTecnicaBgBase64, 'PNG', 0, 0, 612, 792);
+        
+        // Titulo de la Obra
+        doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
-        doc.text('FICHA TÉCNICA DE OBRA', 40, 40);
+        const tituloTexto = `ENTREGA DE OBRA ${currentObra.nombre?.toUpperCase() || ''} EN LA LOCALIDAD ${currentObra.direccion?.toUpperCase() || ''}`;
         
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'normal');
+        const titleLines = doc.splitTextToSize(tituloTexto, 450);
+        let currentY = 140; 
         
-        const sanitizeText = (txt: string) => txt.replace(/[^\x20-\x7E\xA0-\xFF\u00D1\u00F1\u00C1\u00E1\u00C9\u00E9\u00CD\u00ED\u00D3\u00F3\u00DA\u00FA\u00DC\u00FC]/g, '').trim();
+        titleLines.forEach((line: string) => {
+           const textWidth = doc.getTextWidth(line);
+           doc.text(line, (612 - textWidth) / 2, currentY);
+           doc.setLineWidth(1);
+           doc.line((612 - textWidth) / 2, currentY + 2, (612 + textWidth) / 2, currentY + 2);
+           currentY += 20;
+        });
 
-        doc.text(`Nombre de la Obra: ${currentObra.nombre}`, 40, 70);
-        doc.text(`Código/ID: ${currentObra.codigo || currentObra.id}`, 40, 90);
-        doc.text(`Estatus: ${currentObra.estatus}`, 40, 110);
-        doc.text(`Categoría: ${sanitizeText(currentObra.categoria || 'N/A')}`, 40, 130);
-        doc.text(`Monto: ${this.svc.formatMonto(currentObra.monto)}`, 40, 150);
-        doc.text(`Fecha de Inicio: ${this.fmtDate(currentObra.fechaInicio)}`, 40, 170);
-        doc.text(`Fecha de Término: ${this.fmtDate(currentObra.fechaFin)}`, 40, 190);
-        doc.text(`Ubicación: ${currentObra.direccion || 'No especificada'}`, 40, 210);
-        
-        doc.setFont('helvetica', 'bold');
-        doc.text('Descripción:', 40, 240);
-        doc.setFont('helvetica', 'normal');
-        const descLines = doc.splitTextToSize(currentObra.descripcion || 'Sin descripción', 500);
-        doc.text(descLines, 40, 255);
-        
-        let startY = 255 + (descLines.length * 15) + 20;
+        // Calcular dias
+        let diasEjecucion = '0';
+        if (currentObra.fechaInicio && currentObra.fechaFin) {
+            const fIni = new Date(currentObra.fechaInicio);
+            const fFin = new Date(currentObra.fechaFin);
+            const diffTime = Math.abs(fFin.getTime() - fIni.getTime());
+            diasEjecucion = Math.ceil(diffTime / (1000 * 60 * 60 * 24)).toString();
+        }
 
-        doc.setFont('helvetica', 'bold');
-        doc.text('Metas del Proyecto:', 40, startY);
-        
-        const metasRows = this.metas().map(m => [
-          m.concepto,
-          m.cantidadMeta.toString(),
-          m.unidadMedida,
-          m.avanceAcumulado?.toString() || '0',
-          `${m.porcentaje || 0}%`,
-          m.estado?.toString() || ''
-        ]);
-        
+        let descripcionMetas = '';
+        const metasArray = this.metas();
+        if (metasArray && metasArray.length > 0) {
+            descripcionMetas = metasArray.map(m => `- ${m.cantidadMeta} ${m.unidadMedida} ${m.concepto}`).join('\n');
+        }
+        const descObra = (currentObra.descripcion || '').trim();
+        const descripcionFicha = [descObra, descripcionMetas].filter(t => t).join('\n\n') || 'Sin descripcion.';
+
+        // Tabla
+        // @ts-ignore
+        const tableBody: any[] = [
+          [{ content: 'LOCALIDAD:', styles: { halign: 'right', fontStyle: 'bold' } }, { content: (currentObra.direccion || '').toUpperCase(), styles: { fontStyle: 'bold' } }],
+          [{ content: 'META DEL PROYECTO:', styles: { halign: 'right', fontStyle: 'bold' } }, { content: (currentObra.nombre || '').toUpperCase(), styles: { fontStyle: 'bold' } }],
+          [{ content: 'PERIODO DE EJECUCION:', styles: { halign: 'right', fontStyle: 'bold' } }, { content: `${diasEjecucion} DIAS NATURALES`, styles: { fontStyle: 'bold' } }],
+          [{ content: 'FUENTE DE FINANCIAMIENTO:', styles: { halign: 'right', fontStyle: 'bold' } }, { content: (currentObra.fuenteFinanciamiento || '').toUpperCase(), styles: { fontStyle: 'bold' } }],
+          [{ content: 'BENEFICIARIOS:', styles: { halign: 'right', fontStyle: 'bold' } }, { content: (currentObra.beneficiarios || '').toUpperCase(), styles: { fontStyle: 'bold' } }], 
+          [{ content: 'DESCRIPCION:', styles: { halign: 'right', fontStyle: 'bold' } }, { content: descripcionFicha }],
+          [{ content: 'IMPACTO SOCIAL:', styles: { halign: 'right', fontStyle: 'bold' } }, { content: (currentObra.impactoSocial || '').toUpperCase() }]
+        ];
+
+        // @ts-ignore
         autoTable(doc, {
-          startY: startY + 10,
-          head: [['Concepto', 'Meta', 'Unidad', 'Avance', '%', 'Estado']],
-          body: metasRows,
+          startY: currentY + 10,
+          body: tableBody,
           theme: 'grid',
-          headStyles: { fillColor: [41, 128, 185] }
+          styles: { 
+            textColor: [0, 0, 0], 
+            lineColor: [0, 0, 0], 
+            lineWidth: 0.5, 
+            fontSize: 10, 
+            cellPadding: 8,
+            fillColor: false 
+          },
+          columnStyles: { 
+            0: { cellWidth: 150, halign: 'right', valign: 'middle' }, 
+            1: { halign: 'left', valign: 'middle' } 
+          },
+          margin: { top: 120, bottom: 80, left: 40, right: 40 }
         });
         
         doc.save(`Ficha_Tecnica_${currentObra.id}.pdf`);
-        this.toastSvc.show('Ficha Técnica descargada con éxito', 'success');
+        this.toastSvc.show('Ficha Tecnica descargada', 'success');
       } catch (error) {
         console.error('Error al generar PDF', error);
-        this.toastSvc.show('Error al generar Ficha Técnica', 'error');
+        this.toastSvc.show('Error al generar Ficha', 'error');
       } finally {
         this.generandoPDF.set(false);
         this.mostrarModalReportes.set(false);
@@ -1816,57 +1848,98 @@ export class ExpedienteComponent implements OnInit {
     try {
       const wb = XLSX.utils.book_new();
 
-      const wsInfoData = [
-        ['FICHA TÉCNICA Y REPORTE DE AVANCES'],
-        [],
-        ['Nombre del Proyecto', currentObra.nombre],
-        ['Código / ID', currentObra.codigo || currentObra.id],
-        ['Estatus', currentObra.estatus],
-        ['Categoría', currentObra.categoria],
-        ['Monto', currentObra.monto],
-        ['Fecha Inicio', currentObra.fechaInicio],
-        ['Fecha Término', currentObra.fechaFin],
-        ['Ubicación', 'No especificada'],
-        ['Descripción', currentObra.descripcion]
+      // Helpers
+      const fmtFecha = (f: string | undefined) =>
+        f ? new Date(f + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+      const fmtMonto = (m: number | undefined) =>
+        m != null ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(m) : '—';
+
+      const metas   = this.metas();
+      const avances = this.avances();
+      const pct     = currentObra.porcentajeAvance ?? 0;
+      const metasOK = metas.filter(m => m.estado === 'COMPLETADO').length;
+
+      // HOJA 1: Informacion General
+      const info = [
+        ['FICHA TECNICA Y REPORTE DE AVANCES', '', '', ''],
+        ['', '', '', ''],
+        ['DATOS GENERALES', '', '', ''],
+        ['Nombre del Proyecto', currentObra.nombre, '', ''],
+        ['Código',             currentObra.codigo ?? '—', '', ''],
+        ['Estatus',            currentObra.estatus, '', ''],
+        ['Categoria',          (currentObra.categoria ?? '—').replace(/[\u{1F300}-\u{1FFFF}\u{2600}-\u{27FF}]/gu, '').trim(), '', ''],
+        ['Descripción',        currentObra.descripcion ?? '—', '', ''],
+        ['', '', '', ''],
+        ['FECHAS Y PRESUPUESTO', '', '', ''],
+        ['Fecha de Inicio',    fmtFecha(currentObra.fechaInicio), 'Fecha de Término', fmtFecha(currentObra.fechaFin)],
+        ['Presupuesto',        fmtMonto(currentObra.monto), '', ''],
+        ['', '', '', ''],
+        ['LOCALIZACIÓN', '', '', ''],
+        ['Dirección / Localidad', currentObra.direccion ?? '—', '', ''],
+        ['', '', '', ''],
+        ['DATOS DE FICHA TÉCNICA', '', '', ''],
+        ['Fuente de Financiamiento', currentObra.fuenteFinanciamiento ?? '—', '', ''],
+        ['Beneficiarios',      currentObra.beneficiarios ?? '—', '', ''],
+        ['Impacto Social',     currentObra.impactoSocial ?? '—', '', ''],
+        ['', '', '', ''],
+        ['AVANCE GLOBAL', '', '', ''],
+        ['Porcentaje de Avance', pct + '%', 'Metas Completadas', metasOK + ' de ' + metas.length],
+        ['Total de Avances Reportados', avances.length.toString(), '', ''],
       ];
-      const wsInfo = XLSX.utils.aoa_to_sheet(wsInfoData);
-      XLSX.utils.book_append_sheet(wb, wsInfo, 'Información General');
+      const wsInfoNew = XLSX.utils.aoa_to_sheet(info);
+      wsInfoNew['!cols'] = [{ wch: 32 }, { wch: 38 }, { wch: 22 }, { wch: 22 }];
+      XLSX.utils.book_append_sheet(wb, wsInfoNew, '1. Información General');
 
-      const wsMetasData = [['ID', 'Concepto', 'Meta', 'Unidad', 'Avance', 'Porcentaje', 'Estado']];
-      this.metas().forEach(m => {
-        wsMetasData.push([
-          m.id?.toString() || '',
-          m.concepto,
-          m.cantidadMeta.toString(),
-          m.unidadMedida,
-          m.avanceAcumulado?.toString() || '0',
-          (m.porcentaje || 0) + '%',
-          m.estado?.toString() || ''
+      // HOJA 2: Metas
+      const metaRows = [['#', 'Concepto', 'Unidad', 'Cantidad Meta', 'Avance Acumulado', '% Avance', 'Estado']];
+      metas.forEach((m, i) => {
+        metaRows.push([
+          (i + 1).toString(), m.concepto, m.unidadMedida,
+          (m.cantidadMeta ?? 0).toString(), (m.avanceAcumulado ?? 0).toString(),
+          (m.porcentaje ?? 0) + '%', m.estado ?? '—',
         ]);
       });
-      const wsMetas = XLSX.utils.aoa_to_sheet(wsMetasData);
-      XLSX.utils.book_append_sheet(wb, wsMetas, 'Metas del Proyecto');
+      if (metas.length === 0) metaRows.push(['Sin metas registradas', '', '', '', '', '', '']);
+      const wsMetasNew = XLSX.utils.aoa_to_sheet(metaRows);
+      wsMetasNew['!cols'] = [{ wch: 5 }, { wch: 38 }, { wch: 14 }, { wch: 18 }, { wch: 20 }, { wch: 12 }, { wch: 16 }];
+      XLSX.utils.book_append_sheet(wb, wsMetasNew, '2. Metas del Proyecto');
 
-      const wsAvancesData = [['ID', 'Fecha de Avance', 'Concepto', 'Cantidad Reportada', 'Acumulado', 'Registrado Por', 'Observaciones']];
-      this.avances().forEach(a => {
-        const meta = this.metas().find(m => m.id === a.metaId);
-        const concepto = meta ? meta.concepto : a.titulo;
-
-        wsAvancesData.push([
-          a.id?.toString() || '',
-          a.fechaAvance || '',
-          concepto,
-          a.cantidadEjecutada?.toString() || '',
-          a.acumuladoActual?.toString() || '',
-          a.registradoPor?.toString() || '',
-          a.observaciones || ''
+      // HOJA 3: Historial de Avances
+      const avRows = [['#', 'Fecha', 'Meta Asociada', 'Título del Avance', 'Cantidad Reportada', 'Acumulado', '% Avance', 'Observaciones']];
+      avances.forEach((a, i) => {
+        const metaAsoc = metas.find(m => m.id === a.metaId);
+        avRows.push([
+          (i + 1).toString(), fmtFecha(a.fechaAvance),
+          metaAsoc ? metaAsoc.concepto : '—',
+          a.titulo,
+          (a.cantidadEjecutada ?? '—').toString(),
+          (a.acumuladoActual ?? '—').toString(),
+          (a.porcentaje ?? 0) + '%',
+          a.observaciones ?? '',
         ]);
       });
-      const wsAvances = XLSX.utils.aoa_to_sheet(wsAvancesData);
-      XLSX.utils.book_append_sheet(wb, wsAvances, 'Historial de Avances');
+      if (avances.length === 0) avRows.push(['Sin avances registrados', '', '', '', '', '', '', '']);
+      const wsAvNew = XLSX.utils.aoa_to_sheet(avRows);
+      wsAvNew['!cols'] = [{ wch: 5 }, { wch: 22 }, { wch: 30 }, { wch: 30 }, { wch: 20 }, { wch: 14 }, { wch: 12 }, { wch: 42 }];
+      XLSX.utils.book_append_sheet(wb, wsAvNew, '3. Historial de Avances');
 
-      XLSX.writeFile(wb, `Reporte_Obra_${currentObra.id}.xlsx`);
-      this.toastSvc.show('Archivo Excel generado con éxito', 'success');
+      // HOJA 4: Resumen por Meta
+      const resRows = [['Meta', 'Unidad', 'Cantidad Meta', 'Avance Acumulado', '% Logrado', 'Avances Reportados', 'Estado']];
+      metas.forEach(m => {
+        const avsMeta = avances.filter(a => a.metaId === m.id);
+        resRows.push([
+          m.concepto, m.unidadMedida,
+          (m.cantidadMeta ?? 0).toString(), (m.avanceAcumulado ?? 0).toString(),
+          (m.porcentaje ?? 0) + '%', avsMeta.length.toString(), m.estado ?? '—',
+        ]);
+      });
+      if (metas.length === 0) resRows.push(['Sin metas', '', '', '', '', '', '']);
+      const wsResNew = XLSX.utils.aoa_to_sheet(resRows);
+      wsResNew['!cols'] = [{ wch: 38 }, { wch: 12 }, { wch: 18 }, { wch: 20 }, { wch: 12 }, { wch: 20 }, { wch: 16 }];
+      XLSX.utils.book_append_sheet(wb, wsResNew, '4. Resumen por Meta');
+
+      XLSX.writeFile(wb, 'Reporte_Avances_' + (currentObra.codigo || currentObra.id) + '.xlsx');
+      this.toastSvc.show('Excel generado con éxito', 'success');
       this.mostrarModalReportes.set(false);
     } catch (e) {
       console.error(e);
@@ -1874,67 +1947,441 @@ export class ExpedienteComponent implements OnInit {
     }
   }
 
+    
+
   async generarReporteChecklistPDF() {
     const currentObra = this.obra();
     if (!currentObra) return;
-    
+
     this.generandoPDF.set(true);
-    this.toastSvc.show('Generando reporte PDF del Checklist...', 'info');
-    
+    this.toastSvc.show('Generando reporte PDF del Expediente Unitario...', 'info');
+
     setTimeout(() => {
       try {
-        const doc = new jsPDF('p', 'pt', 'letter');
-        
-        doc.setFontSize(14);
+        const doc = new jsPDF('p', 'pt', 'letter'); // 612 x 792 pt
+
+        const items = this.checklist();
+        const findItem = (keyword: string) =>
+          items.find(i => i.documento.nombre.toLowerCase().includes(keyword.toLowerCase()));
+
+        const getStatusMark = (keyword: string): string => {
+          const it = findItem(keyword);
+          if (!it) return '';
+          if (it.estado === 'OK') return 'OK';
+          if (it.estado === 'NO_APLICA') return 'N/A';
+          if (it.estado === 'CORREGIR') return 'C';
+          if (it.estado === 'FALTANTE') return 'X';
+          return '';
+        };
+
+        const getObs = (keyword: string, fallback = ''): string => {
+          const it = findItem(keyword);
+          if (it && it.observaciones && it.observaciones.trim()) return it.observaciones.trim();
+          return fallback;
+        };
+
+        // Helper para dibujar celda con borde y texto
+        const drawBox = (
+          x: number, y: number, w: number, h: number,
+          text = '',
+          opts?: {
+            bold?: boolean;
+            fontSize?: number;
+            align?: 'left' | 'center' | 'right';
+            fill?: [number, number, number];
+            lineWidth?: number;
+            paddingX?: number;
+          }
+        ) => {
+          const lw = opts?.lineWidth ?? 0.5;
+          doc.setLineWidth(lw);
+          doc.setDrawColor(0, 0, 0);
+          if (opts?.fill) {
+            doc.setFillColor(opts.fill[0], opts.fill[1], opts.fill[2]);
+            doc.rect(x, y, w, h, 'FD');
+          } else {
+            doc.rect(x, y, w, h, 'S');
+          }
+          if (text) {
+            const fs = opts?.fontSize ?? 5.5;
+            doc.setFontSize(fs);
+            doc.setFont('helvetica', opts?.bold ? 'bold' : 'normal');
+            doc.setTextColor(0, 0, 0);
+            const padX = opts?.paddingX ?? 3;
+            const maxW = w - padX * 2;
+            const lines: string[] = doc.splitTextToSize(text, maxW);
+            const lineH = fs * 1.15;
+            const totalTextH = lines.length * lineH;
+            let ty = y + (h - totalTextH) / 2 + fs * 0.82;
+            lines.forEach((ln: string) => {
+              let tx = x + padX;
+              if (opts?.align === 'center') tx = x + w / 2;
+              else if (opts?.align === 'right') tx = x + w - padX;
+              doc.text(ln, tx, ty, { align: opts?.align || 'left' });
+              ty += lineH;
+            });
+          }
+        };
+
+        // ==================== ENCABEZADO ====================
         doc.setFont('helvetica', 'bold');
-        doc.text('INTEGRACIÓN DE EXPEDIENTE UNITARIO DE OBRA PÚBLICA EJERCICIO 2026', 40, 40);
-        
-        doc.setFontSize(10);
+        doc.setFontSize(9.5);
+        doc.text('INTEGRACIÓN DE EXPEDIENTE UNITARIO DE OBRA PÚBLICA EJERCICIO 2026', 306, 26, { align: 'center' });
+
+        // Nombre de la obra
         doc.setFont('helvetica', 'normal');
-        doc.text(`Obra: ${currentObra.nombre}`, 40, 60);
-        doc.text(`Categoría: ${currentObra.categoria || 'N/A'} | Monto: $${currentObra.monto}`, 40, 75);
-        
-        let startY = 100;
-        const secciones: SeccionExpedienteChecklist[] = [
-          'PARTE_SOCIAL', 'PROYECTO_EJECUTIVO', 'PROCESOS_CONTRATACION', 'DOCUMENTOS_COMPROBATORIOS'
-        ];
-        
-        secciones.forEach(seccion => {
-          const items = this.getItemsPorSeccion(seccion);
-          if (items.length === 0) return;
-          const pct = this.getPorcentajeCompletadoSeccion(seccion);
-          
-          doc.setFontSize(11);
-          doc.setFont('helvetica', 'bold');
-          doc.text(`Sección: ${seccion.replace(/_/g, ' ')} (Avance: ${pct}%)`, 40, startY);
-          startY += 10;
-          
-          const tableData = items.map(item => {
-            let estatus: string = item.estado;
-            if (estatus === 'NO_APLICA') estatus = 'N/A';
-            return [ item.documento.nombre, estatus, item.observaciones || '' ];
-          });
-          
-          autoTable(doc, {
-            startY: startY,
-            head: [['Documento Requerido', 'Estatus', 'Observaciones']],
-            body: tableData,
-            theme: 'grid',
-            headStyles: { fillColor: [45, 212, 191] },
-            styles: { fontSize: 8, font: 'helvetica' },
-            columnStyles: { 0: { cellWidth: 240 }, 1: { cellWidth: 70 } }
-          });
-          
-          startY = (doc as any).lastAutoTable.finalY + 30;
+        doc.setFontSize(6);
+        doc.text('NOMBRE DE LA', 20, 38);
+        doc.text('OBRA:', 20, 45);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.5);
+        doc.text((currentObra.nombre || '').toUpperCase(), 72, 42, { maxWidth: 520 });
+        doc.setLineWidth(0.7);
+        doc.line(70, 45, 592, 45);
+
+        // Localidad y No. de Ofic. de Aprob.
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6);
+        doc.text('LOCALIDAD:', 20, 56);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.5);
+        doc.text((currentObra.direccion || 'HEROICA CIUDAD DE TLAXIACO').toUpperCase(), 72, 55);
+        doc.line(70, 57, 290, 57);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6);
+        doc.text('No. DE OFIC. DE APROB.:', 310, 56);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.5);
+        const oficAprob = getObs('Oficio de Notificación de Aprobación', currentObra.codigo || '');
+        doc.text(oficAprob.toUpperCase(), 390, 55);
+        doc.line(385, 57, 592, 57);
+
+        // ==================== COLUMNA IZQUIERDA ====================
+        const leftX = 20;
+        const leftW = 280;
+        const leftStatusW = 36;
+        const leftLabelW = leftW - leftStatusW;
+        let ly = 64;
+
+        // --- SECCIÓN I: PARTE SOCIAL ---
+        drawBox(leftX, ly, leftW, 13, 'PARTE SOCIAL', {
+          bold: true, fontSize: 6.5, align: 'center', fill: [217, 217, 217], lineWidth: 1
         });
-        
-        doc.save(`Checklist_Expediente_${currentObra.id}.pdf`);
-        this.toastSvc.show('Reporte PDF descargado con éxito', 'success');
+        ly += 13;
+
+        const parteSocialRows: { label: string; key: string }[] = [
+          { label: 'ACTA DE INTEGRACIÓN DEL CONSEJO DE DESARROLLO SOCIAL MUNICIPAL', key: 'Consejo de Desarrollo Social' },
+          { label: 'ACTA DE SELECCIÓN DE OBRA', key: 'Selección de Obra' },
+          { label: 'ACTA DE PRIORIZACIÓN DE OBRAS', key: 'Priorización de Obras' },
+          { label: 'ACTA DE INTEGRACIÓN DEL COMITÉ DE OBRAS', key: 'Integración del Comité' },
+          { label: 'CONVENIO CELEBRADO CON EL COMITÉ DE OBRAS', key: 'Convenio Celebrado' },
+          { label: 'ACTA DE CABILDO DE APROBACIÓN DE LA OBRA', key: 'Acta de Cabildo' },
+          { label: 'PROGRAMA ANUAL DE OBRAS (PAO)', key: 'Programa Anual de Obras' },
+          { label: 'ACTA DE EXCEPCIÓN A LA LICITACIÓN PÚBLICA', key: 'Excepción a la Licitación' },
+          { label: 'COMITÉ DE PARTICIPACION SOCIAL', key: 'Participación Social' }
+        ];
+
+        const psStart = ly;
+        parteSocialRows.forEach(r => {
+          const rh = 13;
+          drawBox(leftX, ly, leftLabelW, rh, r.label, { fontSize: 5.5 });
+          drawBox(leftX + leftLabelW, ly, leftStatusW, rh, getStatusMark(r.key), { bold: true, fontSize: 6.5, align: 'center' });
+          ly += rh;
+        });
+        doc.setLineWidth(1);
+        doc.rect(leftX, psStart - 13, leftW, ly - (psStart - 13), 'S');
+
+        ly += 10;
+
+        // --- SECCIÓN II: PARTE TÉCNICA O PROYECTO EJECUTIVO ---
+        const ptStart = ly;
+        drawBox(leftX, ly, leftW, 13, 'PARTE TECNICA O PROYECTO EJECUTIVO', {
+          bold: true, fontSize: 6.5, align: 'center', fill: [217, 217, 217], lineWidth: 1
+        });
+        ly += 13;
+
+        const parteTecnicaRows: { label: string; key: string; h?: number }[] = [
+          { label: 'ESTUDIO DE FACTIBILIDAD TÉCNICA, ECONÓMICA Y ECOLÓGICA DE LA REALIZACIÓN DE LA OBRA', key: 'Estudio de Factibilidad', h: 19 },
+          { label: 'OFICIO DE NOTIFICACIÓN DE APROBACIÓN DE RECURSOS', key: 'Notificación de Aprobación' },
+          { label: 'ANEXO DEL OFICIO DE NOTIFICACIÓN', key: 'Anexo del Oficio' },
+          { label: 'CEDULA DE INFORMACIÓN BASICA', key: 'Cédula de Información' },
+          { label: 'GENERALIDADES DE LA INVERSIÓN', key: 'Generalidades de la Inversión' },
+          { label: 'ACTA DE ACEPTACIÓN DE BENEFICIARIOS', key: 'Aceptación de Beneficiarios' },
+          { label: 'PRESUPUESTO DE CONCEPTOS DE LA OBRA', key: 'Presupuesto de Conceptos' },
+          { label: 'GENERADORES DE OBRA PROGRAMADA', key: 'Generadores de Obra' },
+          { label: 'CALENDARIO DE EJECUCIÓN', key: 'Calendario de Ejecución' },
+          { label: 'CROQUIS DE MACRO Y MICRO LOCALIZACIÓN', key: 'Croquis de Macro' },
+          { label: 'DOC. DEL DIRECTOR RESPONSABLE DE OBRA PÚBLICA', key: 'Director Responsable' },
+          { label: 'DOC. DE ACREDITACIÓN DE LA TENENCIA DE LA TIERRA', key: 'Tenencia de la Tierra' },
+          { label: 'PERMISOS, LICENCIAS, DICTAMENES, USO DE SUELO, ETC.', key: 'Permisos, Licencias' },
+          { label: 'RESOLUTIVO EN MATERIA DE IMPACTO AMBIENTAL (ART.5 FRAC.XI Y 16,17 Y 18 DE LA L.E.E.P.A.)', key: 'Impacto Ambiental', h: 19 },
+          { label: 'MEMORIA DE CALCULO', key: 'Memoria de Cálculo' },
+          { label: 'MEMORIA DESCRIPTIVA', key: 'Memoria Descriptiva' },
+          { label: 'VALIDACIÓN DE OBRA POR LA DEPENDENCIA NORMATIVA UNICAMENTE PARA OBRAS DE ELECTRIFICACIÓN', key: 'Validación de Obra', h: 19 },
+          { label: 'ESTUDIOS DE INGENIERÍA', key: 'Estudios de Ingeniería' },
+          { label: 'PLANOS DEL PROYECTO IMPRESOS', key: 'Planos del Proyecto' },
+          { label: 'ESPECIFICACIONES GENERALES Y PARTICULARES', key: 'Especificaciones Generales' },
+          { label: 'OTROS (ESPECIFICAR)', key: 'Otros (Especificar)' }
+        ];
+
+        parteTecnicaRows.forEach(r => {
+          const rh = r.h ?? 13.5;
+          drawBox(leftX, ly, leftLabelW, rh, r.label, { fontSize: 5.5 });
+          drawBox(leftX + leftLabelW, ly, leftStatusW, rh, getStatusMark(r.key), { bold: true, fontSize: 6.5, align: 'center' });
+          ly += rh;
+        });
+        doc.setLineWidth(1);
+        doc.rect(leftX, ptStart, leftW, ly - ptStart, 'S');
+
+        // --- TABLA DE LEYENDA / SIMBOLOGÍA (abajo a la izquierda) ---
+        let legY = 678;
+        const legX = 20;
+        const legCol1 = 30;
+        const legCol2 = 135;
+        const legRows = [
+          ['OK', 'Doc. Completo'],
+          ['X', 'Doc. Faltante o no Integrado'],
+          ['C', 'Doc. A Corregir o Complementar'],
+          ['N/A', 'Doc. No Aplicable']
+        ];
+        const legStart = legY;
+        legRows.forEach(lr => {
+          drawBox(legX, legY, legCol1, 13, lr[0], { bold: true, fontSize: 6, align: 'center' });
+          drawBox(legX + legCol1, legY, legCol2, 13, lr[1], { bold: true, fontSize: 6, align: 'center' });
+          legY += 13;
+        });
+        doc.setLineWidth(0.8);
+        doc.rect(legX, legStart, legCol1 + legCol2, legY - legStart, 'S');
+
+        // ==================== COLUMNA DERECHA ====================
+        const rightX = 312;
+        const rightW = 280;
+        const rightStatusW = 54;
+        const rightLabelW = rightW - rightStatusW;
+        let ry = 64;
+
+        // --- SECCIÓN III: PROCESOS DE CONTRATACIÓN ---
+        const pcStart = ry;
+        drawBox(rightX, ry, rightW, 13, 'PROCESOS DE CONTRATACIÓN', {
+          bold: true, fontSize: 6.5, align: 'center', fill: [217, 217, 217], lineWidth: 1
+        });
+        ry += 13;
+
+        // 1. Padrón de contratistas
+        drawBox(rightX, ry, rightLabelW, 13, 'PADRON DE CONTRATISTAS DE LA OBRA', { fontSize: 5.5 });
+        drawBox(rightX + rightLabelW, ry, rightStatusW, 13, getStatusMark('Padrón de Contratistas'), { bold: true, fontSize: 6.5, align: 'center' });
+        ry += 13;
+
+        // 2. Oficios de invitación y aceptación de concurso (con 2 sub-columnas)
+        const invW1 = 172;
+        const invSubW = (rightW - invW1) / 2; // 54 cada una
+        const mInv = getStatusMark('Oficios de Invitación');
+        drawBox(rightX, ry, invW1, 22, 'OFICIOS DE INVITACIÓN Y ACEPTACIÓN DE CONCURSO', { fontSize: 5.5 });
+        drawBox(rightX + invW1, ry, invSubW, 11, 'DEL MUN A LOS CONTRATISTAS', { fontSize: 4.2, align: 'center' });
+        drawBox(rightX + invW1 + invSubW, ry, invSubW, 11, 'ACEPTACION CONTRATISTAS', { fontSize: 4.2, align: 'center' });
+        drawBox(rightX + invW1, ry + 11, invSubW, 11, mInv, { bold: true, fontSize: 6, align: 'center' });
+        drawBox(rightX + invW1 + invSubW, ry + 11, invSubW, 11, mInv, { bold: true, fontSize: 6, align: 'center' });
+        ry += 22;
+
+        // 3. Bases a Oficio de Notificación de Fallo
+        const pcMidRows: { label: string; key: string; h?: number }[] = [
+          { label: 'BASES (ADJUDICACION DIRECTA / INVITACIÓN RESTRINGIDA A CUANDO MENOS TRES CONTRATISTAS)', key: 'Bases (Adjudicación', h: 18 },
+          { label: 'ACTA DE VISITA AL SITIO DE LA OBRA', key: 'Visita al Sitio' },
+          { label: 'ACTA DE JUNTA DE ACLARACIONES', key: 'Junta de Aclaraciones' },
+          { label: 'PRESENTACIÓN Y APERTURA DE PROPOSICIONES', key: 'Presentación y Apertura' },
+          { label: 'DICTAMEN DE EVALUACIÓN', key: 'Dictamen de Evaluación' },
+          { label: 'ACTA DE FALLO', key: 'Acta de Fallo' },
+          { label: 'OFICIO DE NOTIFICACIÓN DE FALLO MUNICIPIO-EMPRESA', key: 'Notificación de Fallo' }
+        ];
+        pcMidRows.forEach(r => {
+          const rh = r.h ?? 13;
+          drawBox(rightX, ry, rightLabelW, rh, r.label, { fontSize: 5.5 });
+          drawBox(rightX + rightLabelW, ry, rightStatusW, rh, getStatusMark(r.key), { bold: true, fontSize: 6.5, align: 'center' });
+          ry += rh;
+        });
+
+        // 4. Propuesta (Técnica / Económica)
+        const propLabelW = 160;
+        const propSubW = (rightW - propLabelW) / 2; // 60 cada una
+        const mProp = getStatusMark('Propuesta');
+        drawBox(rightX, ry, propLabelW, 20, 'PROPUESTA', { fontSize: 5.5 });
+        drawBox(rightX + propLabelW, ry, propSubW, 9, 'TÉCNICA', { fontSize: 4.8, align: 'center' });
+        drawBox(rightX + propLabelW + propSubW, ry, propSubW, 9, 'ECONÓMICA', { fontSize: 4.8, align: 'center' });
+        drawBox(rightX + propLabelW, ry + 9, propSubW, 11, mProp, { bold: true, fontSize: 6, align: 'center' });
+        drawBox(rightX + propLabelW + propSubW, ry + 9, propSubW, 11, mProp, { bold: true, fontSize: 6, align: 'center' });
+        ry += 20;
+
+        // 5. Contrato (Precios U.V. / Precios Alz.)
+        const mCont = getStatusMark('Contrato');
+        drawBox(rightX, ry, propLabelW, 20, 'CONTRATO', { fontSize: 5.5 });
+        drawBox(rightX + propLabelW, ry, propSubW, 9, 'PRECIOS U.V.', { fontSize: 4.8, align: 'center' });
+        drawBox(rightX + propLabelW + propSubW, ry, propSubW, 9, 'PRECIOS ALZ.', { fontSize: 4.8, align: 'center' });
+        drawBox(rightX + propLabelW, ry + 9, propSubW, 11, mCont, { bold: true, fontSize: 6, align: 'center' });
+        drawBox(rightX + propLabelW + propSubW, ry + 9, propSubW, 11, mCont, { bold: true, fontSize: 6, align: 'center' });
+        ry += 20;
+
+        // 6. Contratista, No. de Contrato, Monto del Contrato
+        const infoLabelW = 92;
+        const infoValW = rightW - infoLabelW;
+        const contratistaTxt = (currentObra.contratista || getObs('Contratista', '')).trim();
+        drawBox(rightX, ry, infoLabelW, 18, 'CONTRATISTA:', { fontSize: 5.5 });
+        drawBox(rightX + infoLabelW, ry, infoValW, 18, contratistaTxt.toUpperCase(), { bold: true, fontSize: 5.5, align: 'center' });
+        ry += 18;
+
+        const noContratoTxt = getObs('No. de Contrato', currentObra.codigo || '');
+        drawBox(rightX, ry, infoLabelW, 16, 'No. DE CONTRATO:', { fontSize: 5.5 });
+        drawBox(rightX + infoLabelW, ry, infoValW, 16, noContratoTxt.toUpperCase(), { bold: true, fontSize: 6, align: 'center' });
+        ry += 16;
+
+        const montoFormatted = currentObra.monto != null
+          ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(currentObra.monto)
+          : '';
+        drawBox(rightX, ry, infoLabelW, 14, 'MONTO DEL CONTRATO:', { fontSize: 5.5 });
+        drawBox(rightX + infoLabelW, ry, infoValW, 14, montoFormatted, { bold: true, fontSize: 6.5, align: 'center' });
+        ry += 14;
+
+        // 7. Convenios Modificatorios (En Tiempo / En Monto / En T. y Monto)
+        const convLabelW = 112;
+        const convSubW = (rightW - convLabelW) / 3; // 56 cada una
+        const mConv = getStatusMark('Convenios Modificatorios');
+        drawBox(rightX, ry, convLabelW, 20, 'CONVENIOS MODIFICATORIOS', { fontSize: 5.3 });
+        drawBox(rightX + convLabelW, ry, convSubW, 9, 'EN TIEMPO', { fontSize: 4.5, align: 'center' });
+        drawBox(rightX + convLabelW + convSubW, ry, convSubW, 9, 'EN MONTO', { fontSize: 4.5, align: 'center' });
+        drawBox(rightX + convLabelW + convSubW * 2, ry, convSubW, 9, 'EN T. Y MONTO', { fontSize: 4.5, align: 'center' });
+        drawBox(rightX + convLabelW, ry + 9, convSubW, 11, mConv, { bold: true, fontSize: 6, align: 'center' });
+        drawBox(rightX + convLabelW + convSubW, ry + 9, convSubW, 11, mConv, { bold: true, fontSize: 6, align: 'center' });
+        drawBox(rightX + convLabelW + convSubW * 2, ry + 9, convSubW, 11, mConv, { bold: true, fontSize: 6, align: 'center' });
+        ry += 20;
+
+        // 8. Anexos del Contrato (cuadrícula 2x2)
+        const anexLabelW = 160;
+        const anexSubW = (rightW - anexLabelW) / 2; // 60 cada una
+        const mAnex = getStatusMark('Anexos del Contrato');
+        drawBox(rightX, ry, anexLabelW, 38, 'ANEXOS DEL CONTRATO', { fontSize: 5.5 });
+        drawBox(rightX + anexLabelW, ry, anexSubW, 9, 'CATALOGO DE CONCEPTOS', { fontSize: 4.2, align: 'center' });
+        drawBox(rightX + anexLabelW + anexSubW, ry, anexSubW, 9, 'ANALISIS P.U.', { fontSize: 4.2, align: 'center' });
+        drawBox(rightX + anexLabelW, ry + 9, anexSubW, 10, mAnex, { bold: true, fontSize: 6, align: 'center' });
+        drawBox(rightX + anexLabelW + anexSubW, ry + 9, anexSubW, 10, mAnex, { bold: true, fontSize: 6, align: 'center' });
+        drawBox(rightX + anexLabelW, ry + 19, anexSubW, 9, 'CALEND. EJEC. TRABAJOS', { fontSize: 4.2, align: 'center' });
+        drawBox(rightX + anexLabelW + anexSubW, ry + 19, anexSubW, 9, 'OTROS', { fontSize: 4.2, align: 'center' });
+        drawBox(rightX + anexLabelW, ry + 28, anexSubW, 10, mAnex, { bold: true, fontSize: 6, align: 'center' });
+        drawBox(rightX + anexLabelW + anexSubW, ry + 28, anexSubW, 10, mAnex, { bold: true, fontSize: 6, align: 'center' });
+        ry += 38;
+
+        doc.setLineWidth(1);
+        doc.rect(rightX, pcStart, rightW, ry - pcStart, 'S');
+
+        ry += 8;
+
+        // --- SECCIÓN IV: DOCUMENTOS COMPROBATORIOS ---
+        const dcStart = ry;
+        drawBox(rightX, ry, rightW, 13, 'DOCUMENTOS COMPROBATORIOS', {
+          bold: true, fontSize: 6.5, align: 'center', fill: [217, 217, 217], lineWidth: 1
+        });
+        ry += 13;
+
+        // 1. Oficios de Inicio de Obra (4 sub-columnas)
+        const ofLabelW = 64;
+        const ofSubW = (rightW - ofLabelW) / 4; // 54 cada una
+        const mOfIni = getStatusMark('Oficios de Inicio de Obra');
+        drawBox(rightX, ry, ofLabelW, 24, 'OFICIOS DE INICIO DE OBRA', { fontSize: 5.2 });
+        const ofHeaders = ['ASIGNACIÓN DE RESIDENTE', 'ASIGNACIÓN DE SUPERINTENDENTE', 'DISPOSICIÓN DEL INMUEBLE', 'INICIO DE LOS TRABAJOS'];
+        ofHeaders.forEach((h, idx) => {
+          drawBox(rightX + ofLabelW + ofSubW * idx, ry, ofSubW, 12, h, { fontSize: 4, align: 'center' });
+          drawBox(rightX + ofLabelW + ofSubW * idx, ry + 12, ofSubW, 12, mOfIni, { bold: true, fontSize: 6, align: 'center' });
+        });
+        ry += 24;
+
+        // 2. Factura Global (3 sub-columnas)
+        const facLabelW = 118;
+        const facSubW = (rightW - facLabelW) / 3; // 54 cada una
+        const mFacGlob = getStatusMark('Factura Global');
+        drawBox(rightX, ry, facLabelW, 20, 'FACTURA GLOBAL', { fontSize: 5.5 });
+        ['VERIFICACIÓN', '.XML', 'SPEI'].forEach((h, idx) => {
+          drawBox(rightX + facLabelW + facSubW * idx, ry, facSubW, 9, h, { fontSize: 4.5, align: 'center' });
+          drawBox(rightX + facLabelW + facSubW * idx, ry + 9, facSubW, 11, mFacGlob, { bold: true, fontSize: 6, align: 'center' });
+        });
+        ry += 20;
+
+        // 3. Factura del Anticipo (3 sub-columnas)
+        const mFacAnt = getStatusMark('Factura del Anticipo');
+        drawBox(rightX, ry, facLabelW, 20, 'FACTURA DEL ANTICIPO', { fontSize: 5.5 });
+        ['VERIFICACIÓN', '.XML', 'SPEI'].forEach((h, idx) => {
+          drawBox(rightX + facLabelW + facSubW * idx, ry, facSubW, 9, h, { fontSize: 4.5, align: 'center' });
+          drawBox(rightX + facLabelW + facSubW * idx, ry + 9, facSubW, 11, mFacAnt, { bold: true, fontSize: 6, align: 'center' });
+        });
+        ry += 20;
+
+        // 4. Pruebas de Control y Calidad
+        drawBox(rightX, ry, rightLabelW, 14, 'PRUEBAS DE CONTROL Y CALIDAD POR ESTIMACIÓN SI LA OBRA LO REQUIERE', { fontSize: 5 });
+        drawBox(rightX + rightLabelW, ry, rightStatusW, 14, getStatusMark('Pruebas de Control'), { bold: true, fontSize: 6.5, align: 'center' });
+        ry += 14;
+
+        // 5. Estimaciones de Obra (4x2 sub-columnas)
+        const estLabelW = 64;
+        const estSubW = (rightW - estLabelW) / 4; // 54 cada una
+        const mEst = getStatusMark('Estimaciones de Obra');
+        drawBox(rightX, ry, estLabelW, 44, 'ESTIMACIONES DE OBRA', { fontSize: 5.5 });
+        const estRow1 = ['CARATULA', 'FACTURA, VERIFICACIÓN, XML', 'ESTADO DE CUENTA', 'CUERPO EST.'];
+        const estRow2 = ['NUM. GENERADORES', 'CROQUIS DE LOC.', 'SOPORTE FOTOGRAFICO', 'NOTAS DE BITÁCORA'];
+        estRow1.forEach((h, idx) => {
+          drawBox(rightX + estLabelW + estSubW * idx, ry, estSubW, 11, h, { fontSize: 4, align: 'center' });
+          drawBox(rightX + estLabelW + estSubW * idx, ry + 11, estSubW, 11, mEst, { bold: true, fontSize: 6, align: 'center' });
+        });
+        estRow2.forEach((h, idx) => {
+          drawBox(rightX + estLabelW + estSubW * idx, ry + 22, estSubW, 11, h, { fontSize: 4, align: 'center' });
+          drawBox(rightX + estLabelW + estSubW * idx, ry + 33, estSubW, 11, mEst, { bold: true, fontSize: 6, align: 'center' });
+        });
+        ry += 44;
+
+        // 6. Otros (Autorización de P.U. extraordinarios...)
+        drawBox(rightX, ry, rightLabelW, 20, 'OTROS (AUTORIZACIÓN DE P.U. EXTRAORDINARIOS, SUSPENSIÓN TEMPORAL, ACTAS CIRCUNSTANCIADAS, MINUTAS, SOLICITUDES, AJUSTES DE COSTO, ETC.', { fontSize: 4.8 });
+        drawBox(rightX + rightLabelW, ry, rightStatusW, 20, getStatusMark('Autorización P.U.'), { bold: true, fontSize: 6.5, align: 'center' });
+        ry += 20;
+
+        // 7. Garantías (Anticipo / Cumplimiento / Vicios Ocultos)
+        const mGar = getStatusMark('Garantías');
+        drawBox(rightX, ry, facLabelW, 20, 'GARANTÍAS', { fontSize: 5.5 });
+        ['ANTICIPO', 'CUMPLIMIENTO', 'VICIOS OCULTOS'].forEach((h, idx) => {
+          drawBox(rightX + facLabelW + facSubW * idx, ry, facSubW, 9, h, { fontSize: 4.3, align: 'center' });
+          drawBox(rightX + facLabelW + facSubW * idx, ry + 9, facSubW, 11, mGar, { bold: true, fontSize: 6, align: 'center' });
+        });
+        ry += 20;
+
+        // 8. Finiquito, Aviso de Terminación, Libranza CFE
+        drawBox(rightX, ry, rightLabelW, 13, 'FINIQUITO DE OBRA', { fontSize: 5.5 });
+        drawBox(rightX + rightLabelW, ry, rightStatusW, 13, getStatusMark('Finiquito de Obra'), { bold: true, fontSize: 6.5, align: 'center' });
+        ry += 13;
+
+        drawBox(rightX, ry, rightLabelW, 13, 'AVISO DE TERMINACIÓN DE LA OBRA', { fontSize: 5.5 });
+        drawBox(rightX + rightLabelW, ry, rightStatusW, 13, getStatusMark('Aviso de Terminación'), { bold: true, fontSize: 6.5, align: 'center' });
+        ry += 13;
+
+        drawBox(rightX, ry, rightLabelW, 13, 'LIBRANZA POR PARTE DE CFE PARA EL CASO DE LAS OBRAS DE ELECTRIFICACIÓN', { fontSize: 4.6 });
+        drawBox(rightX + rightLabelW, ry, rightStatusW, 13, getStatusMark('Libranza por Parte de CFE'), { bold: true, fontSize: 6.5, align: 'center' });
+        ry += 13;
+
+        // 9. Actas de Entrega Recepción (Contratista-Municipio / Municipio-Comité / CFE)
+        const mActEnt = getStatusMark('Actas de Entrega Recepción');
+        drawBox(rightX, ry, facLabelW, 22, 'ACTAS DE ENTREGA RECEPCIÓN', { fontSize: 5.5 });
+        ['CONTRATISTA-MUNICIPIO', 'MUNICIPIO-COMITÉ', 'CFE'].forEach((h, idx) => {
+          drawBox(rightX + facLabelW + facSubW * idx, ry, facSubW, 11, h, { fontSize: 4.3, align: 'center', bold: true });
+          drawBox(rightX + facLabelW + facSubW * idx, ry + 11, facSubW, 11, mActEnt, { bold: true, fontSize: 6, align: 'center' });
+        });
+        ry += 22;
+
+        doc.setLineWidth(1);
+        doc.rect(rightX, dcStart, rightW, ry - dcStart, 'S');
+
+        doc.save(`Integracion_Expediente_Unitario_${currentObra.codigo || currentObra.id}.pdf`);
+        this.toastSvc.show('Reporte de Expediente Unitario descargado con éxito', 'success');
       } catch (error) {
         console.error('Error al generar PDF', error);
         this.toastSvc.show('Error al generar el reporte PDF', 'error');
       } finally {
         this.generandoPDF.set(false);
+        this.mostrarModalReportes.set(false);
       }
     }, 150);
   }
@@ -2310,6 +2757,7 @@ export class ExpedienteComponent implements OnInit {
   }
 
   eliminarMetaAdmin(metaId: number) {
+    if (this.obra()?.estatus === 'INACTIVA') { this.toastSvc.show('Obra inactiva, no se puede modificar.', 'error'); return; }
     if(confirm('¿Eliminar esta meta?')) {
       this.metasService.eliminarMeta(this.obra()!.id, metaId).subscribe({
         next: () => { this.toastSvc.show('Meta eliminada', 'success'); this.cargarMetas(); },
@@ -2320,13 +2768,19 @@ export class ExpedienteComponent implements OnInit {
 
   guardarEdicionObra(event: Event) {
     event.preventDefault();
-    const form = event.target as HTMLFormElement;
+    if (this.obra()?.estatus === 'INACTIVA') { this.toastSvc.show('Esta obra fue eliminada, no se puede modificar.', 'error'); return; }
+    const form = document.getElementById('editarObraForm') as HTMLFormElement | null;
+    if (!form) return;
     const estatusVal = (form.elements.namedItem('estatus') as HTMLSelectElement).value;
     const updateReq = {
       nombre: (form.elements.namedItem('nombre') as HTMLInputElement).value,
       categoria: (form.elements.namedItem('categoria') as HTMLInputElement).value,
         descripcion: (form.elements.namedItem('descripcion') as HTMLTextAreaElement).value,
-        direccion: (form.elements.namedItem('direccion') as HTMLInputElement).value
+        direccion: (form.elements.namedItem('direccion') as HTMLInputElement)?.value || this.obra()!.direccion || '',
+        fuenteFinanciamiento: (form.elements.namedItem('fuenteFinanciamiento') as HTMLTextAreaElement).value.trim(),
+        beneficiarios: (form.elements.namedItem('beneficiarios') as HTMLTextAreaElement).value.trim(),
+        impactoSocial: (form.elements.namedItem('impactoSocial') as HTMLTextAreaElement).value.trim(),
+        contratista: (form.elements.namedItem('contratista') as HTMLInputElement)?.value.trim() || ''
     };
     
     // 1. Update basic info
@@ -2335,8 +2789,9 @@ export class ExpedienteComponent implements OnInit {
         // 2. Update estatus
         this.svc.cambiarEstatus(this.obra()!.id, estatusVal as any).subscribe({
           next: (res2) => {
-            this.obra.set(res2);
+            this.obra.set({ ...res, ...res2 });
             this.toastSvc.show('Obra actualizada correctamente', 'success');
+            this.tabActiva.set('resumen');
           },
           error: () => this.toastSvc.show('Error al actualizar estatus', 'error')
         });
@@ -2373,4 +2828,8 @@ export class ExpedienteComponent implements OnInit {
     });
   }
 }
+
+
+
+
 

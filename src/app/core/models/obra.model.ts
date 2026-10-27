@@ -46,6 +46,10 @@ export interface ObraResponse {
   longitud?: number;
   direccion?: string;
   categoria?: string;
+  fuenteFinanciamiento?: string;
+  beneficiarios?: string;
+  impactoSocial?: string;
+  contratista?: string;
   porcentajeAvance?: number;
   createdAt: string;
   updatedAt: string;
@@ -78,6 +82,10 @@ export interface ObraUpdateRequest {
   longitud?: number;
   direccion?: string;
   categoria?: string;
+  fuenteFinanciamiento?: string;
+  beneficiarios?: string;
+  impactoSocial?: string;
+  contratista?: string;
 }
 
 export interface ObraEstatusRequest {

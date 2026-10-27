@@ -99,9 +99,8 @@ import * as L from 'leaflet';
           <div class="mapa-toolbar">
             <div class="capas-switcher">
               <span class="switcher-title">🛰️ Vistas del Mapa:</span>
-              <button class="capa-btn" [class.active]="capaMapaActual() === 'dark'" (click)="cambiarCapaMapa('dark')">🌙 Oscuro</button>
-              <button class="capa-btn" [class.active]="capaMapaActual() === 'satellite'" (click)="cambiarCapaMapa('satellite')">🛰️ Satélite Real</button>
               <button class="capa-btn" [class.active]="capaMapaActual() === 'osm'" (click)="cambiarCapaMapa('osm')">🗺️ Callejero OSM</button>
+              <button class="capa-btn" [class.active]="capaMapaActual() === 'satellite'" (click)="cambiarCapaMapa('satellite')">🛰️ Satélite Real</button>
             </div>
             <div class="toolbar-actions">
               <button class="btn btn-secondary btn-sm" (click)="togglePantallaCompleta()">
@@ -269,7 +268,7 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   textoBusqueda = signal('');
   activeFilters = signal<Set<string>>(new Set(['EN_PROCESO', 'PLANIFICADA', 'INACTIVA', 'COMPLETADA', 'CANCELADA']));
 
-  capaMapaActual = signal<'dark' | 'osm' | 'satellite'>('osm');
+  capaMapaActual = signal<'osm' | 'satellite'>('osm');
   modoPantallaCompleta = signal(false);
 
   modoTrazar = signal(false);
@@ -391,19 +390,19 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
     this.refreshMapMarkers();
   }
 
-  cambiarCapaMapa(tipo: 'dark' | 'osm' | 'satellite') {
+  cambiarCapaMapa(tipo: 'osm' | 'satellite') {
     this.capaMapaActual.set(tipo);
     this.aplicarCapaMapa(tipo);
   }
 
-  private aplicarCapaMapa(tipo: 'dark' | 'osm' | 'satellite') {
+  private aplicarCapaMapa(tipo: 'osm' | 'satellite') {
     if (!this.map) return;
     if (this.currentTileLayer) {
       this.map.removeLayer(this.currentTileLayer);
     }
 
-    let url = 'https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png';
-    let attrib = '&copy; OpenStreetMap &copy; CARTO';
+    let url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    let attrib = '&copy; OpenStreetMap contributors';
 
     if (tipo === 'osm') {
       url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
