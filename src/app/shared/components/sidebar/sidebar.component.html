@@ -1,11 +1,13 @@
 <aside class="sidebar" [class.collapsed]="collapsed()">
   <div class="sidebar-header">
     <div class="sidebar-logo">
-      <span class="logo-icon">🏗️</span>
+      <div class="logo-icon">
+        <img src="assets/logos/logo.png" alt="Logo Municipio" class="logo-img" />
+      </div>
       @if (!collapsed()) {
         <div class="logo-text">
           <span class="logo-main">ResidenciaObra</span>
-          <span class="logo-sub">Sistema Municipal</span>
+          <span class="logo-sub">H. Ayuntamiento Tlaxiaco</span>
         </div>
       }
     </div>
@@ -50,6 +52,11 @@
         @if (!collapsed()) { <span class="nav-label">Logs de Auditoría</span> }
       </a>
     }
+    <div class="nav-separator"></div>
+    <a routerLink="/acerca-de" routerLinkActive="active" class="nav-item">
+      <span class="nav-icon">ℹ️</span>
+      @if (!collapsed()) { <span class="nav-label">Acerca de</span> }
+    </a>
   </nav>
 
   @if (!collapsed()) {

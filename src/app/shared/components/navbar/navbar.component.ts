@@ -10,6 +10,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard de Control',
   '/mapa': 'Geolocalización de Obras',
   '/admin': 'Administración del Sistema',
+  '/acerca-de': 'Acerca del Sistema',
 };
 
 @Component({
