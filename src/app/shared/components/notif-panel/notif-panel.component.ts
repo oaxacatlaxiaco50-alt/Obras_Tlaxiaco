@@ -1,5 +1,10 @@
 import { Component, output, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { NotificacionService } from '../../../core/services/notificacion.service';
+import { ObrasService } from '../../../core/services/obras.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { ToastService } from '../../../core/services/toast.service';
+import { Notificacion } from '../../../core/models/notification.model';
 
 @Component({
   selector: 'app-notif-panel',
@@ -18,7 +23,7 @@ import { NotificacionService } from '../../../core/services/notificacion.service
       </div>
       <div class="notif-list">
         @for (n of svc.notifs(); track n.id) {
-          <div class="notif-item" [class.unread]="!n.leida" (click)="svc.marcarLeida(n.id)">
+          <div class="notif-item" [class.unread]="!n.leida" (click)="abrirNotificacion(n)">
             <span class="notif-ico">{{ svc.getIcono(n.tipo) }}</span>
             <div class="notif-body">
               <p class="notif-titulo">{{ n.titulo }}</p>
@@ -82,4 +87,43 @@ import { NotificacionService } from '../../../core/services/notificacion.service
 export class NotifPanelComponent {
   close = output<void>();
   svc = inject(NotificacionService);
+  private router = inject(Router);
+  private obrasSvc = inject(ObrasService);
+  private auth = inject(AuthService);
+  private toastSvc = inject(ToastService);
+
+  abrirNotificacion(n: Notificacion): void {
+    if (!n.leida) {
+      this.svc.marcarLeida(n.id);
+    }
+    this.close.emit();
+
+    if (n.obraId) {
+      if (!this.auth.isAuthenticated()) {
+        return;
+      }
+      this.obrasSvc.getObraById(n.obraId).subscribe({
+        next: (obra) => {
+          if (!obra) {
+            this.toastSvc.show('La obra asociada a esta notificación no fue encontrada.', 'warning');
+            return;
+          }
+          if (obra.estatus === 'ELIMINADA') {
+            this.toastSvc.show('🗑️ Esta obra está en la Papelera y no puede consultarse.', 'warning');
+            return;
+          }
+          this.router.navigate(['/obras', n.obraId]).catch(() => {
+            this.toastSvc.show('No fue posible navegar al expediente de la obra.', 'error');
+          });
+        },
+        error: (err) => {
+          if (err?.status === 403 || err?.status === 401) {
+            this.toastSvc.show('No tienes permisos para consultar esta obra.', 'error');
+          } else {
+            this.toastSvc.show('No se pudo abrir el expediente de la obra.', 'warning');
+          }
+        }
+      });
+    }
+  }
 }

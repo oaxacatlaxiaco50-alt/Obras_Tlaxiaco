@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { UserResponse, Rol } from '../../../core/models/user.model';
+import { UserResponse } from '../../../core/models/user.model';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-user-form-modal',
@@ -10,42 +11,111 @@ import { UserResponse, Rol } from '../../../core/models/user.model';
     <div class="modal-backdrop" (click)="onClose()">
       <div class="modal-content" (click)="$event.stopPropagation()">
         <div class="modal-header">
-          <h2>{{ user ? 'Editar Usuario' : 'Nuevo Usuario' }}</h2>
+          <h2>{{ user ? '✏️ Editar Usuario' : '👤 Nuevo Usuario' }}</h2>
           <button class="close-btn" (click)="onClose()">×</button>
         </div>
         
-        <form [formGroup]="userForm" (ngSubmit)="onSubmit()" class="user-form">
+        <form [formGroup]="userForm" (ngSubmit)="onSubmit()" class="user-form" novalidate>
           <div class="form-grid">
             <div class="form-group">
-              <label>Nombre(s)</label>
-              <input type="text" formControlName="firstName" class="form-control" [class.is-invalid]="invalidField('firstName')">
+              <label>Nombre(s) <span class="req">*</span></label>
+              <input
+                type="text"
+                formControlName="firstName"
+                class="form-control"
+                placeholder="Ej. Juan Carlos"
+                [class.is-invalid]="invalidField('firstName')"
+              >
+              @if (invalidField('firstName')) {
+                <small class="error-msg">⚠️ El nombre es obligatorio.</small>
+              }
             </div>
             <div class="form-group">
-              <label>Apellidos</label>
-              <input type="text" formControlName="lastName" class="form-control" [class.is-invalid]="invalidField('lastName')">
+              <label>Apellidos <span class="req">*</span></label>
+              <input
+                type="text"
+                formControlName="lastName"
+                class="form-control"
+                placeholder="Ej. Pérez López"
+                [class.is-invalid]="invalidField('lastName')"
+              >
+              @if (invalidField('lastName')) {
+                <small class="error-msg">⚠️ Los apellidos son obligatorios.</small>
+              }
             </div>
           </div>
           
           <div class="form-group">
-            <label>Correo Electrónico</label>
-            <input type="email" formControlName="email" class="form-control" [class.is-invalid]="invalidField('email')">
+            <label>Correo Electrónico <span class="req">*</span></label>
+            <input
+              type="email"
+              formControlName="email"
+              class="form-control"
+              placeholder="ejemplo@tlaxiaco.gob.mx"
+              [class.is-invalid]="invalidField('email') || isEmailTaken()"
+            >
+            @if (invalidField('email')) {
+              @if (userForm.get('email')?.errors?.['required']) {
+                <small class="error-msg">⚠️ El correo electrónico es obligatorio.</small>
+              } @else if (userForm.get('email')?.errors?.['email']) {
+                <small class="error-msg">⚠️ Ingresa un formato de correo válido (ej. usuario&#64;dominio.com).</small>
+              }
+            } @else if (isEmailTaken()) {
+              <small class="error-msg">🚫 Este correo electrónico ya está registrado. Usa otro diferente.</small>
+            }
           </div>
           
           <div class="form-grid">
             <div class="form-group">
-              <label>Nombre de Usuario</label>
-              <input type="text" formControlName="username" class="form-control" [class.is-invalid]="invalidField('username')" [readonly]="!!user">
-              @if (user) { <small class="hint">El nombre de usuario no se puede cambiar</small> }
+              <label>Nombre de Usuario <span class="req">*</span></label>
+              <input
+                type="text"
+                formControlName="username"
+                class="form-control"
+                placeholder="Mínimo 3 caracteres"
+                [class.is-invalid]="invalidField('username') || isUsernameTaken()"
+                [readonly]="!!user"
+              >
+              @if (user) {
+                <small class="hint">🔒 El nombre de usuario no se puede modificar</small>
+              } @else if (isUsernameTaken()) {
+                <small class="error-msg">🚫 El usuario "&#64;{{ userForm.get('username')?.value?.trim() }}" ya está ocupado. Usa otro.</small>
+              } @else if (invalidField('username')) {
+                @if (userForm.get('username')?.errors?.['required']) {
+                  <small class="error-msg">⚠️ El nombre de usuario es obligatorio.</small>
+                } @else if (userForm.get('username')?.errors?.['minlength']) {
+                  <small class="error-msg">⚠️ Debe tener al menos 3 caracteres.</small>
+                }
+              } @else if (userForm.get('username')?.value?.trim()?.length >= 3) {
+                <small class="ok-msg">✅ Nombre de usuario disponible</small>
+              }
             </div>
             <div class="form-group">
-              <label>Contraseña</label>
-              <input type="password" formControlName="password" class="form-control" [class.is-invalid]="invalidField('password')" placeholder="••••••••">
-              @if (user) { <small class="hint">Dejar en blanco para mantener la actual</small> }
+              <label>Contraseña @if (!user) { <span class="req">*</span> }</label>
+              <input
+                type="password"
+                formControlName="password"
+                class="form-control"
+                [class.is-invalid]="invalidField('password')"
+                placeholder="Mínimo 8 caracteres"
+              >
+              @if (user && !invalidField('password')) {
+                <small class="hint">Dejar en blanco para mantener la actual</small>
+              }
+              @if (invalidField('password')) {
+                @if (userForm.get('password')?.errors?.['required']) {
+                  <small class="error-msg">⚠️ La contraseña es obligatoria.</small>
+                } @else if (userForm.get('password')?.errors?.['minlength']) {
+                  <small class="error-msg">
+                    ⚠️ Mínimo 8 caracteres (actual: {{ userForm.get('password')?.value?.length || 0 }}/8).
+                  </small>
+                }
+              }
             </div>
           </div>
           
           <div class="form-group">
-            <label>Rol del Sistema</label>
+            <label>Rol del Sistema <span class="req">*</span></label>
             <select formControlName="role" class="form-control" [class.is-invalid]="invalidField('role')">
               <option value="">Seleccione un rol...</option>
               <option value="ADMINISTRADOR">Administrador (Acceso Total)</option>
@@ -53,11 +123,16 @@ import { UserResponse, Rol } from '../../../core/models/user.model';
               <option value="CONTRATISTA">Contratista (Empresa)</option>
               <option value="AUDITOR">Auditor (Lectura)</option>
             </select>
+            @if (invalidField('role')) {
+              <small class="error-msg">⚠️ Debes seleccionar un rol para el usuario.</small>
+            }
           </div>
           
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" (click)="onClose()">Cancelar</button>
-            <button type="submit" class="btn btn-primary" [disabled]="userForm.invalid">Guardar Usuario</button>
+            <button type="submit" class="btn btn-primary">
+              {{ user ? '💾 Guardar Cambios' : '✅ Crear Usuario' }}
+            </button>
           </div>
         </form>
       </div>
@@ -66,11 +141,11 @@ import { UserResponse, Rol } from '../../../core/models/user.model';
   styles: [`
     .modal-backdrop {
       position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center;
       z-index: 1000; backdrop-filter: blur(4px);
     }
     .modal-content {
-      background: var(--bg-card, #1e293b); width: 100%; max-width: 500px;
+      background: var(--bg-card, #1e293b); width: 100%; max-width: 520px;
       border-radius: 12px; border: 1px solid var(--border);
       box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     }
@@ -85,14 +160,18 @@ import { UserResponse, Rol } from '../../../core/models/user.model';
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .form-group { display: flex; flex-direction: column; gap: 6px; }
     .form-group label { font-size: 0.85rem; font-weight: 600; color: #cbd5e1; }
+    .req { color: #f87171; }
     .form-control {
       background: rgba(15, 23, 42, 0.6); border: 1px solid #334155;
       padding: 10px 12px; border-radius: 6px; color: white; font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
     .form-control:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
-    .form-control.is-invalid { border-color: #ef4444; }
+    .form-control.is-invalid { border-color: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,0.18); }
     .form-control[readonly] { opacity: 0.7; cursor: not-allowed; }
-    .hint { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; }
+    .hint { font-size: 0.75rem; color: #94a3b8; margin-top: 2px; }
+    .error-msg { font-size: 0.76rem; color: #f87171; font-weight: 500; margin-top: 2px; line-height: 1.3; }
+    .ok-msg { font-size: 0.75rem; color: #34d399; font-weight: 500; margin-top: 2px; }
     .modal-footer {
       margin-top: 8px; display: flex; justify-content: flex-end; gap: 12px;
       padding-top: 16px; border-top: 1px solid var(--border);
@@ -101,6 +180,7 @@ import { UserResponse, Rol } from '../../../core/models/user.model';
 })
 export class UserFormModalComponent implements OnInit {
   @Input() user: UserResponse | null = null;
+  @Input() existingUsers: UserResponse[] = [];
   @Output() save = new EventEmitter<any>();
   @Output() close = new EventEmitter<void>();
   
@@ -108,10 +188,10 @@ export class UserFormModalComponent implements OnInit {
 
   constructor(private fb: FormBuilder) {
     this.userForm = this.fb.group({
-      firstName: ['', Validators.required],
-      lastName: ['', Validators.required],
-      email: ['', [Validators.required, Validators.email]],
-      username: ['', Validators.required],
+      firstName: ['', [Validators.required, Validators.maxLength(100)]],
+      lastName: ['', [Validators.required, Validators.maxLength(100)]],
+      email: ['', [Validators.required, Validators.email, Validators.maxLength(150)]],
+      username: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(50)]],
       password: [''],
       role: ['', Validators.required]
     });
@@ -127,25 +207,115 @@ export class UserFormModalComponent implements OnInit {
         role: this.user.roles[0] || ''
       });
       this.userForm.get('username')?.disable();
+      // Al editar, si escribe contraseña debe tener mínimo 8 caracteres
+      this.userForm.get('password')?.setValidators([Validators.minLength(8)]);
+      this.userForm.get('password')?.updateValueAndValidity();
     } else {
-      this.userForm.get('password')?.setValidators(Validators.required);
+      this.userForm.get('password')?.setValidators([Validators.required, Validators.minLength(8)]);
       this.userForm.get('password')?.updateValueAndValidity();
     }
   }
 
   invalidField(field: string): boolean {
     const ctrl = this.userForm.get(field);
-    return !!(ctrl && ctrl.invalid && ctrl.touched);
+    return !!(ctrl && ctrl.invalid && (ctrl.touched || ctrl.dirty));
+  }
+
+  isUsernameTaken(): boolean {
+    if (this.user) return false;
+    const raw = (this.userForm.get('username')?.value || '').trim().toLowerCase();
+    if (!raw) return false;
+    return this.existingUsers.some(u => u.username.toLowerCase() === raw);
+  }
+
+  isEmailTaken(): boolean {
+    const raw = (this.userForm.get('email')?.value || '').trim().toLowerCase();
+    if (!raw) return false;
+    return this.existingUsers.some(u =>
+      u.email.toLowerCase() === raw && (!this.user || u.id !== this.user.id)
+    );
   }
 
   onSubmit() {
-    if (this.userForm.invalid) {
-      this.userForm.markAllAsTouched();
+    this.userForm.markAllAsTouched();
+
+    // 1. Verificar primero si el nombre de usuario ya está ocupado
+    if (this.isUsernameTaken()) {
+      const uname = (this.userForm.get('username')?.value || '').trim();
+      Swal.fire({
+        title: '🚫 Nombre de usuario ocupado',
+        html: `El nombre de usuario <strong>&#64;${uname}</strong> ya está registrado en el sistema.<br><br>Por favor ingresa un nombre de usuario diferente.`,
+        icon: 'warning',
+        confirmButtonColor: '#E8A020',
+        confirmButtonText: 'Elegir otro usuario',
+        background: '#1F2937',
+        color: '#F9FAFB'
+      });
       return;
     }
-    const val = this.userForm.getRawValue(); // gets disabled fields too
+
+    // 2. Verificar si el correo electrónico ya está ocupado
+    if (this.isEmailTaken()) {
+      const email = (this.userForm.get('email')?.value || '').trim();
+      Swal.fire({
+        title: '🚫 Correo electrónico ya registrado',
+        html: `El correo <strong>${email}</strong> ya pertenece a otro usuario.<br><br>Por favor ingresa un correo electrónico diferente.`,
+        icon: 'warning',
+        confirmButtonColor: '#E8A020',
+        confirmButtonText: 'Cambiar correo',
+        background: '#1F2937',
+        color: '#F9FAFB'
+      });
+      return;
+    }
+
+    // 3. Verificar si faltan campos o hay errores de formato
+    if (this.userForm.invalid) {
+      const errores: string[] = [];
+      if (this.userForm.get('firstName')?.invalid) {
+        errores.push('• <strong>Nombre(s):</strong> Es obligatorio.');
+      }
+      if (this.userForm.get('lastName')?.invalid) {
+        errores.push('• <strong>Apellidos:</strong> Son obligatorios.');
+      }
+      if (this.userForm.get('email')?.errors?.['required']) {
+        errores.push('• <strong>Correo electrónico:</strong> Es obligatorio.');
+      } else if (this.userForm.get('email')?.errors?.['email']) {
+        errores.push('• <strong>Correo electrónico:</strong> El formato no es válido (ej. usuario@correo.com).');
+      }
+      if (!this.user && this.userForm.get('username')?.errors?.['required']) {
+        errores.push('• <strong>Nombre de usuario:</strong> Es obligatorio.');
+      } else if (!this.user && this.userForm.get('username')?.errors?.['minlength']) {
+        errores.push('• <strong>Nombre de usuario:</strong> Debe tener al menos 3 caracteres.');
+      }
+      if (this.userForm.get('password')?.errors?.['required']) {
+        errores.push('• <strong>Contraseña:</strong> Es obligatoria.');
+      } else if (this.userForm.get('password')?.errors?.['minlength']) {
+        errores.push('• <strong>Contraseña:</strong> Debe tener al menos 8 caracteres.');
+      }
+      if (this.userForm.get('role')?.invalid) {
+        errores.push('• <strong>Rol del Sistema:</strong> Debes seleccionar un rol.');
+      }
+
+      Swal.fire({
+        title: '⚠️ Faltan datos o hay errores en el formulario',
+        html: `<div style="text-align:left; font-size:0.9rem; line-height:1.6;">Por favor corrige los siguientes campos antes de continuar:<br><br>${errores.join('<br>')}</div>`,
+        icon: 'warning',
+        confirmButtonColor: '#3B82F6',
+        confirmButtonText: 'Revisar campos',
+        background: '#1F2937',
+        color: '#F9FAFB'
+      });
+      return;
+    }
+
+    const val = this.userForm.getRawValue();
     const data = {
       ...val,
+      firstName: val.firstName.trim(),
+      lastName: val.lastName.trim(),
+      email: val.email.trim(),
+      username: val.username.trim(),
       roles: [val.role]
     };
     if (!data.password) {

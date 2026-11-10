@@ -2,10 +2,11 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { UserResponse, UserCreateRequest, UserUpdateRequest } from '../models/user.model';
+import { environment } from '../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
-  private readonly API_URL = 'http://localhost:8081/users';
+  private readonly API_URL = `${environment.apiUrl}/users`;
 
   constructor(private http: HttpClient) {}
 
@@ -31,5 +32,9 @@ export class UserService {
 
   reactivateUser(id: number): Observable<UserResponse> {
     return this.http.patch<UserResponse>(`${this.API_URL}/${id}/reactivar`, {});
+  }
+
+  deleteUserPermanently(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.API_URL}/${id}/permanente`);
   }
 }

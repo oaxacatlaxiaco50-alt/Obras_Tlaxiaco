@@ -5,7 +5,8 @@ export type ObraEstatus =
   | 'COMPLETADA'
   | 'FINALIZADA'
   | 'CANCELADA'
-  | 'INACTIVA';
+  | 'INACTIVA'
+  | 'ELIMINADA';
 
 export type FaseEvidencia = 'ANTES' | 'DURANTE' | 'DESPUES';
 export type TipoEvidencia = 'FOTO' | 'VIDEO' | 'DOCUMENTO';
@@ -20,6 +21,7 @@ export const ESTATUS_LABEL: Record<ObraEstatus, string> = {
   FINALIZADA: 'Completada',
   CANCELADA: 'Cancelada',
   INACTIVA: 'Inactiva',
+  ELIMINADA: 'Eliminada (Papelera)',
 };
 
 export const ESTATUS_COLOR: Record<ObraEstatus, string> = {
@@ -29,6 +31,7 @@ export const ESTATUS_COLOR: Record<ObraEstatus, string> = {
   FINALIZADA: 'status-completada',
   CANCELADA: 'status-bloqueada',
   INACTIVA: 'status-pausada',
+  ELIMINADA: 'status-bloqueada',
 };
 
 // ─── Response de Obra (lo que devuelve el backend) ───────────────────────────

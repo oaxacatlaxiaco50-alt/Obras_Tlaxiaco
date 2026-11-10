@@ -13,6 +13,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
 import * as L from 'leaflet';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-obras-list',
@@ -67,6 +68,9 @@ import * as L from 'leaflet';
             <button class="tab-btn" [class.active]="filtroStatus() === 'COMPLETADA'" (click)="cambiarEstatusTab('COMPLETADA')">🔵 Completadas</button>
             <button class="tab-btn" [class.active]="filtroStatus() === 'INACTIVA'" (click)="cambiarEstatusTab('INACTIVA')">🟠 Inactivas</button>
             <button class="tab-btn" [class.active]="filtroStatus() === 'CANCELADA'" (click)="cambiarEstatusTab('CANCELADA')">🔴 Canceladas</button>
+            @if (auth.hasRole('admin')) {
+              <button class="tab-btn" [class.active]="filtroStatus() === 'ELIMINADA'" (click)="cambiarEstatusTab('ELIMINADA')" style="margin-left:auto; border-color:rgba(239,68,68,0.35); color:#F87171;">🗑️ Eliminadas (Papelera)</button>
+            }
           </div>
         </div>
       </div>
@@ -121,18 +125,33 @@ import * as L from 'leaflet';
                     </span>
                   </td>
                   <td style="text-align: right;" (click)="$event.stopPropagation()">
-                    <div class="actions-cell" style="display:inline-flex; gap:6px;">
-                      <a [routerLink]="['/obras', obra.id]" class="btn btn-sm table-btn btn-expediente-outline">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 6px;">
-                          <path d="M10 4H4C2.89 4 2.01 4.89 2.01 6L2 18C2 19.11 2.89 20 4 20H20C21.11 20 22 19.11 22 18V8C22 6.89 21.11 6 20 6H12L10 4Z" fill="#F59E0B"/>
-                          <rect x="8" y="10" width="8" height="10" rx="1" fill="#F9FAFB"/>
-                          <path d="M10 12H14M10 14H14M10 16H12" stroke="#9CA3AF" stroke-width="1.5" stroke-linecap="round"/>
-                        </svg>
-                        <div style="display: flex; flex-direction: column; text-align: left; line-height: 1.1;">
-                          <span>Expediente</span>
-                          <span style="font-size: 0.65rem; opacity: 0.9;">(4 Cat.)</span>
-                        </div>
-                      </a>
+                    <div class="actions-cell" style="display:inline-flex; gap:6px; align-items:center;">
+                      @if (obra.estatus === 'ELIMINADA' || filtroStatus() === 'ELIMINADA') {
+                        <button type="button" class="btn btn-sm" style="background:rgba(16,185,129,0.15); color:#34D399; border:1px solid rgba(16,185,129,0.35);" (click)="restaurarObra(obra)">
+                          ♻️ Restaurar
+                        </button>
+                        @if (puedeBorrarDefinitivo(obra)) {
+                          <button type="button" class="btn btn-sm" style="background:rgba(239,68,68,0.15); color:#F87171; border:1px solid rgba(239,68,68,0.35);" (click)="eliminarObraDefinitivamente(obra)" title="Ya cumplió más de 30 días en la papelera">
+                            🔥 Borrar Definitivo
+                          </button>
+                        } @else {
+                          <button type="button" class="btn btn-sm" style="background:rgba(156,163,175,0.12); color:#9CA3AF; border:1px solid rgba(156,163,175,0.3); cursor:not-allowed;" (click)="eliminarObraDefinitivamente(obra)" [title]="'Faltan ' + diasRestantesPapelera(obra) + ' días para cumplir 30 días en la papelera'">
+                            🔒 Disponible en {{ diasRestantesPapelera(obra) }}d
+                          </button>
+                        }
+                      } @else {
+                        <a [routerLink]="['/obras', obra.id]" class="btn btn-sm table-btn btn-expediente-outline">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 6px;">
+                            <path d="M10 4H4C2.89 4 2.01 4.89 2.01 6L2 18C2 19.11 2.89 20 4 20H20C21.11 20 22 19.11 22 18V8C22 6.89 21.11 6 20 6H12L10 4Z" fill="#F59E0B"/>
+                            <rect x="8" y="10" width="8" height="10" rx="1" fill="#F9FAFB"/>
+                            <path d="M10 12H14M10 14H14M10 16H12" stroke="#9CA3AF" stroke-width="1.5" stroke-linecap="round"/>
+                          </svg>
+                          <div style="display: flex; flex-direction: column; text-align: left; line-height: 1.1;">
+                            <span>Expediente</span>
+                            <span style="font-size: 0.65rem; opacity: 0.9;">(4 Cat.)</span>
+                          </div>
+                        </a>
+                      }
                     </div>
                   </td>
                 </tr>
@@ -694,7 +713,97 @@ export class ObrasListComponent implements OnInit {
   }
 
   abrirExpediente(id: number): void {
+    const ob = this.todasLasObras().find(o => o.id === id);
+    if (ob && ob.estatus === 'ELIMINADA') {
+      this.toastSvc.show('🗑️ Esta obra está en la Papelera. Restáurala primero si deseas abrir su expediente.', 'warning');
+      return;
+    }
     this.router.navigate(['/obras', id]);
+  }
+
+  restaurarObra(obra: ObraResponse): void {
+    Swal.fire({
+      title: '¿Restaurar obra?',
+      text: `La obra "${obra.nombre}" volverá a estar activa como Planificada.`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10B981',
+      cancelButtonColor: '#4B5563',
+      confirmButtonText: '♻️ Sí, restaurar',
+      cancelButtonText: 'Cancelar',
+      background: '#1F2937',
+      color: '#F9FAFB'
+    }).then((res: any) => {
+      if (res.isConfirmed) {
+        this.svc.cambiarEstatus(obra.id, 'PLANIFICADA').subscribe({
+          next: () => {
+            this.toastSvc.show(`✅ Obra "${obra.nombre}" restaurada exitosamente.`, 'success');
+            this.cargarObrasPaginadas();
+          },
+          error: () => this.toastSvc.show('Error al restaurar la obra.', 'error')
+        });
+      }
+    });
+  }
+
+  diasEnPapelera(obra: ObraResponse): number {
+    const refDateStr = obra.updatedAt || obra.createdAt;
+    if (!refDateStr) return 0;
+    const refTime = new Date(refDateStr).getTime();
+    if (isNaN(refTime)) return 0;
+    const diffMs = Date.now() - refTime;
+    return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+  }
+
+  diasRestantesPapelera(obra: ObraResponse): number {
+    return Math.max(0, 30 - this.diasEnPapelera(obra));
+  }
+
+  puedeBorrarDefinitivo(obra: ObraResponse): boolean {
+    return this.diasEnPapelera(obra) >= 30;
+  }
+
+  eliminarObraDefinitivamente(obra: ObraResponse): void {
+    if (!this.puedeBorrarDefinitivo(obra)) {
+      const transcurridos = this.diasEnPapelera(obra);
+      const faltantes = this.diasRestantesPapelera(obra);
+      Swal.fire({
+        title: '🔒 Retención de Seguridad (30 días)',
+        html: `La obra <strong>"${obra.nombre}"</strong> lleva <strong>${transcurridos} día(s)</strong> en la papelera.<br><br>Por seguridad, el borrado definitivo solo se habilita después de cumplir <strong>1 mes (30 días)</strong> en la papelera.<br><br>⏳ Faltan <strong>${faltantes} día(s)</strong> para poder eliminarla permanentemente. Si la necesitas antes, puedes usar el botón <strong>♻️ Restaurar</strong>.`,
+        icon: 'info',
+        confirmButtonColor: '#3B82F6',
+        confirmButtonText: 'Entendido',
+        background: '#1F2937',
+        color: '#F9FAFB'
+      });
+      return;
+    }
+
+    Swal.fire({
+      title: '🔥 ¿Eliminar definitivamente?',
+      text: `Esta obra ya cumplió más de 30 días en la papelera (${this.diasEnPapelera(obra)} días). Esta acción borrará por completo la obra "${obra.nombre}", sus metas, avances y expediente de la base de datos. NO se puede deshacer.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#EF4444',
+      cancelButtonColor: '#4B5563',
+      confirmButtonText: '🔥 Sí, borrar para siempre',
+      cancelButtonText: 'Cancelar',
+      background: '#1F2937',
+      color: '#F9FAFB'
+    }).then((res: any) => {
+      if (res.isConfirmed) {
+        this.svc.deleteObra(obra.id).subscribe({
+          next: () => {
+            this.toastSvc.show(`🗑️ Obra "${obra.nombre}" eliminada definitivamente de la base de datos.`, 'success');
+            this.cargarObrasPaginadas();
+          },
+          error: (err) => {
+            const msg = err?.error?.message || 'Error al eliminar definitivamente la obra.';
+            this.toastSvc.show(msg, 'error');
+          }
+        });
+      }
+    });
   }
 
   latitudSeleccionada = signal<number | null>(17.266108);
@@ -1218,6 +1327,9 @@ export class ObrasListComponent implements OnInit {
   }
 
   getStatusText(obra: ObraResponse): string {
+    if (obra.estatus === 'ELIMINADA') return '🗑️ Eliminada';
+    if (obra.estatus === 'INACTIVA') return '🟠 Inactiva';
+    if (obra.estatus === 'CANCELADA') return '🔴 Cancelada';
     if (this.svc.isBlocked(obra)) return '🚫 Bloqueada (15 días)';
     return ESTATUS_LABEL[obra.estatus] ?? obra.estatus;
   }

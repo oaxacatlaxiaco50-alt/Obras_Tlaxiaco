@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuditLogService } from '../../core/services/audit-log.service';
@@ -56,9 +56,8 @@ import { AuditLog } from '../../core/models/audit-log.model';
                 <th>Usuario</th>
                 <th>Acción</th>
                 <th>Módulo</th>
+                <th>Descripción</th>
                 <th>IP</th>
-                <th>Datos Anteriores</th>
-                <th>Datos Nuevos</th>
               </tr>
             </thead>
             <tbody>
@@ -69,16 +68,19 @@ import { AuditLog } from '../../core/models/audit-log.model';
                     <span class="avatar-mini">{{ log.username.charAt(0).toUpperCase() }}</span>
                     {{ log.username }}
                   </td>
-                  <td><span class="badge-accion" [attr.data-accion]="log.action">{{ log.action }}</span></td>
+                  <td>
+                    <span class="badge-accion" [attr.data-tipo]="getAccionTipo(log.action)">
+                      {{ log.action }}
+                    </span>
+                  </td>
                   <td class="al-modulo">{{ log.module }}</td>
+                  <td class="al-desc">{{ log.description || '—' }}</td>
                   <td class="al-ip">{{ log.ip || '—' }}</td>
-                  <td class="al-data">{{ log.previousData || '—' }}</td>
-                  <td class="al-data">{{ log.newData || '—' }}</td>
                 </tr>
               }
               @if (logs().length === 0) {
                 <tr>
-                  <td colspan="7" class="al-empty">🔍 No se encontraron registros de auditoría</td>
+                  <td colspan="6" class="al-empty">🔍 No se encontraron registros de auditoría</td>
                 </tr>
               }
             </tbody>
@@ -151,9 +153,8 @@ import { AuditLog } from '../../core/models/audit-log.model';
     .al-fecha { color: var(--text-muted) !important; font-size: 0.78rem !important; white-space: nowrap; }
     .al-usuario { display: flex; align-items: center; gap: 8px; color: var(--text-primary) !important; font-weight: 500; }
     .al-modulo { font-weight: 600; color: var(--text-primary) !important; }
+    .al-desc { color: var(--text-secondary) !important; max-width: 380px; }
     .al-ip { font-family: monospace; font-size: 0.78rem !important; color: var(--text-muted) !important; }
-    .al-data { max-width: 200px; font-size: 0.75rem !important; color: var(--text-muted) !important;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .al-empty { text-align: center; padding: 40px; color: var(--text-muted); }
 
     .avatar-mini {
@@ -164,13 +165,11 @@ import { AuditLog } from '../../core/models/audit-log.model';
     }
     .badge-accion {
       padding: 3px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 700;
+      background: rgba(59,130,246,0.15); color: #60A5FA;
     }
-    .badge-accion[data-accion="CREATE"]  { background: rgba(45,212,191,0.15);  color: #2DD4BF; }
-    .badge-accion[data-accion="UPDATE"]  { background: rgba(232,160,32,0.15);  color: #E8A020; }
-    .badge-accion[data-accion="DELETE"]  { background: rgba(239,68,68,0.15);   color: #EF4444; }
-    .badge-accion[data-accion="READ"]    { background: rgba(59,130,246,0.15);  color: #60A5FA; }
-    .badge-accion[data-accion="LOGIN"]   { background: rgba(99,102,241,0.15);  color: #818CF8; }
-    .badge-accion[data-accion="LOGOUT"]  { background: rgba(148,163,184,0.12); color: #94A3B8; }
+    .badge-accion[data-tipo="CREATE"]  { background: rgba(45,212,191,0.15);  color: #2DD4BF; }
+    .badge-accion[data-tipo="UPDATE"]  { background: rgba(232,160,32,0.15);  color: #E8A020; }
+    .badge-accion[data-tipo="DELETE"]  { background: rgba(239,68,68,0.15);   color: #EF4444; }
 
     .al-pagination {
       display: flex; align-items: center; justify-content: center; gap: 16px; padding: 12px 0;
@@ -188,13 +187,13 @@ import { AuditLog } from '../../core/models/audit-log.model';
 export class AuditLogsComponent implements OnInit {
   private auditSvc = inject(AuditLogService);
 
-  logs         = signal<AuditLog[]>([]);
-  cargando     = signal(true);
-  paginaActual = signal(0);
-  totalPaginas = signal(1);
+  logs           = signal<AuditLog[]>([]);
+  cargando       = signal(true);
+  paginaActual   = signal(0);
+  totalPaginas   = signal(1);
   totalElementos = signal(0);
-  tamanioPagina = 20;
-  filtroUsuario = '';
+  tamanioPagina  = 20;
+  filtroUsuario  = '';
   private debounceTimer: any;
 
   ngOnInit() {
@@ -213,6 +212,13 @@ export class AuditLogsComponent implements OnInit {
       },
       error: () => this.cargando.set(false)
     });
+  }
+
+  getAccionTipo(action: string): string {
+    const a = (action || '').toUpperCase();
+    if (a.includes('ELIMINACION') || a === 'DELETE') return 'DELETE';
+    if (a.includes('CREACION') || a === 'CREATE' || a === 'REGISTRO_AVANCE') return 'CREATE';
+    return 'UPDATE';
   }
 
   onFiltroChange() {

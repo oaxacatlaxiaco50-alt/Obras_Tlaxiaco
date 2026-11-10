@@ -10,8 +10,10 @@ import { AvancesService } from '../../core/services/avances.service';
 import { ArchivosService } from '../../core/services/archivos.service';
 import { ExpedientesService, ExpedienteObraItem, EstadoDocumentoChecklist, SeccionExpedienteChecklist } from '../../core/services/expedientes.service';
 import { AuthService } from '../../core/services/auth.service';
+import { UsuariosService } from '../../core/services/usuarios.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ObraResponse, ObraAvance, ObraArchivo, ObraEstatus, ESTATUS_LABEL, ESTATUS_COLOR, ObraMeta, ConceptoSugerido, CATEGORIAS_METAS_CATALOG } from '../../core/models/obra.model';
+import { UserResponse } from '../../core/models/user.model';
 import { MetasService } from '../../core/services/metas.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -129,28 +131,50 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
         @if (auth.hasRole('admin', 'residente')) {
           <div class="exp-grid" [style.display]="(tabActiva() === 'resumen' || tabActiva() === 'archivos') ? '' : 'none'">
             <!-- Timeline de Fotos -->
-            <div class="card">
-              <h3 class="sec-title">📸 Línea de Tiempo</h3>
-              <div class="timeline-tabs">
-                @for (fase of fases; track fase.key) {
-                  <button class="tab-btn" [class.active]="faseActiva() === fase.key" (click)="faseActiva.set(fase.key)">
-                    {{ fase.icon }} {{ fase.label }}
-                    <span class="tab-count">{{ fotosPorFase(fase.key).length }}</span>
-                  </button>
-                }
+            <div class="card" style="padding:0; overflow:hidden;">
+              <div class="seccion-header interactive-accordion-header" (click)="fotosAbiertas.set(!fotosAbiertas())" style="padding:14px 18px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; border-bottom:1px solid var(--border);">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span class="accordion-icon" style="color:var(--accent); font-weight:bold; font-size:0.85rem;">{{ fotosAbiertas() ? '▼' : '►' }}</span>
+                  <h3 style="font-size:1.1rem; font-weight:800; color:var(--text-primary); margin:0;">📸 Línea de Tiempo</h3>
+                  <span class="badge badge-secondary" style="font-size:0.72rem;">{{ fotosPorFase(faseActiva()).length }} Fotos</span>
+                </div>
+                <span class="badge" [style.background]="fotosAbiertas() ? 'rgba(232,160,32,0.22)' : 'rgba(255,255,255,0.08)'" [style.color]="fotosAbiertas() ? 'var(--accent)' : 'var(--text-muted)'" style="font-size:0.74rem; font-weight:700;">
+                  {{ fotosAbiertas() ? '▲ Minimizar' : '▼ Desglosar' }}
+                </span>
               </div>
-              <div class="foto-grid">
-                @for (foto of fotosPorFase(faseActiva()); track foto.id) {
-                  <div class="foto-thumb" (click)="fotoVisorActiva.set(foto)">
-                    <img [src]="getFileUrl(foto.archivoUrl)" [alt]="foto.descripcion" loading="lazy" />
-                    <div class="foto-overlay">
-                      <span>{{ foto.descripcion }}</span>
-                      <span>{{ foto.tipo }}</span>
+
+              <div style="padding: 18px 20px;">
+                <div class="timeline-tabs">
+                  @for (fase of fases; track fase.key) {
+                    <button class="tab-btn" [class.active]="faseActiva() === fase.key" (click)="faseActiva.set(fase.key)">
+                      {{ fase.icon }} {{ fase.label }}
+                      <span class="tab-count">{{ fotosPorFase(fase.key).length }}</span>
+                    </button>
+                  }
+                </div>
+                <div class="foto-grid">
+                  @for (foto of (fotosAbiertas() ? fotosPorFase(faseActiva()) : fotosPorFase(faseActiva()).slice(0, 3)); track foto.id) {
+                    <div class="foto-thumb" (click)="fotoVisorActiva.set(foto)">
+                      <img [src]="getFileUrl(foto.archivoUrl)" [alt]="foto.descripcion" loading="lazy" />
+                      <div class="foto-overlay">
+                        <span>{{ foto.descripcion }}</span>
+                        <span>{{ foto.tipo }}</span>
+                      </div>
                     </div>
-                  </div>
-                }
-                @if (fotosPorFase(faseActiva()).length === 0) {
-                  <div class="empty-state">📷 Sin fotos en esta fase</div>
+                  }
+                  @if (fotosPorFase(faseActiva()).length === 0) {
+                    <div class="empty-state">📷 Sin fotos en esta fase</div>
+                  }
+                </div>
+
+                @if (fotosPorFase(faseActiva()).length > 3) {
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-sm"
+                    style="width:100%; margin-top:12px; justify-content:center; font-size:0.8rem;"
+                    (click)="fotosAbiertas.set(!fotosAbiertas())">
+                    {{ fotosAbiertas() ? '▲ Minimizar galería (mostrar vista previa de 3)' : '📂 +' + (fotosPorFase(faseActiva()).length - 3) + ' imagen(es) más — Haz clic para desglosar todas ▼' }}
+                  </button>
                 }
               </div>
             </div>
@@ -163,26 +187,36 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
                   <h3 style="font-size:1.1rem; font-weight:800; color:var(--text-primary); margin:0;">📋 Áreas del Proyecto</h3>
                   <span class="badge badge-secondary" style="font-size:0.72rem;">{{ avances().length }} Avances</span>
                 </div>
+                <span class="badge" [style.background]="areasAbiertas() ? 'rgba(232,160,32,0.22)' : 'rgba(255,255,255,0.08)'" [style.color]="areasAbiertas() ? 'var(--accent)' : 'var(--text-muted)'" style="font-size:0.74rem; font-weight:700;">
+                  {{ areasAbiertas() ? '▲ Minimizar' : '▼ Desglosar' }}
+                </span>
               </div>
               
-              @if (areasAbiertas()) {
-                <div class="areas-list" style="padding: 24px; animation: fadeIn 0.3s ease;">
-                  @if (avances().length === 0) {
-                    <div class="empty-state">Sin registros de avance aun</div>
-                  }
-                  @for (avance of avances(); track avance.id) {
-                    <div class="area-item">
-                      <span class="area-icon">📊</span>
-                      <span class="area-name">{{ avance.titulo }} — {{ avance.porcentaje }}%</span>
-                      <span class="badge badge-success">{{ avance.fechaAvance }}</span>
-                    </div>
-                  }
-                </div>
-                <div class="areas-summary">
-                  <span class="text-success">✅ {{ areasEntregadas() }} entregadas</span>
-                  <span class="text-warning">⏳ {{ areasPendientes() }} pendientes</span>
-                </div>
-              }
+              <div class="areas-list" style="padding: 20px 24px; animation: fadeIn 0.3s ease;">
+                @if (avances().length === 0) {
+                  <div class="empty-state">Sin registros de avance aun</div>
+                }
+                @for (avance of (areasAbiertas() ? avances() : avances().slice(0, 3)); track avance.id) {
+                  <div class="area-item">
+                    <span class="area-icon">📊</span>
+                    <span class="area-name">{{ avance.titulo }} — {{ avance.porcentaje }}%</span>
+                    <span class="badge badge-success">{{ avance.fechaAvance }}</span>
+                  </div>
+                }
+                @if (avances().length > 3) {
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-sm"
+                    style="width:100%; margin-top:10px; justify-content:center; font-size:0.8rem;"
+                    (click)="areasAbiertas.set(!areasAbiertas())">
+                    {{ areasAbiertas() ? '▲ Minimizar lista (mostrar solo 3)' : '📂 +' + (avances().length - 3) + ' avance(s) más — Haz clic para desglosar todos ▼' }}
+                  </button>
+                }
+              </div>
+              <div class="areas-summary">
+                <span class="text-success">✅ {{ areasEntregadas() }} entregadas</span>
+                <span class="text-warning">⏳ {{ areasPendientes() }} pendientes</span>
+              </div>
             </div>
           </div>
 
@@ -219,11 +253,13 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
                   <h3 style="font-size:1.1rem; font-weight:800; color:var(--text-primary); margin:0;">📁 Archivos Subidos al Expediente</h3>
                   <span class="badge badge-secondary" style="font-size:0.72rem;">{{ archivosSubidos().length }} Documentos</span>
                 </div>
+                <span class="badge" [style.background]="archivosAbiertos() ? 'rgba(232,160,32,0.22)' : 'rgba(255,255,255,0.08)'" [style.color]="archivosAbiertos() ? 'var(--accent)' : 'var(--text-muted)'" style="font-size:0.74rem; font-weight:700;">
+                  {{ archivosAbiertos() ? '▲ Minimizar' : '▼ Desglosar' }}
+                </span>
               </div>
               
-              @if (archivosAbiertos()) {
-                <div class="docs-list" style="padding: 24px; animation: fadeIn 0.3s ease;">
-                @for (arch of archivosSubidos(); track arch.id) {
+              <div class="docs-list" style="padding: 20px 24px; animation: fadeIn 0.3s ease;">
+                @for (arch of (archivosAbiertos() ? archivosSubidos() : archivosSubidos().slice(0, 3)); track arch.id) {
                   <div class="doc-item entregado" style="display:flex; align-items:center; gap:12px;">
                     <div class="doc-icon">{{ arch.tipoArchivo === 'FOTO' ? '🖼️' : '📄' }}</div>
                     <div class="doc-info" style="flex:1;">
@@ -246,12 +282,21 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
                     </div>
                   </div>
                 } @empty {
-                  <div class="empty-state" style="font-size:0.85rem; color:var(--text-muted); text-text-align:center; padding:16px;">
+                  <div class="empty-state" style="font-size:0.85rem; color:var(--text-muted); text-align:center; padding:16px;">
                     📁 Ningún archivo subido a este expediente todavía.
                   </div>
                 }
-                </div>
-              }
+
+                @if (archivosSubidos().length > 3) {
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-sm"
+                    style="width:100%; margin-top:12px; justify-content:center; font-size:0.8rem;"
+                    (click)="archivosAbiertos.set(!archivosAbiertos())">
+                    {{ archivosAbiertos() ? '▲ Minimizar lista (mostrar solo 3 archivos)' : '📂 +' + (archivosSubidos().length - 3) + ' archivo(s) más ocultos — Haz clic para desglosar todos ▼' }}
+                  </button>
+                }
+              </div>
             </div>
           </div>
         }
@@ -628,7 +673,22 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
           <h3 class="sec-title">⚙️ Editar Obra y Gestor de Metas</h3>
           
           <form class="modal-form" (submit)="guardarEdicionObra($event)" id="editarObraForm">
-            <div class="form-group"><label class="form-label">Nombre del Proyecto</label><input type="text" name="nombre" class="form-input" [value]="obra()!.nombre" required></div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Nombre del Proyecto</label>
+                <input type="text" name="nombre" class="form-input" [value]="obra()!.nombre" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Responsable a Cargo</label>
+                <select name="responsableId" class="form-input">
+                  @for (u of responsables(); track u.id) {
+                    <option [value]="u.id" [selected]="u.id === obra()!.responsableId">
+                      {{ u.firstName }} {{ u.lastName }} ({{ u.username }} - ID: {{ u.id }})
+                    </option>
+                  }
+                </select>
+              </div>
+            </div>
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">Estatus</label>
@@ -1268,8 +1328,9 @@ export class ExpedienteComponent implements OnInit {
   tabActiva = signal<'resumen'|'fotos'|'archivos'|'checklist'|'avances'|'editar'>('resumen');
   faseSubida = signal<string>('GENERAL');
   faseActiva = signal<string>('ANTES');
-  areasAbiertas = signal(true);
-  archivosAbiertos = signal(true);
+  fotosAbiertas = signal(false);
+  areasAbiertas = signal(false);
+  archivosAbiertos = signal(false);
   uploadMsg = signal('');
   uploadError = signal(false);
   mostrarModalEdicion = signal(false);
@@ -1487,6 +1548,8 @@ export class ExpedienteComponent implements OnInit {
   avancesSvc = inject(AvancesService);
   archivosSvc = inject(ArchivosService);
   auth = inject(AuthService);
+  usuariosSvc = inject(UsuariosService);
+  responsables = signal<UserResponse[]>([]);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 
@@ -1585,6 +1648,10 @@ export class ExpedienteComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.usuariosSvc.getUsuarios().subscribe({
+      next: (users) => this.responsables.set(users),
+      error: () => {}
+    });
     this.route.params.subscribe(p => {
       const id = Number(p['id']);
       if (!isNaN(id)) {
@@ -2772,15 +2839,18 @@ export class ExpedienteComponent implements OnInit {
     const form = document.getElementById('editarObraForm') as HTMLFormElement | null;
     if (!form) return;
     const estatusVal = (form.elements.namedItem('estatus') as HTMLSelectElement).value;
-    const updateReq = {
+    const rawRespId = (form.elements.namedItem('responsableId') as HTMLSelectElement)?.value;
+    const responsableId = rawRespId ? Number(rawRespId) : this.obra()!.responsableId;
+    const updateReq: any = {
       nombre: (form.elements.namedItem('nombre') as HTMLInputElement).value,
       categoria: (form.elements.namedItem('categoria') as HTMLInputElement).value,
-        descripcion: (form.elements.namedItem('descripcion') as HTMLTextAreaElement).value,
-        direccion: (form.elements.namedItem('direccion') as HTMLInputElement)?.value || this.obra()!.direccion || '',
-        fuenteFinanciamiento: (form.elements.namedItem('fuenteFinanciamiento') as HTMLTextAreaElement).value.trim(),
-        beneficiarios: (form.elements.namedItem('beneficiarios') as HTMLTextAreaElement).value.trim(),
-        impactoSocial: (form.elements.namedItem('impactoSocial') as HTMLTextAreaElement).value.trim(),
-        contratista: (form.elements.namedItem('contratista') as HTMLInputElement)?.value.trim() || ''
+      descripcion: (form.elements.namedItem('descripcion') as HTMLTextAreaElement).value,
+      direccion: (form.elements.namedItem('direccion') as HTMLInputElement)?.value || this.obra()!.direccion || '',
+      responsableId,
+      fuenteFinanciamiento: (form.elements.namedItem('fuenteFinanciamiento') as HTMLTextAreaElement).value.trim(),
+      beneficiarios: (form.elements.namedItem('beneficiarios') as HTMLTextAreaElement).value.trim(),
+      impactoSocial: (form.elements.namedItem('impactoSocial') as HTMLTextAreaElement).value.trim(),
+      contratista: (form.elements.namedItem('contratista') as HTMLInputElement)?.value.trim() || ''
     };
     
     // 1. Update basic info
@@ -2802,22 +2872,22 @@ export class ExpedienteComponent implements OnInit {
 
   eliminarObraAdmin() {
     Swal.fire({
-      title: '¿Estás seguro?',
-      text: '🚨 ADVERTENCIA: Estás a punto de eliminar permanentemente esta obra y todo su expediente. Esta acción NO se puede deshacer.',
+      title: '¿Enviar obra a la Papelera?',
+      text: '🗑️ La obra se moverá al apartado de "Eliminadas (Papelera)". Desde ahí podrás restaurarla o borrarla definitivamente.',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#EF4444',
       cancelButtonColor: '#4B5563',
-      confirmButtonText: 'Sí, eliminar',
+      confirmButtonText: 'Sí, enviar a papelera',
       cancelButtonText: 'Cancelar',
       background: '#1F2937',
       color: '#F9FAFB'
     }).then((result: any) => {
       if (result.isConfirmed) {
-        this.svc.cambiarEstatus(this.obra()!.id, 'INACTIVA' as any).subscribe({
+        this.svc.cambiarEstatus(this.obra()!.id, 'ELIMINADA' as any).subscribe({
           next: () => {
-            this.toastSvc.show('Obra eliminada exitosamente.', 'success');
-            this.router.navigate(['/dashboard']);
+            this.toastSvc.show('Obra enviada a la papelera de Eliminadas.', 'success');
+            this.router.navigate(['/obras']);
           },
           error: (err) => {
             console.error('Error al eliminar obra:', err);

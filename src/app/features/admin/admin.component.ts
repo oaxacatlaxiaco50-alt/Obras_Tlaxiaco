@@ -5,6 +5,7 @@ import { UserService } from '../../core/services/user.service';
 import { ToastService } from '../../core/services/toast.service';
 import { UserResponse } from '../../core/models/user.model';
 import { UserFormModalComponent } from './components/user-form-modal.component';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-admin',
@@ -74,13 +75,20 @@ import { UserFormModalComponent } from './components/user-form-modal.component';
                     }
                   </td>
                   <td>
-                    <div style="display:flex;gap:8px">
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
                       <button class="btn btn-secondary btn-sm" (click)="openUserModal(u)">✏️ Editar</button>
                       @if(u.active) {
                         <button class="btn btn-warning btn-sm" (click)="deactivateUser(u.id)" [disabled]="u.roles.includes('ADMINISTRADOR') && activeAdminsCount() <= 1">⚠️ Desactivar</button>
                       } @else {
                         <button class="btn btn-primary btn-sm" (click)="reactivateUser(u.id)">🔄 Reactivar</button>
                       }
+                      <button
+                        class="btn btn-danger-outline btn-sm"
+                        (click)="deleteUserPermanently(u)"
+                        [disabled]="u.username === auth.usuario()?.username || (u.roles.includes('ADMINISTRADOR') && activeAdminsCount() <= 1)"
+                        title="Eliminar usuario permanentemente">
+                        🗑️ Eliminar
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -144,6 +152,7 @@ import { UserFormModalComponent } from './components/user-form-modal.component';
     @if (showModal) {
       <app-user-form-modal
         [user]="selectedUser"
+        [existingUsers]="usuarios"
         (save)="saveUser($event)"
         (close)="closeModal()">
       </app-user-form-modal>
@@ -169,6 +178,15 @@ import { UserFormModalComponent } from './components/user-form-modal.component';
     .badge-auditor { background: rgba(100,116,139,0.15); color: var(--text-secondary); }
     .btn-warning { background: rgba(239, 160, 0, 0.2); border-color: rgba(239, 160, 0, 0.4); color: #fbbf24; }
     .btn-warning:hover { background: rgba(239, 160, 0, 0.3); }
+    .btn-danger-outline {
+      background: rgba(239, 68, 68, 0.14);
+      border: 1px solid rgba(239, 68, 68, 0.38);
+      color: #f87171;
+    }
+    .btn-danger-outline:hover:not([disabled]) {
+      background: rgba(239, 68, 68, 0.28);
+      color: #fca5a5;
+    }
     .admin-config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     .rule-list { display: flex; flex-direction: column; gap: 12px; }
     .rule-item {
@@ -261,18 +279,77 @@ export class AdminComponent implements OnInit {
           this.loadUsers();
           this.closeModal();
         },
-        error: (err) => this.toastSvc.show(err.error?.message || 'Error al actualizar usuario.', 'error')
+        error: (err) => this.mostrarErrorGuardarUsuario(err, 'actualizar')
       });
     } else {
       this.userService.createUser(data).subscribe({
         next: () => {
-          this.toastSvc.show('Nuevo usuario creado con éxito.', 'success');
+          this.toastSvc.show(`✅ Usuario @${data.username} creado con éxito.`, 'success');
           this.loadUsers();
           this.closeModal();
         },
-        error: (err) => this.toastSvc.show(err.error?.message || 'Error al crear usuario.', 'error')
+        error: (err) => this.mostrarErrorGuardarUsuario(err, 'crear')
       });
     }
+  }
+
+  private mostrarErrorGuardarUsuario(err: any, accion: 'crear' | 'actualizar') {
+    const fieldErrors = err?.error?.fieldErrors as Record<string, string> | undefined;
+    const rawMsg: string = err?.error?.message || '';
+
+    // 1. Si el backend detectó que el username ya existe
+    if (rawMsg.toLowerCase().includes('nombre de usuario')) {
+      Swal.fire({
+        title: '🚫 Nombre de usuario ocupado',
+        html: `${rawMsg}.<br><br>Por favor elige un nombre de usuario diferente.`,
+        icon: 'warning',
+        confirmButtonColor: '#E8A020',
+        confirmButtonText: 'Elegir otro usuario',
+        background: '#1F2937',
+        color: '#F9FAFB'
+      });
+      return;
+    }
+
+    // 2. Si el backend detectó que el correo ya existe
+    if (rawMsg.toLowerCase().includes('correo')) {
+      Swal.fire({
+        title: '🚫 Correo electrónico ya registrado',
+        html: `${rawMsg}.<br><br>Por favor ingresa otro correo electrónico.`,
+        icon: 'warning',
+        confirmButtonColor: '#E8A020',
+        confirmButtonText: 'Cambiar correo',
+        background: '#1F2937',
+        color: '#F9FAFB'
+      });
+      return;
+    }
+
+    // 3. Si el backend devolvió errores de validación por campo (fieldErrors)
+    if (fieldErrors && Object.keys(fieldErrors).length > 0) {
+      const lista = Object.values(fieldErrors).map(m => `• ${m}`).join('<br>');
+      Swal.fire({
+        title: '⚠️ Datos inválidos o incompletos',
+        html: `<div style="text-align:left; font-size:0.9rem; line-height:1.6;">Por favor verifica los siguientes campos:<br><br>${lista}</div>`,
+        icon: 'warning',
+        confirmButtonColor: '#3B82F6',
+        confirmButtonText: 'Corregir',
+        background: '#1F2937',
+        color: '#F9FAFB'
+      });
+      return;
+    }
+
+    // 4. Cualquier otro error
+    Swal.fire({
+      title: `❌ Error al ${accion} usuario`,
+      text: rawMsg || `Ocurrió un problema al intentar ${accion} el usuario.`,
+      icon: 'error',
+      confirmButtonColor: '#EF4444',
+      confirmButtonText: 'Entendido',
+      background: '#1F2937',
+      color: '#F9FAFB'
+    });
   }
 
   activeAdminsCount(): number {
@@ -280,15 +357,28 @@ export class AdminComponent implements OnInit {
   }
 
   deactivateUser(id: number) {
-    if (confirm('¿Deseas desactivar el acceso a este usuario?\n\nNota: Su cuenta quedará inhabilitada para ingresar al sistema, pero su historial de cambios y bitácora se conservará por auditoría.')) {
-      this.userService.deactivateUser(id).subscribe({
-        next: () => {
-          this.toastSvc.show('Acceso de usuario desactivado.', 'info');
-          this.loadUsers();
-        },
-        error: (err) => this.toastSvc.show(err.error?.message || 'Error desactivando el usuario.', 'error')
-      });
-    }
+    Swal.fire({
+      title: '⚠️ ¿Desactivar usuario?',
+      text: 'Su cuenta quedará inhabilitada para ingresar al sistema, pero sus obras asignadas e historial de bitácora se conservarán.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#F59E0B',
+      cancelButtonColor: '#4B5563',
+      confirmButtonText: '⚠️ Sí, desactivar',
+      cancelButtonText: 'Cancelar',
+      background: '#1F2937',
+      color: '#F9FAFB'
+    }).then((res) => {
+      if (res.isConfirmed) {
+        this.userService.deactivateUser(id).subscribe({
+          next: () => {
+            this.toastSvc.show('Acceso de usuario desactivado.', 'info');
+            this.loadUsers();
+          },
+          error: (err) => this.toastSvc.show(err.error?.message || 'Error desactivando el usuario.', 'error')
+        });
+      }
+    });
   }
 
   reactivateUser(id: number) {
@@ -301,4 +391,39 @@ export class AdminComponent implements OnInit {
     });
   }
 
+  deleteUserPermanently(user: UserResponse) {
+    Swal.fire({
+      title: '🗑️ ¿Eliminar usuario definitivamente?',
+      html: `Estás por eliminar permanentemente la cuenta de <strong>${user.firstName} ${user.lastName}</strong> (<code>@${user.username}</code>).<br><br>Esta acción borrará al usuario de la base de datos y <strong>no se puede deshacer</strong>.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#EF4444',
+      cancelButtonColor: '#4B5563',
+      confirmButtonText: '🗑️ Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      background: '#1F2937',
+      color: '#F9FAFB'
+    }).then((res) => {
+      if (res.isConfirmed) {
+        this.userService.deleteUserPermanently(user.id).subscribe({
+          next: () => {
+            this.toastSvc.show(`🗑️ Usuario @${user.username} eliminado permanentemente.`, 'success');
+            this.loadUsers();
+          },
+          error: (err) => {
+            const msg = err?.error?.message || 'No fue posible eliminar al usuario.';
+            Swal.fire({
+              title: '🔒 No se puede eliminar este usuario',
+              text: msg,
+              icon: 'error',
+              confirmButtonColor: '#3B82F6',
+              confirmButtonText: 'Entendido',
+              background: '#1F2937',
+              color: '#F9FAFB'
+            });
+          }
+        });
+      }
+    });
+  }
 }

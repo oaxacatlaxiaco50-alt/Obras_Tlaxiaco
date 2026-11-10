@@ -71,7 +71,7 @@ export type PeriodoFiltro = 'dia' | 'semana' | 'mes' | 'todo';
                 <th>Administrador / Usuario</th>
                 <th>Acción</th>
                 <th>Módulo</th>
-                <th>Obra Afectada</th>
+                <th>Obra / Registro Afectado</th>
                 <th>Detalle del Cambio</th>
               </tr>
             </thead>
@@ -94,7 +94,7 @@ export type PeriodoFiltro = 'dia' | 'semana' | 'mes' | 'todo';
                   </td>
                   <td>
                     <span class="badge-accion" [attr.data-accion]="accionLabel(e)">
-                      {{ accionLabel(e) === 'Editar' ? '✏️' : '🗑️' }} {{ accionLabel(e) }}
+                      {{ accionLabel(e) === 'Eliminar' ? '🗑️' : '✏️' }} {{ accionLabel(e) }}
                     </span>
                   </td>
                   <td class="bc-modulo">{{ e.module }}</td>
@@ -258,17 +258,17 @@ export class BitacoraCambiosComponent implements OnInit {
     'CREATE', 'UPDATE', 'PATCH',
     'SUBIDA_ARCHIVO', 'ACTUALIZACION_CHECKLIST', 'SUBIDA_DOCUMENTO_CHECKLIST',
     'CREACION_GEOCERCA', 'MODIFICACION_GEOCERCA',
-    'SUBIDA_EVIDENCIA', 'REGISTRO_AVANCE'
+    'SUBIDA_EVIDENCIA', 'REGISTRO_AVANCE',
+    'CREACION_USUARIO', 'MODIFICACION_USUARIO', 'DESACTIVACION_USUARIO', 'REACTIVACION_USUARIO'
   ];
   private readonly DELETE_ACTIONS = [
     'ELIMINACION_OBRA', 'ELIMINACION_ARCHIVO',
     'ELIMINACION_AVANCE', 'DELETE',
-    'ELIMINACION_GEOCERCA'
+    'ELIMINACION_GEOCERCA', 'ELIMINACION_USUARIO'
   ];
 
   private _todos = signal<AuditLog[]>([]);
 
-  // Filtra acciones según el periodo seleccionado (día, semana, mes, todo)
   entradas = computed(() => {
     const ahora = new Date();
     const periodo = this.filtroPeriodo();
@@ -301,46 +301,47 @@ export class BitacoraCambiosComponent implements OnInit {
     });
   }
 
-  esEditar(e: AuditLog)   { return this.EDIT_ACTIONS.includes(e.action ?? ''); }
-  esEliminar(e: AuditLog) { return this.DELETE_ACTIONS.includes(e.action ?? ''); }
+  esEditar(e: AuditLog) {
+    return !this.esEliminar(e) && this.EDIT_ACTIONS.includes(e.action ?? '');
+  }
+  esEliminar(e: AuditLog) {
+    if (this.DELETE_ACTIONS.includes(e.action ?? '')) return true;
+    const desc = (e.description ?? '').toLowerCase();
+    return desc.includes('a eliminada') || desc.includes('se eliminó');
+  }
   accionLabel(e: AuditLog): string {
-    if (this.DELETE_ACTIONS.includes(e.action ?? '')) return 'Eliminar';
-    if (this.EDIT_ACTIONS.includes(e.action ?? ''))   return 'Editar';
+    if (this.esEliminar(e)) return 'Eliminar';
+    if (this.esEditar(e))   return 'Editar';
     return 'Otro';
   }
 
-  /** Extrae el nombre de la obra del prefijo [nombre] en description o del JSON de newData/previousData */
+  /** Extrae el nombre de la obra o usuario afectado */
   getNombreObra(e: AuditLog): string {
-    // Extract name from description format "[Obra Name] detail..."
     if (e.description) {
       const match = e.description.match(/^\[(.+?)\]/);
       if (match) return match[1];
+      const userMatch = e.description.match(/\(@([^)]+)\)/);
+      if (userMatch) return `👤 @${userMatch[1]}`;
     }
-    // Fallback: try parsing JSON
     try {
       const data = e.newData ? JSON.parse(e.newData) : e.previousData ? JSON.parse(e.previousData) : null;
       if (data?.nombre) return data.nombre;
+      if (data?.username) return `👤 @${data.username}`;
       if (data?.obraId) return `Obra #${data.obraId}`;
     } catch {}
     return e.module || '—';
   }
 
-  /** Genera un resumen corto y legible de qué cambió */
   getDetalleCambio(e: AuditLog): string {
     const full = this.getDetalleCompleto(e);
-    return full.length > 80 ? full.substring(0, 77) + '...' : full;
+    return full.length > 85 ? full.substring(0, 82) + '...' : full;
   }
 
-  /** Genera el detalle completo comparando campos anteriores vs nuevos */
   getDetalleCompleto(e: AuditLog): string {
-    // Use the description field from backend if available (new events)
     if (e.description) {
-      const withoutPrefix = e.description.replace(/^\[.+?\] /, '');
-      return withoutPrefix;
+      return e.description.replace(/^\[.+?\] /, '');
     }
-    // Legacy fallback: parse from JSON
     try {
-      // Acciones sin datos anteriores = Creación
       if (e.action === 'CREACION_OBRA') {
         const nd = e.newData ? JSON.parse(e.newData) : null;
         return nd?.nombre ? `Se creó la obra "${nd.nombre}"` : 'Se registró una nueva obra';
@@ -349,39 +350,11 @@ export class BitacoraCambiosComponent implements OnInit {
         const pd = e.previousData ? JSON.parse(e.previousData) : null;
         return pd?.nombre ? `Se eliminó la obra "${pd.nombre}"` : 'Se eliminó una obra';
       }
-      if (e.action === 'ELIMINACION_ARCHIVO') return 'Se eliminó un archivo del expediente';
-
-      // Comparar previousData vs newData para mostrar qué campos cambiaron
-      if (e.previousData && e.newData) {
-        const prev = JSON.parse(e.previousData);
-        const next = JSON.parse(e.newData);
-        const LABELS: Record<string, string> = {
-          nombre: 'Nombre', estatus: 'Estatus', monto: 'Monto',
-          fechaInicio: 'Fecha inicio', fechaFin: 'Fecha término',
-          descripcion: 'Descripción', categoria: 'Categoría',
-          responsableId: 'Responsable', direccion: 'Ubicación',
-          porcentajeAvance: 'Avance %'
-        };
-        const cambios: string[] = [];
-        for (const key of Object.keys(LABELS)) {
-          if (prev[key] !== undefined && next[key] !== undefined && prev[key] !== next[key]) {
-            cambios.push(`${LABELS[key]}: "${prev[key]}" → "${next[key]}"`);
-          }
-        }
-        if (cambios.length > 0) return cambios.join(' | ');
+      if (e.action === 'ELIMINACION_USUARIO') {
+        const pd = e.previousData ? JSON.parse(e.previousData) : null;
+        return pd?.username ? `Se eliminó permanentemente al usuario @${pd.username}` : 'Se eliminó un usuario';
       }
-
-      // Acción sin previousData = solo newData disponible
-      if (e.newData && !e.previousData) {
-        const nd = JSON.parse(e.newData);
-        if (e.action === 'ACTUALIZACION_MONTOS_FECHAS') return 'Se actualizaron montos o fechas de la obra';
-        if (e.action === 'CAMBIO_ESTATUS') return `Estatus cambiado a: ${nd?.estatus || ''}`;
-        if (nd?.cantidadEjecutada != null) return `Se registró un avance de ${nd.cantidadEjecutada} ${nd.unidadMedida || ''}`;
-        if (nd?.archivoUrl) return 'Se subió un nuevo documento o archivo';
-        return 'Se modificó la información de la obra';
-      }
-
-      return 'Modificación registrada';
+      return e.action || 'Acción registrada';
     } catch {
       return e.action || 'Acción registrada';
     }
@@ -428,4 +401,3 @@ export class BitacoraCambiosComponent implements OnInit {
     return new Date(ts).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
   }
 }
-

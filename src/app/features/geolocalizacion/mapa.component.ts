@@ -1,6 +1,5 @@
 import { Component, AfterViewInit, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ObrasService } from '../../core/services/obras.service';
 import { RutasService } from '../../core/services/rutas.service';
@@ -8,18 +7,19 @@ import { ToastService } from '../../core/services/toast.service';
 import { ObraResponse, ESTATUS_LABEL } from '../../core/models/obra.model';
 import { RutaObraResponse } from '../../core/models/ruta.model';
 import * as L from 'leaflet';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-mapa',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, FormsModule],
+  imports: [RouterLink, FormsModule],
   template: `
     <div class="mapa-page animate-fade-in" [class.fullscreen-page]="modoPantallaCompleta()">
       @if (!modoPantallaCompleta()) {
         <div class="mapa-header">
           <div>
             <h1 class="mapa-title">🗺️ Geolocalización y Rutas Lineales de Obras</h1>
-            <p class="mapa-subtitle">Visualiza la ubicación GPS y realiza trazados lineales reales (pavimentaciones, vialidades, redes de agua)</p>
+            <p class="mapa-subtitle">Visualiza la ubicación GPS y realiza trazados lineales o perimetrales (pavimentaciones, vialidades, bardas, redes de agua)</p>
           </div>
           <div class="leyenda">
             <button class="ley-item" [class.disabled]="!activeFilters().has('PLANIFICADA')" (click)="toggleFilter('PLANIFICADA')"><span class="ley-dot" style="background:#6366F1"></span>Planificada</button>
@@ -121,18 +121,33 @@ import * as L from 'leaflet';
                 <span>📐 <strong>{{ rutaEnEdicion() ? 'Modificando Trazado: ' + rutaEnEdicion()!.nombre : 'Modo Trazado Lineal' }}</strong></span>
                 <span class="drag-handle">🖐️ Mover</span>
               </div>
-              <p class="trazar-hint">Haz clic sobre la calle en el mapa para {{ rutaEnEdicion() ? 'modificar o agregar vértices a la ruta' : 'marcar los vértices' }}.</p>
+              <p class="trazar-hint">
+                @if (esFiguraCerrada()) {
+                  ✅ <strong>Perímetro cerrado.</strong> Puedes guardar la ruta o presionar "Deshacer" para seguir agregando puntos.
+                } @else if (puntosTrazados().length >= 3) {
+                  Haz clic en el mapa para agregar más vértices, o <strong>haz clic sobre el punto verde inicial</strong> para cerrar la figura.
+                } @else {
+                  Haz clic sobre la calle o terreno en el mapa para marcar los vértices.
+                }
+              </p>
               <div class="trazar-meta">
                 <span class="dist-badge">📏 {{ distanciaTotal() }} m</span>
                 <span class="badge badge-info">📍 {{ puntosTrazados().length }} pts</span>
-                @if (rutaEnEdicion()) {
+                @if (esFiguraCerrada()) {
+                  <span class="badge badge-closed">🔗 Cerrado</span>
+                } @else if (rutaEnEdicion()) {
                   <span class="badge badge-warning">✏️ Editando</span>
                 }
               </div>
               <input type="text" [(ngModel)]="nombreNuevaRuta" (mousedown)="$event.stopPropagation()" placeholder="Nombre de la ruta (ej. Tramo Calle Juárez)" class="form-input form-input-sm">
               <div class="trazar-actions">
                 <button class="btn btn-secondary btn-sm" (click)="deshacerUltimoPunto()" (mousedown)="$event.stopPropagation()" [disabled]="puntosTrazados().length === 0">⏮️ Deshacer</button>
-                <button class="btn btn-primary btn-sm" (click)="guardarRutaLineal()" (mousedown)="$event.stopPropagation()" [disabled]="puntosTrazados().length < 2 || !nombreNuevaRuta.trim()">
+                @if (puntosTrazados().length >= 3 && !esFiguraCerrada()) {
+                  <button class="btn btn-snap btn-sm" (click)="cerrarFiguraConInicio()" (mousedown)="$event.stopPropagation()" title="Unir el último punto exactamente con el primero">
+                    🔗 Unir Inicio
+                  </button>
+                }
+                <button class="btn btn-primary btn-sm" [style.grid-column]="(puntosTrazados().length >= 3 && !esFiguraCerrada()) ? 'span 2' : 'auto'" (click)="guardarRutaLineal()" (mousedown)="$event.stopPropagation()" [disabled]="puntosTrazados().length < 2 || !nombreNuevaRuta.trim()">
                   {{ rutaEnEdicion() ? '💾 Actualizar Trazado' : '💾 Guardar Ruta' }}
                 </button>
               </div>
@@ -240,14 +255,17 @@ import * as L from 'leaflet';
     .popup-header button { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem; }
     .popup-desc { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 10px; }
     .popup-meta { display: flex; flex-direction: column; gap: 6px; font-size: 0.78rem; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 10px; }
-    .trazar-banner { position: absolute; z-index: 1000; background: rgba(20, 24, 33, 0.96); backdrop-filter: blur(10px); border: 1.5px solid var(--accent); border-radius: 14px; padding: 16px; width: 330px; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 10px; cursor: grab; }
+    .trazar-banner { position: absolute; z-index: 1000; background: rgba(20, 24, 33, 0.96); backdrop-filter: blur(10px); border: 1.5px solid var(--accent); border-radius: 14px; padding: 16px; width: 335px; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 10px; cursor: grab; }
     .trazar-banner:active { cursor: grabbing; }
     .trazar-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; color: var(--text-primary); user-select: none; }
     .drag-handle { font-size: 0.75rem; color: var(--accent); background: rgba(232,160,32,0.12); padding: 2px 8px; border-radius: 6px; font-weight: 600; }
     .trazar-hint { font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; }
-    .trazar-meta { display: flex; gap: 8px; align-items: center; }
+    .trazar-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .dist-badge { background: var(--accent); color: #000; font-weight: 700; padding: 3px 10px; border-radius: 6px; font-size: 0.8rem; }
+    .badge-closed { background: rgba(16, 185, 129, 0.2); border: 1px solid #10B981; color: #34D399; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
     .trazar-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .btn-snap { background: rgba(16, 185, 129, 0.16); border: 1px solid #10B981; color: #34D399; font-weight: 600; }
+    .btn-snap:hover { background: #10B981; color: #000; }
     .rutas-lista-wrap { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
     .rutas-lista-title { font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); }
     .ruta-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; color: var(--text-primary); }
@@ -286,6 +304,15 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   private isPopupDragging = false;
   private dragOffset = { x: 0, y: 0 };
   private popupDragOffset = { x: 0, y: 0 };
+
+  /** Indica si el último punto ya se unió exactamente con el primer punto */
+  esFiguraCerrada = computed(() => {
+    const pts = this.puntosTrazados();
+    if (pts.length < 4) return false;
+    const first = pts[0];
+    const last = pts[pts.length - 1];
+    return Math.abs(first.lat - last.lat) < 1e-7 && Math.abs(first.lng - last.lng) < 1e-7;
+  });
 
   // Obras computadas según búsqueda y filtro exclusivo
   obrasVisibles = computed(() => {
@@ -348,6 +375,7 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   private currentTileLayer?: L.TileLayer;
   private markersData: { marker: L.Marker; estatus: string; obraId: number }[] = [];
   private draftPolyline?: L.Polyline;
+  private draftPolygon?: L.Polygon;
   private draftMarkers: L.CircleMarker[] = [];
   private savedPolylinesData: { polyline: L.Polyline; obraId: number; firstPoint?: { lat: number; lng: number } }[] = [];
 
@@ -380,14 +408,42 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
     this.aplicarCapaMapa('osm');
 
     this.map.on('click', (e: L.LeafletMouseEvent) => {
-      if (this.modoTrazar()) {
-        const p = { lat: e.latlng.lat, lng: e.latlng.lng };
-        this.puntosTrazados.update(prev => [...prev, p]);
-        this.actualizarBorradorRuta();
+      if (!this.modoTrazar()) return;
+
+      // Si la figura ya está cerrada, no agregar más puntos sueltos a menos que deshaga el cierre
+      if (this.esFiguraCerrada()) {
+        this.toastSvc.show('🔗 El perímetro ya está cerrado. Guarda la ruta o usa "Deshacer" para seguir editando.', 'info');
+        return;
       }
+
+      const pts = this.puntosTrazados();
+      // Imán (Snap) automático si ya hay 3 o más puntos y el clic cae cerca del Punto #1 (<= 18 píxeles en pantalla)
+      if (pts.length >= 3 && this.map) {
+        const firstPt = L.latLng(pts[0].lat, pts[0].lng);
+        const clickPixel = this.map.latLngToContainerPoint(e.latlng);
+        const firstPixel = this.map.latLngToContainerPoint(firstPt);
+        if (clickPixel.distanceTo(firstPixel) <= 18) {
+          this.cerrarFiguraConInicio();
+          return;
+        }
+      }
+
+      const p = { lat: e.latlng.lat, lng: e.latlng.lng };
+      this.puntosTrazados.update(prev => [...prev, p]);
+      this.actualizarBorradorRuta();
     });
 
     this.refreshMapMarkers();
+  }
+
+  /** Une exactamente el último punto con las coordenadas del Punto #1 */
+  cerrarFiguraConInicio(): void {
+    const pts = this.puntosTrazados();
+    if (pts.length < 3 || this.esFiguraCerrada()) return;
+    const inicio = { lat: pts[0].lat, lng: pts[0].lng };
+    this.puntosTrazados.update(prev => [...prev, inicio]);
+    this.actualizarBorradorRuta();
+    this.toastSvc.show('🔗 Perímetro unido con el punto inicial.', 'info');
   }
 
   cambiarCapaMapa(tipo: 'osm' | 'satellite') {
@@ -593,13 +649,53 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
     this.limpiarBorradorRuta();
 
     const puntos = this.puntosTrazados();
+    const cerrada = this.esFiguraCerrada();
     const latlngs: [number, number][] = puntos.map(p => [p.lat, p.lng]);
 
     if (latlngs.length > 0) {
-      this.draftPolyline = L.polyline(latlngs, { color: '#E8A020', weight: 6, opacity: 0.9 }).addTo(this.map);
+      if (cerrada) {
+        // Sombreado sutil cuando el perímetro está cerrado
+        this.draftPolygon = L.polygon(latlngs.slice(0, -1), {
+          color: '#10B981',
+          weight: 5,
+          opacity: 0.95,
+          fillColor: '#10B981',
+          fillOpacity: 0.15
+        }).addTo(this.map);
+      } else {
+        this.draftPolyline = L.polyline(latlngs, {
+          color: '#E8A020',
+          weight: 6,
+          opacity: 0.9
+        }).addTo(this.map);
+      }
 
-      puntos.forEach(pt => {
-        const circle = L.circleMarker([pt.lat, pt.lng], { radius: 6, color: '#FFFFFF', fillColor: '#E8A020', fillOpacity: 1 }).addTo(this.map!);
+      puntos.forEach((pt, idx) => {
+        // Si la figura está cerrada, no dibujar un segundo círculo encima del Punto #1
+        if (cerrada && idx === puntos.length - 1) return;
+
+        const esInicio = idx === 0;
+        const puedeCerrar = esInicio && puntos.length >= 3 && !cerrada;
+
+        const circle = L.circleMarker([pt.lat, pt.lng], {
+          radius: esInicio ? 8 : 6,
+          color: '#FFFFFF',
+          weight: esInicio ? 2.5 : 2,
+          fillColor: esInicio ? '#10B981' : '#E8A020',
+          fillOpacity: 1
+        }).addTo(this.map!);
+
+        if (puedeCerrar) {
+          circle.bindTooltip('🔗 Haz clic aquí para unir con el inicio y cerrar la figura', {
+            direction: 'top',
+            offset: [0, -8]
+          });
+          circle.on('click', (ev: L.LeafletMouseEvent) => {
+            L.DomEvent.stopPropagation(ev);
+            this.cerrarFiguraConInicio();
+          });
+        }
+
         this.draftMarkers.push(circle);
       });
     }
@@ -616,6 +712,7 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private limpiarBorradorRuta(): void {
     this.draftPolyline?.remove();
+    this.draftPolygon?.remove();
     this.draftMarkers.forEach(m => m.remove());
     this.draftMarkers = [];
   }
@@ -666,16 +763,43 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   eliminarRuta(rutaId: number): void {
-    if (confirm('¿Deseas eliminar esta ruta lineal?')) {
-      this.rutasSvc.eliminarRuta(rutaId).subscribe({
-        next: () => {
-          this.rutasGuardadas.update(list => list.filter(r => r.id !== rutaId));
-          this.toastSvc.show('Ruta lineal eliminada correctamente.', 'success');
-          this.cargarTodasLasRutas();
-        },
-        error: (err) => this.toastSvc.show('Error al eliminar la ruta.', 'error')
-      });
-    }
+    const ruta = this.rutasGuardadas().find(r => r.id === rutaId);
+    const nombreRuta = ruta?.nombre || 'esta ruta lineal';
+    const ptsCount = ruta?.puntos?.length || 0;
+
+    Swal.fire({
+      title: '🗑️ ¿Eliminar trazado de ruta?',
+      html: `¿Estás seguro de que deseas eliminar el trazado de ruta <strong>"${nombreRuta}"</strong>${ptsCount ? ` (${ptsCount} puntos)` : ''}?<br><br>Esta acción quitará el trazado del mapa y no se puede deshacer.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#EF4444',
+      cancelButtonColor: '#4B5563',
+      confirmButtonText: '🗑️ Sí, eliminar trazado',
+      cancelButtonText: 'Cancelar',
+      background: '#1F2937',
+      color: '#F9FAFB'
+    }).then((res) => {
+      if (res.isConfirmed) {
+        this.rutasSvc.eliminarRuta(rutaId).subscribe({
+          next: () => {
+            this.rutasGuardadas.update(list => list.filter(r => r.id !== rutaId));
+            this.toastSvc.show(`🗑️ Trazado "${nombreRuta}" eliminado correctamente.`, 'success');
+            this.cargarTodasLasRutas();
+          },
+          error: (err) => {
+            Swal.fire({
+              title: '❌ Error al eliminar trazado',
+              text: err?.error?.message || 'No se pudo eliminar el trazado de ruta.',
+              icon: 'error',
+              confirmButtonColor: '#EF4444',
+              confirmButtonText: 'Entendido',
+              background: '#1F2937',
+              color: '#F9FAFB'
+            });
+          }
+        });
+      }
+    });
   }
 
   toggleFilter(status: string) {
@@ -729,4 +853,3 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
     return ESTATUS_LABEL[obra.estatus] ?? obra.estatus;
   }
 }
-
