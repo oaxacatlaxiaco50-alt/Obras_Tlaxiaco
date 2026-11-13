@@ -305,7 +305,7 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                 <div>
                   <h2 style="font-size:1.1rem; font-weight:800; color:var(--text-primary); margin:0;">
-                    🏛️ INTEGRACIÓN DE EXPEDIENTE UNITARIO DE OBRA PÚBLICA EJERCICIO 2026
+                    🏛️ INTEGRACIÓN DE EXPEDIENTE UNITARIO DE OBRA PÚBLICA EJERCICIO {{ getEjercicioFiscal() }}
                   </h2>
                   <span style="font-size:0.8rem; color:var(--accent); font-weight:600;">
                     {{ (institucionSvc.config$ | async)?.nombreMunicipio || 'H. AYUNTAMIENTO CONSTITUCIONAL' }} · {{ (institucionSvc.config$ | async)?.dependencia || 'DIRECCIÓN DE OBRAS PÚBLICAS' }}
@@ -1718,6 +1718,15 @@ export class ExpedienteComponent implements OnInit {
     }
   }
 
+  getEjercicioFiscal(): number {
+    const o = this.obra();
+    if (o?.fechaInicio) {
+      const year = new Date(o.fechaInicio).getFullYear();
+      if (!isNaN(year) && year > 2000) return year;
+    }
+    return new Date().getFullYear();
+  }
+
   ngOnInit() {
     this.usuariosSvc.getUsuarios().subscribe({
       next: (users) => this.responsables.set(users),
@@ -2177,7 +2186,7 @@ export class ExpedienteComponent implements OnInit {
         // ==================== ENCABEZADO ====================
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9.5);
-        doc.text('INTEGRACIÓN DE EXPEDIENTE UNITARIO DE OBRA PÚBLICA EJERCICIO 2026', 306, 26, { align: 'center' });
+        doc.text(`INTEGRACIÓN DE EXPEDIENTE UNITARIO DE OBRA PÚBLICA EJERCICIO ${this.getEjercicioFiscal()}`, 306, 26, { align: 'center' });
 
         // Nombre de la obra
         doc.setFont('helvetica', 'normal');

@@ -1302,8 +1302,9 @@ export class AdminComponent implements OnInit {
     doc.text(fechaHoy.toUpperCase(), 155, startY + 48);
 
     // Folio a la derecha calculado con precisión para evitar cualquier encimado
+    const anioActual = new Date().getFullYear();
     const folioTexto = 'FOLIO: ';
-    const folioValor = 'MUESTRA-2026/01';
+    const folioValor = `MUESTRA-${anioActual}/01`;
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(71, 85, 105);
     const folioValWidth = doc.getTextWidth(folioValor);
