@@ -82,6 +82,44 @@ export class ObrasService {
     return this.http.get<ObraMapaGeoJSON>(`${API}/obras/mapa`);
   }
 
+  /** Ejecutar Cierre Fiscal Anual (Solo Administrador) */
+  ejecutarCierreFiscal(ejercicio: number): Observable<{ mensaje: string; ejercicio: number; obrasArchivadas: number }> {
+    return this.http.post<{ mensaje: string; ejercicio: number; obrasArchivadas: number }>(
+      `${API}/obras/cierre-fiscal`,
+      { ejercicio }
+    );
+  }
+
+  /** Consultar Archivo Histórico Fiscal */
+  getArchivoFiscal(params?: {
+    ejercicio?: number;
+    categoria?: string;
+    mes?: number;
+    estatus?: string;
+    query?: string;
+  }): Observable<ObraResponse[]> {
+    let httpParams = new HttpParams();
+    if (params?.ejercicio) httpParams = httpParams.set('ejercicio', params.ejercicio);
+    if (params?.categoria) httpParams = httpParams.set('categoria', params.categoria);
+    if (params?.mes) httpParams = httpParams.set('mes', params.mes);
+    if (params?.estatus) httpParams = httpParams.set('estatus', params.estatus);
+    if (params?.query) httpParams = httpParams.set('query', params.query);
+
+    return this.http.get<ObraResponse[]>(`${API}/obras/archivo-fiscal`, { params: httpParams });
+  }
+
+  /** Obtener lista de ejercicios fiscales disponibles en el archivo */
+  getEjerciciosFiscales(): Observable<number[]> {
+    return this.http.get<number[]>(`${API}/obras/ejercicios-fiscales`);
+  }
+
+  /** Obtener resumen previo al cierre fiscal */
+  getResumenCierreFiscal(ejercicio: number): Observable<{ ejercicio: number; obrasPendientesCierre: number }> {
+    return this.http.get<{ ejercicio: number; obrasPendientesCierre: number }>(
+      `${API}/obras/resumen-cierre-fiscal/${ejercicio}`
+    );
+  }
+
   // ─── Helpers de presentación ─────────────────────────────────────────────
 
   formatMonto(monto: number): string {

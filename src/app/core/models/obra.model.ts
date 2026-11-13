@@ -53,6 +53,9 @@ export interface ObraResponse {
   beneficiarios?: string;
   impactoSocial?: string;
   contratista?: string;
+  ejercicioFiscal?: number;
+  archivadaFiscal?: boolean;
+  notaCierreFiscal?: string;
   porcentajeAvance?: number;
   createdAt: string;
   updatedAt: string;

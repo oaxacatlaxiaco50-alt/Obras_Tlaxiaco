@@ -7,6 +7,7 @@
   position: relative;
   overflow: hidden;
   padding: 20px;
+  transition: background 0.3s ease;
 }
 
 .login-bg { position: absolute; inset: 0; pointer-events: none; }
@@ -31,6 +32,7 @@
   max-width: 440px;
   box-shadow: var(--shadow-lg), 0 0 30px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(12px);
+  transition: all 0.3s ease;
 }
 
 .login-header { text-align: center; margin-bottom: 24px; }
@@ -50,12 +52,13 @@
 }
 .login-subtitle {
   font-size: 0.85rem; color: var(--text-secondary);
+  line-height: 1.4;
 }
 .login-divider {
   height: 1px; background: var(--border); margin: 20px 0;
 }
 .role-label {
-  font-size: 0.83rem; color: var(--text-muted);
+  font-size: 0.85rem; color: var(--text-muted);
   text-align: center; margin-bottom: 24px; font-weight: 500;
 }
 
@@ -69,7 +72,7 @@
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 8px; /* Separación clara entre etiquetas e inputs */
+  gap: 8px;
   position: relative;
 }
 
@@ -100,7 +103,7 @@
   font-size: 0.93rem;
   font-family: inherit;
   color: var(--text-primary);
-  background: rgba(15, 25, 35, 0.6);
+  background: var(--bg-card);
   border: 1.5px solid var(--border-light);
   border-radius: 12px;
   outline: none;
@@ -115,7 +118,7 @@
 
 .form-control:focus {
   border-color: var(--accent);
-  background: rgba(15, 25, 35, 0.85);
+  background: var(--bg-surface-hover);
   box-shadow: 0 0 0 4px rgba(232, 160, 32, 0.15);
 }
 
@@ -163,6 +166,27 @@
   gap: 8px;
 }
 
+.session-warning-banner {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #FBBF24;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+:host-context(body.light-mode) .session-warning-banner,
+body.light-mode .session-warning-banner {
+  background: #FFFBEB;
+  border: 1px solid #FCD34D;
+  color: #B45309;
+}
+
 /* === BUTTON === */
 .login-btn {
   margin-top: 8px;
@@ -193,7 +217,7 @@
 }
 
 .login-btn:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
@@ -215,11 +239,92 @@
 .login-footer {
   margin-top: 28px;
   padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--border);
 }
 
 .login-footer-note {
   text-align: center;
   font-size: 0.76rem;
   color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ========================================================
+   ADAPTACIONES ESPECÍFICAS PARA MODO CLARO (LIGHT-MODE)
+   ======================================================== */
+:host-context(body.light-mode) .login-page,
+body.light-mode .login-page {
+  background: #F1F5F9;
+}
+
+:host-context(body.light-mode) .login-card,
+body.light-mode .login-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.07), 0 20px 48px rgba(15, 23, 42, 0.05);
+}
+
+:host-context(body.light-mode) .login-title,
+body.light-mode .login-title {
+  color: #0F172A;
+}
+
+:host-context(body.light-mode) .login-subtitle,
+body.light-mode .login-subtitle {
+  color: #475569;
+}
+
+:host-context(body.light-mode) .form-label,
+body.light-mode .form-label {
+  color: #1E293B;
+}
+
+:host-context(body.light-mode) .form-control,
+body.light-mode .form-control {
+  background: #F8FAFC;
+  color: #0F172A;
+  border: 1.5px solid #CBD5E1;
+}
+
+:host-context(body.light-mode) .form-control::placeholder,
+body.light-mode .form-control::placeholder {
+  color: #94A3B8;
+}
+
+:host-context(body.light-mode) .form-control:focus,
+body.light-mode .form-control:focus {
+  background: #FFFFFF;
+  border-color: #1A3C5E;
+  box-shadow: 0 0 0 4px rgba(26, 60, 94, 0.15);
+}
+
+:host-context(body.light-mode) .login-btn,
+body.light-mode .login-btn {
+  background: linear-gradient(135deg, #1A3C5E, #245280);
+  color: #FFFFFF;
+  box-shadow: 0 4px 14px rgba(26, 60, 94, 0.25);
+}
+
+:host-context(body.light-mode) .login-btn:hover:not(:disabled),
+body.light-mode .login-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #245280, #16324F);
+  box-shadow: 0 6px 18px rgba(26, 60, 94, 0.35);
+}
+
+:host-context(body.light-mode) .login-btn:disabled,
+body.light-mode .login-btn:disabled {
+  background: #CBD5E1;
+  color: #64748B;
+  opacity: 0.85;
+  box-shadow: none;
+}
+
+:host-context(body.light-mode) .login-footer,
+body.light-mode .login-footer {
+  border-top: 1px solid #E2E8F0;
+}
+
+:host-context(body.light-mode) .login-footer-note,
+body.light-mode .login-footer-note {
+  color: #64748B;
 }

@@ -1,4 +1,6 @@
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { ObrasService } from '../../core/services/obras.service';
 import { UserService } from '../../core/services/user.service';
@@ -10,13 +12,13 @@ import Swal from 'sweetalert2';
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [UserFormModalComponent],
+  imports: [CommonModule, FormsModule, UserFormModalComponent],
   template: `
     <div class="admin-page animate-fade-in">
       <div class="admin-header">
         <div>
           <h1 class="admin-title">⚙️ Administración del Sistema</h1>
-          <p class="admin-subtitle">Gestión de usuarios, roles y configuración global</p>
+          <p class="admin-subtitle">Gestión de usuarios, roles, cierre fiscal y configuración institucional</p>
         </div>
         <button class="btn btn-primary" (click)="openUserModal()">+ Nuevo Usuario</button>
       </div>
@@ -29,15 +31,62 @@ import Swal from 'sweetalert2';
         </div>
         <div class="kpi-card">
           <div class="kpi-icon" style="background:rgba(232,160,32,0.12)">🏗️</div>
-          <div><div class="kpi-value">{{ totalObras }}</div><div class="kpi-label">Total Obras</div></div>
+          <div><div class="kpi-value">{{ totalObras }}</div><div class="kpi-label">Total Obras Activas</div></div>
         </div>
         <div class="kpi-card">
           <div class="kpi-icon" style="background:rgba(239,68,68,0.12)">🔒</div>
           <div><div class="kpi-value" style="color:var(--danger)">0</div><div class="kpi-label">Obras Bloqueadas</div></div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-icon" style="background:rgba(45,212,191,0.12)">📈</div>
-          <div><div class="kpi-value" style="color:var(--success)">100%</div><div class="kpi-label">Avance Global</div></div>
+          <div class="kpi-icon" style="background:rgba(45,212,191,0.12)">🏛️</div>
+          <div><div class="kpi-value" style="color:var(--accent)">{{ ejercicioCierre }}</div><div class="kpi-label">Ejercicio Fiscal Actual</div></div>
+        </div>
+      </div>
+
+      <!-- Cierre de Ejercicio Fiscal -->
+      <div class="card fiscal-close-card">
+        <div class="fiscal-header">
+          <div class="fiscal-header-info">
+            <div class="fiscal-title-row">
+              <span class="fiscal-badge-icon">🏛️</span>
+              <h3 class="sec-title" style="margin:0;">Cierre de Ejercicio Fiscal Anual</h3>
+              <span class="badge badge-warning">Exclusivo Administrador</span>
+            </div>
+            <p class="fiscal-desc">
+              Al finalizar el año, este proceso archiva de forma segura las obras del ejercicio en curso para que el padrón del nuevo año arranque <strong>completamente limpio (0 obras)</strong>. Las obras incompletas se concluyen administrativamente y las obras eliminadas/canceladas conservan su estado en el archivo. Puedes consultar el histórico en <strong>📋 Historial General &gt; Archivo Fiscal</strong>.
+            </p>
+          </div>
+          <div class="fiscal-controls">
+            <div class="fiscal-select-box">
+              <label class="fiscal-lbl">EJERCICIO A CERRAR:</label>
+              <select class="fiscal-select" [(ngModel)]="ejercicioCierre" (change)="cargarResumenCierre()">
+                <option [value]="anioActual">{{ anioActual }} (Año en curso)</option>
+                <option [value]="anioActual - 1">{{ anioActual - 1 }}</option>
+                <option [value]="anioActual + 1">{{ anioActual + 1 }}</option>
+              </select>
+            </div>
+            <button class="btn btn-warning fiscal-btn" (click)="confirmarCierreFiscal()" [disabled]="cargandoCierre">
+              🔒 Realizar Cierre Fiscal {{ ejercicioCierre }}
+            </button>
+          </div>
+        </div>
+
+        <div class="fiscal-stats-row">
+          <div class="fiscal-stat-pill">
+            <span class="f-pill-dot" style="background:var(--accent)"></span>
+            <span class="f-pill-label">Obras pendientes de archivar:</span>
+            <strong class="f-pill-val">{{ obrasPendientesCierre }} obras</strong>
+          </div>
+          <div class="fiscal-stat-pill">
+            <span class="f-pill-dot" style="background:var(--success)"></span>
+            <span class="f-pill-label">Obras en proceso/planificadas:</span>
+            <span class="f-pill-val">Pasan a Concluidas por Cierre</span>
+          </div>
+          <div class="fiscal-stat-pill">
+            <span class="f-pill-dot" style="background:var(--danger)"></span>
+            <span class="f-pill-label">Obras eliminadas / canceladas:</span>
+            <span class="f-pill-val">Se archivan intactas con su etiqueta</span>
+          </div>
         </div>
       </div>
 
@@ -198,32 +247,94 @@ import Swal from 'sweetalert2';
     .rule-name { font-size: 0.87rem; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
     .rule-desc { font-size: 0.78rem; color: var(--text-muted); }
     .perms-table { display: flex; flex-direction: column; gap: 2px; }
-    .perm-row {
-      display: grid; grid-template-columns: 2.2fr 1fr 1fr 1fr 1fr;
-      padding: 10px 12px; border-radius: 8px; font-size: 0.81rem;
+
+    /* Cierre Fiscal Styles */
+    .fiscal-close-card {
+      border: 1px solid rgba(232, 160, 32, 0.25);
+      background: linear-gradient(180deg, rgba(232, 160, 32, 0.04) 0%, var(--bg-surface) 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .fiscal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .fiscal-header-info { flex: 1; min-width: 280px; }
+    .fiscal-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .fiscal-badge-icon { font-size: 1.3rem; }
+    .fiscal-desc { font-size: 0.84rem; color: var(--text-secondary); line-height: 1.5; margin: 0; }
+    .fiscal-controls {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .fiscal-select-box { display: flex; flex-direction: column; gap: 4px; }
+    .fiscal-lbl { font-size: 0.72rem; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; }
+    .fiscal-select {
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      outline: none;
+    }
+    .fiscal-btn {
+      padding: 9px 18px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
       align-items: center;
+      gap: 8px;
     }
-    .perm-row.header {
-      background: var(--bg-dark); font-weight: 700;
-      font-size: 0.73rem; color: var(--text-muted); text-transform: uppercase;
+    .fiscal-stats-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
     }
-    .perm-row:not(.header):hover { background: rgba(255,255,255,0.02); }
-    button[disabled] { opacity: 0.4; cursor: not-allowed; }
+    .fiscal-stat-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-dark);
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 0.82rem;
+    }
+    .f-pill-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .f-pill-label { color: var(--text-muted); }
+    .f-pill-val { font-weight: 600; color: var(--text-primary); }
   `]
 })
 export class AdminComponent implements OnInit {
   usuarios: UserResponse[] = [];
-  totalObras = 0;
-  showModal = false;
   selectedUser: UserResponse | null = null;
+  showModal = false;
+  totalObras = 0;
+
+  anioActual = new Date().getFullYear();
+  ejercicioCierre = new Date().getFullYear();
+  obrasPendientesCierre = 0;
+  cargandoCierre = false;
 
   permisos = [
-    { nombre: 'Gestionar Usuarios (Crear/Editar/Eliminar)', admin: true, supervisor: false, contratista: false, auditor: false },
-    { nombre: 'Crear / Editar Obras Públicas', admin: true, supervisor: true, contratista: false, auditor: false },
-    { nombre: 'Cambiar Estatus de Obra', admin: true, supervisor: true, contratista: false, auditor: false },
-    { nombre: 'Subir Archivos y Evidencias de Expediente', admin: true, supervisor: true, contratista: true, auditor: false },
-    { nombre: 'Consultar Obras, Bitácora y Expedientes', admin: true, supervisor: true, contratista: true, auditor: true },
-    { nombre: 'Exportar Reportes PDF y Excel', admin: true, supervisor: true, contratista: false, auditor: true },
+    { nombre: 'Crear obras públicas', admin: true, supervisor: true, contratista: false, auditor: false },
+    { nombre: 'Editar datos de obra y avance', admin: true, supervisor: true, contratista: true, auditor: false },
+    { nombre: 'Subir documentos y evidencias', admin: true, supervisor: true, contratista: true, auditor: false },
+    { nombre: 'Descargar reportes y expedientes', admin: true, supervisor: true, contratista: true, auditor: true },
+    { nombre: 'Consultar bitácora y auditoría', admin: true, supervisor: false, contratista: false, auditor: true },
+    { nombre: 'Ejecutar Cierre Fiscal Anual', admin: true, supervisor: false, contratista: false, auditor: false },
+    { nombre: 'Gestión de usuarios y accesos', admin: true, supervisor: false, contratista: false, auditor: false },
   ];
 
   constructor(
@@ -235,16 +346,95 @@ export class AdminComponent implements OnInit {
 
   ngOnInit() {
     this.loadUsers();
-    this.svc.getObras({ size: 1 }).subscribe({
-      next: (page) => this.totalObras = page.totalElements,
-      error: () => {}
-    });
+    this.cargarResumenCierre();
   }
 
   loadUsers() {
     this.userService.getUsers().subscribe({
       next: (res) => this.usuarios = res,
       error: (err) => console.error('Error cargando usuarios', err)
+    });
+  }
+
+  cargarResumenCierre() {
+    this.svc.getResumenCierreFiscal(this.ejercicioCierre).subscribe({
+      next: (res) => {
+        this.obrasPendientesCierre = res.obrasPendientesCierre;
+        this.totalObras = res.obrasPendientesCierre;
+      },
+      error: () => {
+        this.svc.getObras({ size: 1 }).subscribe({
+          next: (page) => {
+            this.totalObras = page.totalElements;
+            this.obrasPendientesCierre = page.totalElements;
+          }
+        });
+      }
+    });
+  }
+
+  confirmarCierreFiscal() {
+    Swal.fire({
+      title: `🏛️ Cierre Fiscal Ejercicio ${this.ejercicioCierre}`,
+      html: `
+        <div style="text-align: left; font-size: 0.88rem; line-height: 1.5; color: #cbd5e1;">
+          <p style="margin-bottom: 10px;">⚠️ <strong>Atención Administrador:</strong> Esta acción archivará formalmente las obras del ejercicio fiscal <strong>${this.ejercicioCierre}</strong>.</p>
+          <ul style="padding-left: 18px; margin: 8px 0; display: flex; flex-direction: column; gap: 6px;">
+            <li>Las obras en proceso o planificadas se marcarán como <strong>COMPLETADAS</strong> por cierre administrativo.</li>
+            <li>Las obras eliminadas y canceladas <strong>conservarán su estado</strong> y se guardarán en el archivo histórico.</li>
+            <li>El padrón del nuevo año iniciará <strong>completamente limpio (0 obras activas)</strong>.</li>
+            <li>Podrás consultar y buscar estas obras en cualquier momento desde <strong>📋 Historial General &gt; Archivo Fiscal</strong>.</li>
+          </ul>
+          <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 10px; margin-top: 12px; color: #fbbf24;">
+            Para autorizar el cierre, escribe exactamente: <strong style="letter-spacing:1px; color:#ffffff;">CONFIRMAR-${this.ejercicioCierre}</strong>
+          </div>
+        </div>
+      `,
+      input: 'text',
+      inputPlaceholder: `CONFIRMAR-${this.ejercicioCierre}`,
+      showCancelButton: true,
+      confirmButtonText: '🔒 Ejecutar Cierre Fiscal',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#d97706',
+      cancelButtonColor: '#4b5563',
+      background: '#1e293b',
+      color: '#f8fafc',
+      preConfirm: (value) => {
+        if (value !== `CONFIRMAR-${this.ejercicioCierre}`) {
+          Swal.showValidationMessage(`Debes escribir exactamente CONFIRMAR-${this.ejercicioCierre}`);
+          return false;
+        }
+        return true;
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.ejecutarCierre();
+      }
+    });
+  }
+
+  ejecutarCierre() {
+    this.cargandoCierre = true;
+    this.svc.ejecutarCierreFiscal(this.ejercicioCierre).subscribe({
+      next: (res) => {
+        this.cargandoCierre = false;
+        this.toastSvc.show(`🏛️ Cierre Fiscal ${this.ejercicioCierre} concluido: ${res.obrasArchivadas} obras archivadas.`, 'success');
+        Swal.fire({
+          title: '✅ Cierre Fiscal Concluido',
+          html: `El ejercicio fiscal <strong>${this.ejercicioCierre}</strong> ha sido cerrado exitosamente.<br><br>Se han archivado <strong>${res.obrasArchivadas} obras</strong>.<br>El padrón activo para el nuevo año ahora está listo y limpio.<br><br><small style="color:#94a3b8">Puedes consultar todas las obras archivadas desde el módulo de <strong>Historial General &gt; Archivo Fiscal</strong>.</small>`,
+          icon: 'success',
+          confirmButtonColor: '#10b981',
+          confirmButtonText: 'Entendido',
+          background: '#1e293b',
+          color: '#f8fafc'
+        });
+        this.cargarResumenCierre();
+      },
+      error: (err) => {
+        this.cargandoCierre = false;
+        const msg = err?.error?.message || 'Error al ejecutar el cierre fiscal.';
+        this.toastSvc.show(msg, 'error');
+      }
     });
   }
 
@@ -294,10 +484,8 @@ export class AdminComponent implements OnInit {
   }
 
   private mostrarErrorGuardarUsuario(err: any, accion: 'crear' | 'actualizar') {
-    const fieldErrors = err?.error?.fieldErrors as Record<string, string> | undefined;
     const rawMsg: string = err?.error?.message || '';
 
-    // 1. Si el backend detectó que el username ya existe
     if (rawMsg.toLowerCase().includes('nombre de usuario')) {
       Swal.fire({
         title: '🚫 Nombre de usuario ocupado',
@@ -311,45 +499,20 @@ export class AdminComponent implements OnInit {
       return;
     }
 
-    // 2. Si el backend detectó que el correo ya existe
-    if (rawMsg.toLowerCase().includes('correo')) {
+    if (rawMsg.toLowerCase().includes('correo electrónico') || rawMsg.toLowerCase().includes('email')) {
       Swal.fire({
-        title: '🚫 Correo electrónico ya registrado',
-        html: `${rawMsg}.<br><br>Por favor ingresa otro correo electrónico.`,
+        title: '🚫 Correo ya registrado',
+        html: `${rawMsg}.<br><br>Verifica el correo ingresado o utiliza otro diferente.`,
         icon: 'warning',
         confirmButtonColor: '#E8A020',
-        confirmButtonText: 'Cambiar correo',
+        confirmButtonText: 'Corregir correo',
         background: '#1F2937',
         color: '#F9FAFB'
       });
       return;
     }
 
-    // 3. Si el backend devolvió errores de validación por campo (fieldErrors)
-    if (fieldErrors && Object.keys(fieldErrors).length > 0) {
-      const lista = Object.values(fieldErrors).map(m => `• ${m}`).join('<br>');
-      Swal.fire({
-        title: '⚠️ Datos inválidos o incompletos',
-        html: `<div style="text-align:left; font-size:0.9rem; line-height:1.6;">Por favor verifica los siguientes campos:<br><br>${lista}</div>`,
-        icon: 'warning',
-        confirmButtonColor: '#3B82F6',
-        confirmButtonText: 'Corregir',
-        background: '#1F2937',
-        color: '#F9FAFB'
-      });
-      return;
-    }
-
-    // 4. Cualquier otro error
-    Swal.fire({
-      title: `❌ Error al ${accion} usuario`,
-      text: rawMsg || `Ocurrió un problema al intentar ${accion} el usuario.`,
-      icon: 'error',
-      confirmButtonColor: '#EF4444',
-      confirmButtonText: 'Entendido',
-      background: '#1F2937',
-      color: '#F9FAFB'
-    });
+    this.toastSvc.show(rawMsg || `Error al ${accion} el usuario.`, 'error');
   }
 
   activeAdminsCount(): number {
