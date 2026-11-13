@@ -6,6 +6,7 @@ import { ObrasService } from '../../core/services/obras.service';
 import { AuthService } from '../../core/services/auth.service';
 import { EntradaBitacora, AccionBitacora } from '../../core/models/bitacora.model';
 import { ObraResponse } from '../../core/models/obra.model';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-historial-general',
@@ -139,8 +140,9 @@ import { ObraResponse } from '../../core/models/obra.model';
       @if (tabActiva() === 'archivoFiscal') {
         <div class="archivo-banner">
           <div>
-            <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0 0 4px 0; color: var(--text-primary);">
+            <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0 0 4px 0; color: var(--text-primary); display:flex; align-items:center; gap:8px;">
               🏛️ Archivo Histórico de Cierres Fiscales
+              <span class="badge badge-warning" style="font-size:0.7rem;">Auditoría y Consulta</span>
             </h3>
             <p style="font-size: 0.83rem; color: var(--text-muted); margin: 0;">
               Consulta histórica permanente de obras concluidas, canceladas o eliminadas de años anteriores. Toda la información y expedientes se conservan intactos para auditoría gubernamental.
@@ -220,12 +222,12 @@ import { ObraResponse } from '../../core/models/obra.model';
           </div>
 
           <div class="filter-group" style="flex: 1; min-width: 200px;">
-            <label class="filter-label">🔍 Buscar obra / contratista</label>
+            <label class="filter-label">🔍 Buscar texto (Opcional)</label>
             <input
               class="filter-input"
               type="text"
               style="width: 100%;"
-              placeholder="Código, nombre o contratista..."
+              placeholder="Opcional: escribir código, nombre o contratista..."
               [ngModel]="filtroBusqueda()"
               (ngModelChange)="filtroBusqueda.set($event); filtrarArchivo()"
             />
@@ -512,6 +514,27 @@ import { ObraResponse } from '../../core/models/obra.model';
     }
     .btn-ver-obra:hover { background: rgba(59,130,246,0.25); color: #93c5fd; }
 
+    .btn-cierre-action {
+      background: linear-gradient(135deg, #d97706, #b45309);
+      border: none;
+      color: #ffffff;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    .btn-cierre-action:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(217, 119, 6, 0.45);
+    }
+
     /* Pagination */
     .hg-pagination {
       display: flex; align-items: center; justify-content: center; gap: 16px;
@@ -605,6 +628,119 @@ export class HistorialGeneralComponent implements OnInit {
       this.auth.usuario()?.roles.includes('ADMINISTRADOR') ||
       this.auth.usuario()?.roles.includes('AUDITOR');
   });
+
+  esAdmin = computed(() => {
+    return this.auth.hasRole('admin') || this.auth.usuario()?.roles.includes('ADMINISTRADOR');
+  });
+
+  iniciarCierreFiscalDesdeHistorial() {
+    const mesActual = new Date().getMonth() + 1;
+    const anioActual = new Date().getFullYear();
+    const esDiciembre = (mesActual === 12);
+
+    if (!esDiciembre) {
+      Swal.fire({
+        title: '📅 Cierre Fiscal Permitido en Diciembre',
+        html: `
+          <div style="text-align: left; font-size: 0.9rem; line-height: 1.5; color: #cbd5e1;">
+            <p>Por normativa de la administración pública y contabilidad gubernamental, el <strong>Cierre de Ejercicio Fiscal</strong> únicamente está autorizado a ejecutarse en el último mes del año (<strong>Diciembre</strong>).</p>
+            <p style="color: #f59e0b; margin-top: 8px;">Actualmente nos encontramos en el <strong>Mes ${mesActual}</strong>.</p>
+            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 12px 0;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#93c5fd; font-size:0.85rem;">
+              <input type="checkbox" id="chkForzarHistorial" style="cursor:pointer;" />
+              Habilitar Cierre Anticipado (Modo Pruebas / Demostración)
+            </label>
+          </div>
+        `,
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonText: 'Continuar Cierre',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d97706',
+        cancelButtonColor: '#4b5563',
+        background: '#1e293b',
+        color: '#f8fafc',
+        preConfirm: () => {
+          const chk = (document.getElementById('chkForzarHistorial') as HTMLInputElement)?.checked;
+          if (!chk) {
+            Swal.showValidationMessage('El cierre está bloqueado hasta Diciembre. Marca la casilla si deseas realizar una prueba anticipada.');
+            return false;
+          }
+          return true;
+        }
+      }).then((result) => {
+        if (result.isConfirmed) {
+          this.solicitarConfirmacionCierre(anioActual, true);
+        }
+      });
+    } else {
+      this.solicitarConfirmacionCierre(anioActual, false);
+    }
+  }
+
+  private solicitarConfirmacionCierre(ejercicio: number, forzar: boolean) {
+    Swal.fire({
+      title: `🏛️ Cierre Fiscal Ejercicio ${ejercicio}`,
+      html: `
+        <div style="text-align: left; font-size: 0.88rem; line-height: 1.5; color: #cbd5e1;">
+          <p>⚠️ <strong>Atención Administrador:</strong> Esta acción archivará todas las obras del ejercicio <strong>${ejercicio}</strong>.</p>
+          <ul style="padding-left: 18px; margin: 8px 0; display:flex; flex-direction:column; gap:4px;">
+            <li>Obras en proceso o planificadas se marcarán como <strong>COMPLETADAS</strong> por cierre administrativo.</li>
+            <li>Obras eliminadas y canceladas <strong>conservarán su estatus</strong> en el archivo histórico.</li>
+            <li>El padrón del nuevo año quedará <strong>100% en blanco (0 obras activas)</strong>.</li>
+          </ul>
+          <p style="margin-top: 10px; color: #f59e0b;">Escribe la palabra de seguridad: <strong style="color:#fff;">CONFIRMAR-${ejercicio}</strong></p>
+        </div>
+      `,
+      input: 'text',
+      inputPlaceholder: `CONFIRMAR-${ejercicio}`,
+      showCancelButton: true,
+      confirmButtonText: '🔒 Ejecutar Cierre Ahora',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#d97706',
+      cancelButtonColor: '#4b5563',
+      background: '#1e293b',
+      color: '#f8fafc',
+      preConfirm: (val) => {
+        if (val !== `CONFIRMAR-${ejercicio}`) {
+          Swal.showValidationMessage(`Debes escribir exactamente CONFIRMAR-${ejercicio}`);
+          return false;
+        }
+        return true;
+      }
+    }).then((res) => {
+      if (res.isConfirmed) {
+        this.ejecutarCierreConfirmado(ejercicio, forzar);
+      }
+    });
+  }
+
+  private ejecutarCierreConfirmado(ejercicio: number, forzar: boolean) {
+    this.obrasService.ejecutarCierreFiscal(ejercicio, forzar).subscribe({
+      next: (res) => {
+        Swal.fire({
+          title: '✅ Cierre Fiscal Concluido',
+          html: `El ejercicio fiscal <strong>${ejercicio}</strong> ha sido cerrado exitosamente.<br><br>Se han archivado <strong>${res.obrasArchivadas} obras</strong>.<br>El padrón activo para el nuevo año está listo y limpio.<br><br>Ya puedes consultar todas las obras archivadas aquí mismo en esta pestaña.`,
+          icon: 'success',
+          confirmButtonColor: '#10b981',
+          background: '#1e293b',
+          color: '#f8fafc'
+        });
+        this.cargarEjerciciosDisponibles();
+        this.filtrarArchivo();
+      },
+      error: (err) => {
+        Swal.fire({
+          title: 'Error en Cierre',
+          text: err.error?.message || 'No fue posible ejecutar el cierre fiscal.',
+          icon: 'error',
+          confirmButtonColor: '#ef4444',
+          background: '#1e293b',
+          color: '#f8fafc'
+        });
+      }
+    });
+  }
 
   ngOnInit() {
     this.cargarBitacora();
