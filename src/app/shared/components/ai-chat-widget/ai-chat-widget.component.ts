@@ -52,24 +52,63 @@ export class AiChatWidgetComponent implements AfterViewChecked {
   private triggerInitialY = 0;
   private hasMovedTrigger = false;
 
-  messages = signal<ChatMessage[]>([
-    {
-      id: 'welcome',
-      sender: 'ai',
-      text: '¡Hola! 👋 Soy tu **Asistente Virtual de IA** para Obras Públicas de Tlaxiaco.\n\nPuedes hacerme preguntas sobre el estado de las obras, presupuestos, expedientes normativos o la bitácora de auditoría.',
-      timestamp: new Date(),
-      suggestedFollowUps: [
-        '⚙️ ¿Cómo funciona el sistema?',
-        '🏆 ¿Cuál es la obra con mayor presupuesto?',
-        '🛡️ ¿Cómo funciona el control de duplicados?'
-      ]
-    }
-  ]);
+  messages = signal<ChatMessage[]>([]);
 
   canAccessAi = signal<boolean>(true);
 
   constructor() {
     this.checkPermission();
+    this.messages.set([this.buildWelcomeMessage()]);
+  }
+
+  private getCurrentRole(): string {
+    const roles = this.authService.usuario()?.roles || [];
+    const r = (roles[0] || 'AUDITOR').toUpperCase();
+    if (r === 'ADMIN') return 'ADMINISTRADOR';
+    if (r === 'RESIDENTE') return 'SUPERVISOR';
+    if (r === 'LECTOR') return 'AUDITOR';
+    return r;
+  }
+
+  private getInitialFollowUps(role: string): string[] {
+    if (role === 'ADMINISTRADOR') {
+      return [
+        '👥 ¿Cómo creo un usuario?',
+        '🏛️ ¿Cómo está conformado el proyecto?',
+        '📊 Resumen general de obras'
+      ];
+    }
+    if (role === 'SUPERVISOR') {
+      return [
+        '🏗️ ¿Cómo crear o editar una obra?',
+        '📄 ¿Cómo exportar reportes PDF/Excel?',
+        '🔑 ¿Qué puedo hacer con mi rol?'
+      ];
+    }
+    if (role === 'CONTRATISTA') {
+      return [
+        '📤 ¿Cómo subir evidencias y avances?',
+        '📁 Carpetas y Checklist de 44 requisitos',
+        '🔑 ¿Qué puedo hacer con mi rol?'
+      ];
+    }
+    return [
+      '📄 ¿Qué reportes PDF y Excel puedo exportar?',
+      '📊 Resumen general de obras',
+      '🔑 ¿Qué puedo hacer con mi rol?'
+    ];
+  }
+
+  private buildWelcomeMessage(): ChatMessage {
+    const role = this.getCurrentRole();
+    const username = this.authService.usuario()?.username || 'Usuario';
+    return {
+      id: 'welcome',
+      sender: 'ai',
+      text: `¡Hola **${username}** (\`${role}\`)! 👋 Soy tu **Asistente Virtual de IA** para Obras Públicas de Tlaxiaco.\n\nConozco la estructura completa del sistema y te responderé conforme a los permisos de tu rol (**${role}**).`,
+      timestamp: new Date(),
+      suggestedFollowUps: this.getInitialFollowUps(role)
+    };
   }
 
   checkPermission() {
@@ -332,29 +371,32 @@ export class AiChatWidgetComponent implements AfterViewChecked {
   }
 
   private getOfflineAiResponse(prompt: string): ChatMessage {
-    const p = prompt.toLowerCase();
+    const p = prompt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const role = this.getCurrentRole();
+    const isAdmin = role === 'ADMINISTRADOR';
+    const isSupervisor = role === 'SUPERVISOR';
+    const isContratista = role === 'CONTRATISTA';
     let responseText = '';
-    let followUps = ['⚙️ ¿Cómo funciona el sistema?', '📊 Resumen de obras', '📜 Bitácora de auditoría'];
+    const followUps = this.getInitialFollowUps(role);
 
     if (p.includes('hola') || p.includes('saludos') || p.includes('buenos')) {
-      responseText = '¡Hola! 👋 Soy tu **Asistente Virtual de IA**.\n\nPuedes hacerme preguntas sobre obras, presupuestos, expedientes o auditoría.';
-    } else if (p.includes('como funciona') || p.includes('funciona el sistema') || p.includes('que hace')) {
-      responseText = '### ⚙️ ¿Cómo funciona el Sistema de Obras Públicas?\n\n1. **Obras**: Registro con código, presupuesto, fechas y ubicación GPS.\n2. **Expedientes**: Control de 57 documentos clasificados.\n3. **Anti-Duplicados**: Algoritmo por firma Hash (SHA-256) que rechaza archivos repetidos.\n4. **Avances**: Carga de fotos por fases (*Antes, Durante, Después*).\n5. **Geolocalización**: Mapa interactivo de Tlaxiaco.\n6. **Auditoría**: Bitácora inalterable de acciones de usuarios con fecha y hora.';
-      followUps = ['📊 Resumen de obras', '🛡️ Detección de duplicados', '📁 Catálogo de expedientes'];
-    } else if (p.includes('duplicado') || p.includes('rechaz') || p.includes('archivo')) {
-      responseText = '### 🛡️ Detección de Archivos Duplicados\n\nEl sistema analiza el Hash SHA-256, el nombre original y el tamaño en bytes. Si intentas subir un documento idéntico, la operación se **rechaza automáticamente** y genera un evento en la bitácora (`RECHAZO_DOCUMENTO_DUPLICADO`).';
-      followUps = ['📜 Ver eventos de auditoría', '📁 Catálogo de 57 documentos'];
-    } else if (p.includes('monto') || p.includes('presupuesto') || p.includes('inversion') || p.includes('cara')) {
-      responseText = '### 💰 Información Presupuestal\n\n• **Obra con Mayor Presupuesto:** OB-2026-001 ($450,000.00 MXN)\n• **Obra con Menor Presupuesto:** OB-2026-003 ($85,000.00 MXN)\n\n💡 *Para ver el resumen completo de inversión, solicita "resumen ejecutivo".*';
-      followUps = ['🏗️ Ver lista de obras', '📊 Resumen de inversión'];
-    } else if (p.includes('expediente') || p.includes('documento') || p.includes('catalogo')) {
-      responseText = '### 📁 Expediente Técnico Oficial (57 Documentos)\n\nDividido en 3 carpetas normativas:\n1. **Parte Social**: Actas de asamblea y contraloría social.\n2. **Parte Técnica**: Proyecto ejecutivo y presupuestos.\n3. **Contratación**: Licitación, contrato y estimaciones.';
-      followUps = ['🛡️ Control anti-duplicados', '📊 Resumen general'];
-    } else if (p.includes('auditoria') || p.includes('bitacora') || p.includes('historial')) {
-      responseText = '### 📜 Bitácora e Historial de Auditoría\n\nEl sistema mantiene un registro inalterable que almacena fecha, hora, usuario, IP y tipo de acción realizada (*creación, edición o rechazo*).';
-      followUps = ['📊 Resumen de obras', '🛡️ Detección de duplicados'];
+      responseText = `¡Hola! 👋 Soy tu **Asistente Virtual de IA** (\`${role}\`).\n\nPuedes consultarme sobre los módulos y acciones permitidas para tu perfil.`;
+    } else if (p.includes('usuario') || p.includes('usuarios') || p.includes('administracion')) {
+      responseText = isAdmin
+        ? '### 👥 Gestión de Usuarios (Administrador)\n\n1. Entra a **⚙️ Administración** (`/admin`).\n2. Haz clic en **+ Nuevo Usuario**, llena los datos y elige el rol (`ADMINISTRADOR`, `SUPERVISOR`, `CONTRATISTA` o `AUDITOR`).\n3. También puedes editar, desactivar, reactivar o eliminar permanentemente usuarios inactivos sin obras asignadas.'
+        : `⛔ **Acción Restringida para tu rol (\`${role}\`)**\n\nNo puedes gestionar ni consultar la administración de usuarios; es una facultad exclusiva del **ADMINISTRADOR**.`;
+    } else if (p.includes('crear obra') || p.includes('nueva obra') || p.includes('editar obra') || p.includes('como creo una obra')) {
+      responseText = (isAdmin || isSupervisor)
+        ? '### 🏗️ Crear o Editar Obra\n\n1. Ve a **📁 Expedientes** → **+ Nueva Obra** (o **✏️ Editar Obra** dentro de un expediente).\n2. Completa los datos técnicos, presupuesto, fechas, coordenadas GPS y metas físicas.'
+        : `⛔ **Acción Restringida para tu rol (\`${role}\`)**\n\nSolo el **ADMINISTRADOR** y el **SUPERVISOR** pueden crear o editar obras públicas.`;
+    } else if (p.includes('reporte') || p.includes('pdf') || p.includes('excel')) {
+      responseText = !isContratista
+        ? '### 📄 Reportes Oficiales\n\nPuedes exportar el listado general en **PDF / Excel** desde **📁 Expedientes**, o generar la Ficha Técnica, Expediente Unitario y Excel de Avances dentro de cada obra.'
+        : '⛔ **Acción Restringida para tu rol (`CONTRATISTA`)**\n\nEl rol Contratista no tiene habilitada la exportación de reportes PDF ni Excel.';
+    } else if (p.includes('conformado') || p.includes('arquitectura') || p.includes('como funciona') || p.includes('funciona el sistema')) {
+      responseText = '### 🏛️ Estructura del Proyecto ResidenciaObra\n\n• **Frontend (`Obras_Tlaxiaco`):** Angular 19, Leaflet (mapas/rutas), jsPDF y XLSX.\n• **Backend (`Realizacion_Obras`):** Spring Boot 3.4, JWT, BCrypt, `@PreAuthorize` por rol y PostgreSQL/JPA.\n• **Módulos:** Dashboard, Geolocalización, Expedientes (4 Carpetas + Checklist de 44 requisitos), Avances, Notificaciones e Historial.';
     } else {
-      responseText = `### 🤖 Asistente de IA\n\nRespecto a: *"${prompt}"*\n\nPuedes consultarme sobre:\n• **Obras**: Lista, montos, fechas y geolocalización.\n• **Expedientes**: Estructura de documentos y control de duplicados.\n• **Auditoría**: Bitácora inalterable e historial de eventos con fechas.`;
+      responseText = `### 🤖 Asistente de IA (\`${role}\`)\n\nNo pude conectar con el servidor de IA en este instante. Intenta nuevamente en unos segundos cuando termine de iniciar el backend.`;
     }
 
     return {
@@ -367,16 +409,14 @@ export class AiChatWidgetComponent implements AfterViewChecked {
   }
 
   clearChat() {
+    const role = this.getCurrentRole();
     this.messages.set([
       {
         id: Date.now().toString(),
         sender: 'ai',
-        text: 'Historial reiniciado. ¿En qué consulta te puedo asistir?',
+        text: `Historial reiniciado (\`${role}\`). ¿En qué consulta te puedo asistir?`,
         timestamp: new Date(),
-        suggestedFollowUps: [
-          '⚙️ ¿Cómo funciona el sistema?',
-          '📊 Resumen general de obras'
-        ]
+        suggestedFollowUps: this.getInitialFollowUps(role)
       }
     ]);
   }

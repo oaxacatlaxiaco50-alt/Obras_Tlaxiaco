@@ -7,12 +7,12 @@ import { InstitucionConfig, InstitucionConfigRequest } from '../models/instituci
 const DEFAULT_CONFIG: InstitucionConfig = {
   id: 1,
   nombreMunicipio: 'H. Ayuntamiento Constitucional de Heroica Ciudad de Tlaxiaco',
-  lemaOficial: 'El poder de servir al pueblo',
+  lemaOficial: 'Orden, Progreso y Bienestar',
   periodoAdministracion: 'Administración 2025 - 2027',
   dependencia: 'Dirección de Obras Públicas y Desarrollo Urbano',
   logoUrl: 'assets/logos/logo.png',
   membreteUrl: null,
-  piePaginaReporte: 'Palacio Municipal s/n, Centro, Heroica Ciudad de Tlaxiaco, Oaxaca.'
+  piePaginaReporte: 'Parque Porfirio Díaz S/N, Colonia Centro, Heroica Ciudad de Tlaxiaco, Oax. C. P. 69800 | Tel: (953) 55 20 723'
 };
 
 @Injectable({
@@ -21,6 +21,7 @@ const DEFAULT_CONFIG: InstitucionConfig = {
 export class InstitucionService {
   private http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiUrl}/configuracion/identidad`;
+  public lastUpdatedTimestamp = Date.now();
 
   private configSubject = new BehaviorSubject<InstitucionConfig>(DEFAULT_CONFIG);
   public config$ = this.configSubject.asObservable();
@@ -37,6 +38,7 @@ export class InstitucionService {
     return this.http.get<InstitucionConfig>(this.baseUrl).pipe(
       tap(cfg => {
         if (cfg) {
+          this.lastUpdatedTimestamp = Date.now();
           this.configSubject.next(cfg);
         }
       }),
@@ -51,6 +53,7 @@ export class InstitucionService {
     return this.http.put<InstitucionConfig>(this.baseUrl, datos).pipe(
       tap(cfg => {
         if (cfg) {
+          this.lastUpdatedTimestamp = Date.now();
           this.configSubject.next(cfg);
         }
       })
@@ -63,6 +66,7 @@ export class InstitucionService {
     return this.http.post<InstitucionConfig>(`${this.baseUrl}/logo`, formData).pipe(
       tap(cfg => {
         if (cfg) {
+          this.lastUpdatedTimestamp = Date.now();
           this.configSubject.next(cfg);
         }
       })
@@ -75,6 +79,7 @@ export class InstitucionService {
     return this.http.post<InstitucionConfig>(`${this.baseUrl}/membrete`, formData).pipe(
       tap(cfg => {
         if (cfg) {
+          this.lastUpdatedTimestamp = Date.now();
           this.configSubject.next(cfg);
         }
       })
@@ -85,6 +90,7 @@ export class InstitucionService {
     return this.http.delete<InstitucionConfig>(`${this.baseUrl}/logo`).pipe(
       tap(cfg => {
         if (cfg) {
+          this.lastUpdatedTimestamp = Date.now();
           this.configSubject.next(cfg);
         }
       })
@@ -95,6 +101,7 @@ export class InstitucionService {
     return this.http.delete<InstitucionConfig>(`${this.baseUrl}/membrete`).pipe(
       tap(cfg => {
         if (cfg) {
+          this.lastUpdatedTimestamp = Date.now();
           this.configSubject.next(cfg);
         }
       })
@@ -110,7 +117,8 @@ export class InstitucionService {
     if (target.startsWith('/assets/')) return target.substring(1);
     if (target.startsWith('assets/')) return target;
     const clean = target.startsWith('/') ? target : '/' + target;
-    return `${environment.apiUrl}${clean}`;
+    const full = `${environment.apiUrl}${clean}`;
+    return full.includes('?') ? full : `${full}?t=${this.lastUpdatedTimestamp}`;
   }
 
   resolveMembreteUrl(url?: string | null): string | null {
@@ -122,6 +130,7 @@ export class InstitucionService {
     if (target.startsWith('/assets/')) return target.substring(1);
     if (target.startsWith('assets/')) return target;
     const clean = target.startsWith('/') ? target : '/' + target;
-    return `${environment.apiUrl}${clean}`;
+    const full = `${environment.apiUrl}${clean}`;
+    return full.includes('?') ? full : `${full}?t=${this.lastUpdatedTimestamp}`;
   }
 }

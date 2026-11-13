@@ -109,10 +109,10 @@ import jsPDF from 'jspdf';
             </p>
           </div>
           <div class="inst-actions-top">
-            <button type="button" class="btn btn-outline-primary" (click)="generarPdfMuestra()" title="Descargar muestra del membrete">
+            <button type="button" class="btn btn-pdf-sample" (click)="generarPdfMuestra()" title="Descargar muestra del membrete">
               📄 Generar PDF de Muestra
             </button>
-            <button type="button" class="btn btn-primary" (click)="guardarDatosInstitucion()" [disabled]="guardandoInstitucion">
+            <button type="button" class="btn btn-save-identidad" (click)="guardarDatosInstitucion()" [disabled]="guardandoInstitucion">
               💾 {{ guardandoInstitucion ? 'Guardando...' : 'Guardar Cambios' }}
             </button>
           </div>
@@ -132,10 +132,10 @@ import jsPDF from 'jspdf';
               </div>
               <div class="asset-btns">
                 <input type="file" #logoFileInput (change)="onLogoFilePicked($event)" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none;" />
-                <button type="button" class="btn btn-sm btn-outline-warning" (click)="logoFileInput.click()" [disabled]="subiendoLogo">
+                <button type="button" class="btn btn-logo-crop" (click)="logoFileInput.click()" [disabled]="subiendoLogo">
                   ✂️ {{ subiendoLogo ? 'Guardando...' : 'Cargar y Encuadrar Logo' }}
                 </button>
-                <button type="button" class="btn btn-sm btn-danger-outline" (click)="restablecerLogo()">
+                <button type="button" class="btn btn-reset-subtle" (click)="restablecerLogo()">
                   🔄 Restablecer Predeterminado
                 </button>
               </div>
@@ -166,18 +166,18 @@ import jsPDF from 'jspdf';
 
               <!-- Acciones de Hoja Membretada -->
               <div class="asset-btns">
-                <button type="button" class="btn btn-sm btn-outline-primary" (click)="verVistaPreviaMembrete()">
+                <button type="button" class="btn btn-preview-sheet" (click)="verVistaPreviaMembrete()">
                   👁️ Ver Vista Previa
                 </button>
-                <button type="button" class="btn btn-sm btn-primary" (click)="activarMembreteOficialTlaxiaco()" [disabled]="subiendoMembrete" title="Activa la hoja membretada con los logos y palacio municipal">
+                <button type="button" class="btn btn-activate-official" (click)="activarMembreteOficialTlaxiaco()" [disabled]="subiendoMembrete" title="Activa la hoja membretada con los logos y palacio municipal">
                   ⭐ Activar Membrete Tlaxiaco
                 </button>
-                <input type="file" #membreteFileInput (change)="onMembreteSelected($event)" accept="image/png,image/jpeg,application/pdf" style="display:none;" />
-                <button type="button" class="btn btn-sm btn-outline-warning" (click)="membreteFileInput.click()" [disabled]="subiendoMembrete">
+                <input type="file" #membreteFileInput (change)="onMembreteSelected($event)" accept="image/png,image/jpeg,image/webp,application/pdf" style="display:none;" />
+                <button type="button" class="btn btn-upload-sheet" (click)="membreteFileInput.click()" [disabled]="subiendoMembrete">
                   📤 {{ subiendoMembrete ? 'Subiendo...' : 'Subir Otra Hoja' }}
                 </button>
                 @if ((institucionSvc.config$ | async)?.membreteUrl) {
-                  <button type="button" class="btn btn-sm btn-danger-outline" (click)="restablecerMembrete()">
+                  <button type="button" class="btn btn-reset-subtle" (click)="restablecerMembrete()">
                     🔄 Usar Membrete Estándar
                   </button>
                 }
@@ -354,8 +354,10 @@ import jsPDF from 'jspdf';
 
     @if (showMembreteModal) {
       <app-membrete-preview-modal
-        [imagenUrl]="institucionSvc.resolveMembreteUrl((institucionSvc.config$ | async)?.membreteUrl) || 'assets/logos/hoja_membretada_oficial.png'"
-        (cerrar)="showMembreteModal = false">
+        [imagenUrl]="modalMembreteUrl"
+        [modoConfirmar]="modoConfirmarMembrete"
+        (cerrar)="cerrarModalMembrete()"
+        (confirmar)="confirmarGuardarMembrete()">
       </app-membrete-preview-modal>
     }
   `,
@@ -514,32 +516,122 @@ import jsPDF from 'jspdf';
     .inst-field-row { display: flex; flex-direction: column; gap: 6px; width: 100%; }
     .inst-row-split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 680px) { .inst-row-split { grid-template-columns: 1fr; } }
-    .inst-label { font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); }
+    .inst-label { font-size: 0.76rem; font-weight: 700; color: #94a3b8; letter-spacing: 0.04em; text-transform: uppercase; }
     .inst-full-input {
       width: 100%; padding: 10px 14px; font-size: 0.92rem; font-weight: 500;
-      border-radius: 8px; border: 1px solid var(--border);
-      background: rgba(255,255,255,0.03); color: var(--text-primary);
+      border-radius: 8px; border: 1px solid #334155;
+      background: #0f172a; color: #f8fafc;
       outline: none; box-sizing: border-box; transition: all 0.2s;
     }
     .inst-full-input:focus {
-      border-color: var(--primary); background: rgba(59,130,246,0.05);
-      box-shadow: 0 0 0 2px rgba(59,130,246,0.25);
+      border-color: #3b82f6; background: #111e38;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.25);
     }
     .inst-full-textarea {
       width: 100%; padding: 10px 14px; font-size: 0.92rem; font-weight: 500;
-      border-radius: 8px; border: 1px solid var(--border);
-      background: rgba(255,255,255,0.03); color: var(--text-primary);
+      border-radius: 8px; border: 1px solid #334155;
+      background: #0f172a; color: #f8fafc;
       outline: none; box-sizing: border-box; resize: vertical; line-height: 1.4;
       transition: all 0.2s;
     }
     .inst-full-textarea:focus {
-      border-color: var(--primary); background: rgba(59,130,246,0.05);
-      box-shadow: 0 0 0 2px rgba(59,130,246,0.25);
+      border-color: #3b82f6; background: #111e38;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.25);
     }
-    .btn-outline-primary { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
-    .btn-outline-primary:hover { background: rgba(59,130,246,0.12); }
-    .btn-outline-warning { background: transparent; border: 1px solid #f59e0b; color: #fbbf24; }
-    .btn-outline-warning:hover { background: rgba(245,158,11,0.15); }
+    .btn-pdf-sample {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      color: #93c5fd;
+      font-weight: 600; font-size: 0.85rem;
+      padding: 9px 16px; border-radius: 8px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-pdf-sample:hover {
+      background: rgba(59, 130, 246, 0.24);
+      border-color: #60a5fa; color: #ffffff;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    }
+    .btn-save-identidad {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border: 1px solid #3b82f6;
+      color: #ffffff;
+      font-weight: 700; font-size: 0.85rem;
+      padding: 9px 20px; border-radius: 8px;
+      cursor: pointer; transition: all 0.2s;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+    }
+    .btn-save-identidad:hover:not([disabled]) {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+    }
+    .btn-logo-crop {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: rgba(147, 51, 234, 0.12);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #d8b4fe;
+      font-weight: 600; font-size: 0.82rem;
+      padding: 8px 14px; border-radius: 8px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-logo-crop:hover:not([disabled]) {
+      background: rgba(147, 51, 234, 0.25); color: #ffffff; border-color: #c084fc;
+    }
+    .btn-preview-sheet {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      color: #93c5fd;
+      font-weight: 600; font-size: 0.82rem;
+      padding: 8px 14px; border-radius: 8px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-preview-sheet:hover {
+      background: rgba(59, 130, 246, 0.22); color: #ffffff; border-color: #60a5fa;
+    }
+    .btn-activate-official {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(217, 119, 6, 0.24));
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      color: #fcd34d;
+      font-weight: 700; font-size: 0.82rem;
+      padding: 8px 14px; border-radius: 8px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-activate-official:hover:not([disabled]) {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(217, 119, 6, 0.38));
+      border-color: #fbbf24; color: #ffffff;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+    }
+    .btn-upload-sheet {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #e2e8f0;
+      font-weight: 600; font-size: 0.82rem;
+      padding: 8px 14px; border-radius: 8px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-upload-sheet:hover:not([disabled]) {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.35); color: #ffffff;
+    }
+    .btn-reset-subtle {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      color: #fca5a5;
+      font-weight: 500; font-size: 0.78rem;
+      padding: 6px 12px; border-radius: 7px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-reset-subtle:hover {
+      background: rgba(239, 68, 68, 0.18); color: #fee2e2;
+      border-color: rgba(239, 68, 68, 0.45);
+    }
     .status-dot.online { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,0.6); }
   `]
 })
@@ -570,6 +662,9 @@ export class AdminComponent implements OnInit {
   showLogoCropper = false;
   tempLogoFile: File | null = null;
   showMembreteModal = false;
+  modoConfirmarMembrete = false;
+  modalMembreteUrl: string = 'assets/logos/hoja_membretada_oficial.png';
+  tempMembreteFile: File | null = null;
 
   permisos = [
     { nombre: 'Crear obras públicas', admin: true, supervisor: true, contratista: false, auditor: false },
@@ -944,6 +1039,10 @@ export class AdminComponent implements OnInit {
   }
 
   verVistaPreviaMembrete() {
+    const currentMembrete = this.institucionSvc.resolveMembreteUrl((this.institucionSvc.config$ as any)?.value?.membreteUrl || this.institucionSvc.currentConfig?.membreteUrl);
+    this.modalMembreteUrl = currentMembrete || 'assets/logos/hoja_membretada_oficial.png';
+    this.modoConfirmarMembrete = false;
+    this.tempMembreteFile = null;
     this.showMembreteModal = true;
   }
 
@@ -956,7 +1055,7 @@ export class AdminComponent implements OnInit {
         this.institucionSvc.subirMembrete(file).subscribe({
           next: () => {
             this.subiendoMembrete = false;
-            this.toastSvc.show('✅ Hoja membretada oficial de Tlaxiaco activada con éxito.', 'success');
+            this.toastSvc.show('⭐ Hoja membretada oficial de Tlaxiaco 2025-2027 activada con éxito.', 'success');
           },
           error: (err) => {
             this.subiendoMembrete = false;
@@ -973,27 +1072,86 @@ export class AdminComponent implements OnInit {
   onMembreteSelected(event: any) {
     const file: File = event.target?.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
-      this.toastSvc.show('El archivo debe ser una imagen (PNG, JPG) o PDF', 'warning');
+
+    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+      event.target.value = '';
+      Swal.fire({
+        title: '📄 Archivo PDF Seleccionado',
+        html: `
+          <div style="text-align: left; font-size: 0.88rem; line-height: 1.5; color: #cbd5e1;">
+            <p>Para asegurar que las Fichas Técnicas y Reportes en PDF puedan incrustar el membrete con máxima definición y sin errores en el navegador, la hoja debe cargarse en formato de imagen (<strong>PNG o JPG</strong>).</p>
+            <div style="background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 8px; padding: 12px; margin-top: 12px; color: #93c5fd;">
+              ⭐ <strong>¿Deseas activar la plantilla oficial de Tlaxiaco 2025-2027?</strong><br>
+              Ya contamos con la plantilla oficial convertida en alta definición con el Palacio Municipal y escudos. Puedes activarla directamente.
+            </div>
+          </div>
+        `,
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonText: '⭐ Activar Plantilla Oficial',
+        cancelButtonText: 'Elegir imagen PNG / JPG',
+        confirmButtonColor: '#2563eb',
+        cancelButtonColor: '#4b5563',
+        background: '#1e293b',
+        color: '#f8fafc'
+      }).then((res) => {
+        if (res.isConfirmed) {
+          this.activarMembreteOficialTlaxiaco();
+        }
+      });
       return;
     }
+
+    if (!file.type.startsWith('image/')) {
+      this.toastSvc.show('El archivo debe ser una imagen (PNG, JPG, WebP)', 'warning');
+      event.target.value = '';
+      return;
+    }
+
     if (file.size > 20 * 1024 * 1024) {
       this.toastSvc.show('El membrete no debe superar los 20 MB', 'warning');
+      event.target.value = '';
       return;
     }
+
+    // Previsualización interactiva antes de guardar
+    const reader = new FileReader();
+    reader.onload = (e: any) => {
+      this.tempMembreteFile = file;
+      this.modalMembreteUrl = e.target.result;
+      this.modoConfirmarMembrete = true;
+      this.showMembreteModal = true;
+      event.target.value = '';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  confirmarGuardarMembrete() {
+    if (!this.tempMembreteFile) {
+      this.showMembreteModal = false;
+      return;
+    }
+
     this.subiendoMembrete = true;
-    this.institucionSvc.subirMembrete(file).subscribe({
+    this.institucionSvc.subirMembrete(this.tempMembreteFile).subscribe({
       next: () => {
         this.subiendoMembrete = false;
-        this.toastSvc.show('✅ Hoja membretada oficial actualizada con éxito.', 'success');
-        event.target.value = '';
+        this.showMembreteModal = false;
+        this.tempMembreteFile = null;
+        this.modoConfirmarMembrete = false;
+        this.toastSvc.show('✅ Hoja membretada oficial guardada y activada con éxito.', 'success');
       },
       error: (err) => {
         this.subiendoMembrete = false;
-        this.toastSvc.show(err.error?.message || 'Error al subir la hoja membretada.', 'error');
-        event.target.value = '';
+        this.toastSvc.show(err.error?.message || 'Error al guardar la hoja membretada.', 'error');
       }
     });
+  }
+
+  cerrarModalMembrete() {
+    this.showMembreteModal = false;
+    this.tempMembreteFile = null;
+    this.modoConfirmarMembrete = false;
   }
 
   restablecerLogo() {
@@ -1056,18 +1214,30 @@ export class AdminComponent implements OnInit {
         } catch (e) {
           console.warn('No se pudo incrustar imagen de membrete completa, dibujando encabezado vectorial.', e);
         }
-        this.dibujarCuerpoPdfMuestra(doc, cfg, pageWidth, pageHeight);
+        this.dibujarCuerpoPdfMuestra(doc, cfg, pageWidth, pageHeight, true);
         doc.save(`muestra_membrete_${(cfg.periodoAdministracion || 'oficial').replace(/\s+/g, '_')}.pdf`);
       };
       img.onerror = () => {
-        this.dibujarEncabezadoVectorial(doc, cfg, pageWidth);
-        this.dibujarCuerpoPdfMuestra(doc, cfg, pageWidth, pageHeight);
-        doc.save(`muestra_membrete_${(cfg.periodoAdministracion || 'oficial').replace(/\s+/g, '_')}.pdf`);
+        // En caso de fallo de red en la URL absoluta, intentar con la imagen local en assets
+        const fallbackImg = new Image();
+        fallbackImg.onload = () => {
+          try {
+            doc.addImage(fallbackImg, 'PNG', 0, 0, pageWidth, pageHeight);
+          } catch { }
+          this.dibujarCuerpoPdfMuestra(doc, cfg, pageWidth, pageHeight, true);
+          doc.save(`muestra_membrete_${(cfg.periodoAdministracion || 'oficial').replace(/\s+/g, '_')}.pdf`);
+        };
+        fallbackImg.onerror = () => {
+          this.dibujarEncabezadoVectorial(doc, cfg, pageWidth);
+          this.dibujarCuerpoPdfMuestra(doc, cfg, pageWidth, pageHeight, false);
+          doc.save(`muestra_membrete_${(cfg.periodoAdministracion || 'oficial').replace(/\s+/g, '_')}.pdf`);
+        };
+        fallbackImg.src = 'assets/logos/hoja_membretada_oficial.png';
       };
       img.src = membreteUrl;
     } else {
       this.dibujarEncabezadoVectorial(doc, cfg, pageWidth);
-      this.dibujarCuerpoPdfMuestra(doc, cfg, pageWidth, pageHeight);
+      this.dibujarCuerpoPdfMuestra(doc, cfg, pageWidth, pageHeight, false);
       doc.save(`muestra_membrete_${(cfg.periodoAdministracion || 'oficial').replace(/\s+/g, '_')}.pdf`);
     }
   }
@@ -1094,79 +1264,111 @@ export class AdminComponent implements OnInit {
     doc.text((cfg.periodoAdministracion || 'ADMINISTRACIÓN MUNICIPAL').toUpperCase(), pageWidth / 2, 47, { align: 'center' });
   }
 
-  private dibujarCuerpoPdfMuestra(doc: jsPDF, cfg: any, pageWidth: number, pageHeight: number) {
-    doc.setTextColor(220, 225, 230);
-    doc.setFontSize(40);
-    doc.setFont('helvetica', 'bold');
-    doc.text('DOCUMENTO DE MUESTRA', pageWidth / 2, 420, { align: 'center', angle: 35 });
+  private dibujarCuerpoPdfMuestra(doc: jsPDF, cfg: any, pageWidth: number, pageHeight: number, esMembreteGrafico = false) {
+    const fechaHoy = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
 
-    doc.setTextColor(30, 41, 59);
+    // Marca de agua central suave
+    doc.setTextColor(230, 235, 240);
+    doc.setFontSize(36);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.text('HOJA DE MUESTRA DE IDENTIDAD INSTITUCIONAL', pageWidth / 2, 110, { align: 'center' });
+    doc.text('DOCUMENTO DE MUESTRA', pageWidth / 2, 380, { align: 'center', angle: 30 });
+
+    const startY = esMembreteGrafico ? 115 : 75;
+
+    // Encabezado del documento
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text('HOJA DE MUESTRA DE IDENTIDAD INSTITUCIONAL', pageWidth / 2, startY + 10, { align: 'center' });
 
     doc.setFont('helvetica', 'italic');
-    doc.setFontSize(9.5);
+    doc.setFontSize(9);
     doc.setTextColor(100, 116, 139);
     if (cfg.lemaOficial) {
-      doc.text(`"${cfg.lemaOficial}"`, pageWidth / 2, 126, { align: 'center' });
+      doc.text(`"${cfg.lemaOficial}"`, pageWidth / 2, startY + 24, { align: 'center' });
     }
 
-    doc.setDrawColor(203, 213, 225);
-    doc.setLineWidth(1);
-    doc.line(50, 140, pageWidth - 50, 140);
-
-    doc.setFillColor(248, 250, 252);
-    doc.roundedRect(50, 160, pageWidth - 100, 130, 6, 6, 'FD');
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10.5);
-    doc.setTextColor(15, 23, 42);
-    doc.text('PARAMETROS VIGENTES DE LA ADMINISTRACIÓN', 65, 182);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(51, 65, 85);
-
-    doc.text(`• Municipio / Gobierno:`, 65, 204);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${cfg.nombreMunicipio || 'No definido'}`, 190, 204);
-
-    doc.setFont('helvetica', 'normal');
-    doc.text(`• Período Constitucional:`, 65, 222);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${cfg.periodoAdministracion || 'No definido'}`, 190, 222);
-
-    doc.setFont('helvetica', 'normal');
-    doc.text(`• Dependencia Operativa:`, 65, 240);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${cfg.dependencia || 'No definido'}`, 190, 240);
-
-    doc.setFont('helvetica', 'normal');
-    doc.text(`• Lema Oficial:`, 65, 258);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${cfg.lemaOficial || 'No definido'}`, 190, 258);
-
-    doc.setFont('helvetica', 'normal');
-    doc.text(`• Tipo de Membrete:`, 65, 276);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${cfg.membreteUrl ? 'Personalizado (Plantilla cargada)' : 'Predeterminado (Vectorial automático)'}`, 190, 276);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(71, 85, 105);
-    const explicacion = 'Esta página es una demostración en vivo de la configuración institucional vigente. Todos los reportes generados en el sistema (Fichas Técnicas de Obra, Padrón General de Obras, Integración de Expediente Unitario y Oficios Oficiales) utilizarán automáticamente estos encabezados, logotipos y lemas sin requerir modificaciones técnicas.';
-    const lines = doc.splitTextToSize(explicacion, pageWidth - 100);
-    doc.text(lines, 50, 320);
-
+    // Línea divisoria decorativa
     doc.setDrawColor(203, 213, 225);
     doc.setLineWidth(0.8);
-    doc.line(50, pageHeight - 55, pageWidth - 50, pageHeight - 55);
+    doc.line(55, startY + 34, pageWidth - 55, startY + 34);
+
+    // Metadata superior: Fecha y Folio en el margen seguro
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`FECHA DE EMISIÓN:`, 58, startY + 48);
+    doc.setFont('helvetica', 'normal');
+    doc.text(fechaHoy.toUpperCase(), 155, startY + 48);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text(`FOLIO DE VALIDACIÓN:`, pageWidth - 220, startY + 48);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(37, 99, 235);
+    doc.text(`EXP-Tlaxiaco/2026-M01`, pageWidth - 60, startY + 48, { align: 'right' });
+
+    // Caja de parámetros vigentes
+    const boxY = startY + 58;
+    const boxWidth = pageWidth - 110;
+    const boxHeight = 135;
+
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(55, boxY, boxWidth, boxHeight, 5, 5, 'FD');
+
+    // Título de la caja
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text('PARÁMETROS VIGENTES CONFIGURADOS EN EL SISTEMA', 70, boxY + 20);
+
+    doc.setFontSize(8.5);
+    const renderFila = (label: string, val: string, yPos: number) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(100, 116, 139);
+      doc.text(label, 70, yPos);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(val, 205, yPos);
+    };
+
+    renderFila('• Municipio / Gobierno:', cfg.nombreMunicipio || 'H. Ayuntamiento Constitucional de Heroica Ciudad de Tlaxiaco', boxY + 40);
+    renderFila('• Período Constitucional:', cfg.periodoAdministracion || 'Administración 2025 - 2027', boxY + 58);
+    renderFila('• Dependencia Operativa:', cfg.dependencia || 'Dirección de Obras Públicas y Desarrollo Urbano', boxY + 76);
+    renderFila('• Lema Oficial:', cfg.lemaOficial || 'Orden, Progreso y Bienestar', boxY + 94);
+    renderFila('• Tipo de Membrete:', esMembreteGrafico ? 'Oficial Gráfico (Palacio Municipal y Escudos de Arcos)' : 'Estándar Vectorial Institucional', boxY + 112);
+
+    // Cuadro explicativo
+    const explY = boxY + boxHeight + 14;
+    doc.setFillColor(241, 245, 249);
+    doc.setDrawColor(203, 213, 225);
+    doc.roundedRect(55, explY, boxWidth, 75, 5, 5, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text('ℹ️ USO Y APLICACIÓN DE ESTA PLANTILLA:', 70, explY + 18);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(100, 116, 139);
-    doc.text(cfg.piePaginaReporte || 'Palacio Municipal s/n, Centro.', pageWidth / 2, pageHeight - 40, { align: 'center' });
-    doc.text(`Fecha de impresión: ${new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}`, pageWidth / 2, pageHeight - 28, { align: 'center' });
+    doc.setFontSize(7.8);
+    doc.setTextColor(71, 85, 105);
+    const explicacion = 'Esta página certifica la plantilla oficial que se aplica de manera automática en todos los documentos descargables del sistema: Fichas Técnicas de Obra, Padrón General de Obras Públicas, Portadas de Expedientes Unitarios (44 Requisitos) y Reportes de Bitácora. Todo el contenido dinámico se formatea dentro del área segura de impresión, conservando intactos y limpios los sellos, logotipos y gráficos municipales.';
+    const lines = doc.splitTextToSize(explicacion, boxWidth - 30);
+    doc.text(lines, 70, explY + 32);
+
+    // Si es membrete gráfico, el fondo YA contiene el dibujo del Palacio Municipal,
+    // el lema en rojo, la dirección oficial y los datos de contacto.
+    // NUNCA dibujar líneas ni texto abajo para evitar textos encimados.
+    if (!esMembreteGrafico) {
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.8);
+      doc.line(55, pageHeight - 55, pageWidth - 55, pageHeight - 55);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(cfg.piePaginaReporte || 'Parque Porfirio Díaz S/N, Colonia Centro, Heroica Ciudad de Tlaxiaco, Oax. C. P. 69800 | Tel: (953) 55 20 723', pageWidth / 2, pageHeight - 40, { align: 'center' });
+      doc.text(`Fecha de impresión: ${fechaHoy}`, pageWidth / 2, pageHeight - 28, { align: 'center' });
+    }
   }
 }

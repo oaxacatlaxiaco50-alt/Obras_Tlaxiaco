@@ -83,10 +83,10 @@ export class ObrasService {
   }
 
   /** Ejecutar Cierre Fiscal Anual (Solo Administrador) */
-  ejecutarCierreFiscal(ejercicio: number): Observable<{ mensaje: string; ejercicio: number; obrasArchivadas: number }> {
+  ejecutarCierreFiscal(ejercicio: number, forzar = false): Observable<{ mensaje: string; ejercicio: number; obrasArchivadas: number }> {
     return this.http.post<{ mensaje: string; ejercicio: number; obrasArchivadas: number }>(
       `${API}/obras/cierre-fiscal`,
-      { ejercicio }
+      { ejercicio, forzar }
     );
   }
 
@@ -114,8 +114,8 @@ export class ObrasService {
   }
 
   /** Obtener resumen previo al cierre fiscal */
-  getResumenCierreFiscal(ejercicio: number): Observable<{ ejercicio: number; obrasPendientesCierre: number }> {
-    return this.http.get<{ ejercicio: number; obrasPendientesCierre: number }>(
+  getResumenCierreFiscal(ejercicio: number): Observable<{ ejercicio: number; obrasPendientesCierre: number; mesActual: number; esUltimoMes: boolean }> {
+    return this.http.get<{ ejercicio: number; obrasPendientesCierre: number; mesActual: number; esUltimoMes: boolean }>(
       `${API}/obras/resumen-cierre-fiscal/${ejercicio}`
     );
   }
