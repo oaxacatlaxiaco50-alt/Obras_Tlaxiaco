@@ -1,13 +1,16 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { ObrasService } from '../../core/services/obras.service';
 import { UserService } from '../../core/services/user.service';
 import { ToastService } from '../../core/services/toast.service';
+import { InstitucionService } from '../../core/services/institucion.service';
+import { InstitucionConfigRequest } from '../../core/models/institucion-config.model';
 import { UserResponse } from '../../core/models/user.model';
 import { UserFormModalComponent } from './components/user-form-modal.component';
 import Swal from 'sweetalert2';
+import jsPDF from 'jspdf';
 
 @Component({
   selector: 'app-admin',
@@ -86,6 +89,127 @@ import Swal from 'sweetalert2';
             <span class="f-pill-dot" style="background:var(--danger)"></span>
             <span class="f-pill-label">Obras eliminadas / canceladas:</span>
             <span class="f-pill-val">Se archivan intactas con su etiqueta</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Identidad Institucional y Hoja Membretada -->
+      <div class="card institucion-card">
+        <div class="fiscal-header">
+          <div class="fiscal-header-info">
+            <div class="fiscal-title-row">
+              <span class="fiscal-badge-icon">🎨</span>
+              <h3 class="sec-title" style="margin:0;">Identidad Institucional y Hoja Membretada Dinámica</h3>
+              <span class="badge badge-warning">Exclusivo Administrador</span>
+            </div>
+            <p class="fiscal-desc">
+              Personaliza el logotipo oficial, el membrete para reportes PDF y los datos de la administración municipal vigente. Los cambios se aplican de forma inmediata en todo el sistema (Login, Barra lateral, Encabezados y Descargas PDF).
+            </p>
+          </div>
+          <div class="inst-actions-top">
+            <button class="btn btn-outline-primary" (click)="generarPdfMuestra()" title="Descargar muestra del membrete">
+              📄 Generar PDF de Muestra
+            </button>
+            <button class="btn btn-primary" (click)="guardarDatosInstitucion()" [disabled]="guardandoInstitucion">
+              💾 {{ guardandoInstitucion ? 'Guardando...' : 'Guardar Datos' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="institucion-grid">
+          <!-- Columna A: Logo y Membrete -->
+          <div class="inst-assets-col">
+            <!-- Box Logotipo -->
+            <div class="asset-box">
+              <div class="asset-title-row">
+                <span class="asset-title">🏛️ Logotipo Oficial del Municipio</span>
+                <span class="asset-hint">Formato recomendado: PNG transparente o SVG</span>
+              </div>
+              <div class="asset-preview-wrap">
+                <div class="logo-preview-box">
+                  <img [src]="institucionSvc.resolveLogoUrl((institucionSvc.config$ | async)?.logoUrl)" (error)="$any($event.target).src='assets/logos/logo.png'" alt="Logotipo actual" class="preview-logo-img" />
+                </div>
+                <div class="asset-btns">
+                  <input type="file" #logoFileInput (change)="onLogoSelected($event)" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none;" />
+                  <button type="button" class="btn btn-sm btn-outline-warning" (click)="logoFileInput.click()" [disabled]="subiendoLogo">
+                    📤 {{ subiendoLogo ? 'Subiendo...' : 'Cargar Nuevo Logo' }}
+                  </button>
+                  <button type="button" class="btn btn-sm btn-danger-outline" (click)="restablecerLogo()">
+                    🔄 Restablecer Predeterminado
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Box Hoja Membretada -->
+            <div class="asset-box">
+              <div class="asset-title-row">
+                <span class="asset-title">📑 Hoja Membretada para Reportes (PDF)</span>
+                <span class="asset-hint">Plantilla oficial para encabezados y fondos</span>
+              </div>
+              <div class="asset-preview-wrap">
+                <div class="membrete-status-box">
+                  @if ((institucionSvc.config$ | async)?.membreteUrl) {
+                    <div class="membrete-active-pill">
+                      <span class="status-dot online"></span>
+                      <div>
+                        <strong style="color:var(--success);">Membrete Personalizado Activo</strong>
+                        <p style="margin:2px 0 0 0; font-size:0.75rem; color:var(--text-muted);">Los reportes PDF imprimen esta plantilla oficial.</p>
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="membrete-default-pill">
+                      <span class="status-dot" style="background:#94a3b8;"></span>
+                      <div>
+                        <strong>Membrete Estándar del Sistema</strong>
+                        <p style="margin:2px 0 0 0; font-size:0.75rem; color:var(--text-muted);">Generación vectorial con logo institucional y títulos.</p>
+                      </div>
+                    </div>
+                  }
+                </div>
+                <div class="asset-btns">
+                  <input type="file" #membreteFileInput (change)="onMembreteSelected($event)" accept="image/png,image/jpeg,application/pdf" style="display:none;" />
+                  <button type="button" class="btn btn-sm btn-outline-warning" (click)="membreteFileInput.click()" [disabled]="subiendoMembrete">
+                    📤 {{ subiendoMembrete ? 'Subiendo...' : 'Subir Hoja Membretada' }}
+                  </button>
+                  @if ((institucionSvc.config$ | async)?.membreteUrl) {
+                    <button type="button" class="btn btn-sm btn-danger-outline" (click)="restablecerMembrete()">
+                      🔄 Usar Membrete Estándar
+                    </button>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Columna B: Datos Institucionales -->
+          <div class="inst-fields-col">
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="inst-label">🏛️ Nombre Oficial del Municipio / Ayuntamiento:</label>
+                <input type="text" [(ngModel)]="institucionForm.nombreMunicipio" class="form-control" placeholder="Ej. H. Ayuntamiento Constitucional de Heroica Ciudad de Tlaxiaco" />
+              </div>
+              <div class="form-group">
+                <label class="inst-label">📅 Período Constitucional de Administración:</label>
+                <input type="text" [(ngModel)]="institucionForm.periodoAdministracion" class="form-control" placeholder="Ej. Administración 2025 - 2027" />
+              </div>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="inst-label">🏢 Dependencia Encargada de Obras:</label>
+                <input type="text" [(ngModel)]="institucionForm.dependencia" class="form-control" placeholder="Ej. Dirección de Obras Públicas y Desarrollo Urbano" />
+              </div>
+              <div class="form-group">
+                <label class="inst-label">✨ Lema o Eslogan Oficial:</label>
+                <input type="text" [(ngModel)]="institucionForm.lemaOficial" class="form-control" placeholder="Ej. El poder de servir al pueblo" />
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-top:4px;">
+              <label class="inst-label">📍 Pie de Página Oficial en Reportes y Oficios:</label>
+              <input type="text" [(ngModel)]="institucionForm.piePaginaReporte" class="form-control" placeholder="Ej. Palacio Municipal s/n, Centro, Heroica Ciudad de Tlaxiaco, Oaxaca. | Tel: 953 552 0000" />
+            </div>
           </div>
         </div>
       </div>
@@ -314,9 +438,44 @@ import Swal from 'sweetalert2';
     .f-pill-dot { width: 8px; height: 8px; border-radius: 50%; }
     .f-pill-label { color: var(--text-muted); }
     .f-pill-val { font-weight: 600; color: var(--text-primary); }
+
+    /* Identidad Institucional Styles */
+    .institucion-card {
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      background: linear-gradient(180deg, rgba(59, 130, 246, 0.04) 0%, var(--bg-surface) 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .inst-actions-top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .institucion-grid { display: grid; grid-template-columns: 1fr 1.3fr; gap: 20px; }
+    @media (max-width: 992px) { .institucion-grid { grid-template-columns: 1fr; } }
+    .inst-assets-col { display: flex; flex-direction: column; gap: 12px; }
+    .asset-box { background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+    .asset-title-row { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+    .asset-title { font-size: 0.88rem; font-weight: 700; color: var(--text-primary); }
+    .asset-hint { font-size: 0.73rem; color: var(--text-muted); }
+    .asset-preview-wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .logo-preview-box { width: 85px; height: 85px; border-radius: 10px; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 1px solid rgba(0,0,0,0.08); flex-shrink: 0; }
+    .preview-logo-img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .asset-btns { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 170px; }
+    .membrete-status-box { flex: 1; min-width: 180px; }
+    .membrete-active-pill, .membrete-default-pill { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); }
+    .membrete-active-pill { border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.06); }
+    .inst-fields-col { display: flex; flex-direction: column; gap: 12px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 640px) { .form-row-2 { grid-template-columns: 1fr; } }
+    .inst-label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; display: block; }
+    .btn-outline-primary { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+    .btn-outline-primary:hover { background: rgba(59,130,246,0.1); }
+    .btn-outline-warning { background: transparent; border: 1px solid #f59e0b; color: #fbbf24; }
+    .btn-outline-warning:hover { background: rgba(245,158,11,0.15); }
+    .status-dot.online { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,0.6); }
   `]
 })
 export class AdminComponent implements OnInit {
+  institucionSvc = inject(InstitucionService);
+
   usuarios: UserResponse[] = [];
   selectedUser: UserResponse | null = null;
   showModal = false;
@@ -326,6 +485,17 @@ export class AdminComponent implements OnInit {
   ejercicioCierre = new Date().getFullYear();
   obrasPendientesCierre = 0;
   cargandoCierre = false;
+
+  institucionForm: InstitucionConfigRequest = {
+    nombreMunicipio: '',
+    lemaOficial: '',
+    periodoAdministracion: '',
+    dependencia: '',
+    piePaginaReporte: ''
+  };
+  subiendoLogo = false;
+  subiendoMembrete = false;
+  guardandoInstitucion = false;
 
   permisos = [
     { nombre: 'Crear obras públicas', admin: true, supervisor: true, contratista: false, auditor: false },
@@ -347,6 +517,21 @@ export class AdminComponent implements OnInit {
   ngOnInit() {
     this.loadUsers();
     this.cargarResumenCierre();
+    this.cargarDatosInstitucion();
+  }
+
+  cargarDatosInstitucion() {
+    this.institucionSvc.config$.subscribe(cfg => {
+      if (cfg) {
+        this.institucionForm = {
+          nombreMunicipio: cfg.nombreMunicipio || '',
+          lemaOficial: cfg.lemaOficial || '',
+          periodoAdministracion: cfg.periodoAdministracion || '',
+          dependencia: cfg.dependencia || '',
+          piePaginaReporte: cfg.piePaginaReporte || ''
+        };
+      }
+    });
   }
 
   loadUsers() {
@@ -374,6 +559,50 @@ export class AdminComponent implements OnInit {
   }
 
   confirmarCierreFiscal() {
+    const mesActual = new Date().getMonth() + 1;
+    const esDiciembre = (mesActual === 12);
+
+    if (!esDiciembre) {
+      Swal.fire({
+        title: '📅 Cierre Fiscal Permitido en Diciembre',
+        html: `
+          <div style="text-align: left; font-size: 0.9rem; line-height: 1.5; color: #cbd5e1;">
+            <p>Por normativa gubernamental y contable, el <strong>Cierre de Ejercicio Fiscal</strong> únicamente puede ejecutarse formalmente durante el último mes del año (<strong>Diciembre</strong>).</p>
+            <p style="color: #f59e0b; margin-top: 8px;">Actualmente el sistema se encuentra en el <strong>Mes ${mesActual}</strong>.</p>
+            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 12px 0;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#93c5fd; font-size:0.85rem;">
+              <input type="checkbox" id="chkForzarAdmin" style="cursor:pointer;" />
+              Habilitar Cierre Anticipado (Modo Pruebas / Demostración)
+            </label>
+          </div>
+        `,
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonText: 'Continuar Cierre',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d97706',
+        cancelButtonColor: '#4b5563',
+        background: '#1e293b',
+        color: '#f8fafc',
+        preConfirm: () => {
+          const chk = (document.getElementById('chkForzarAdmin') as HTMLInputElement)?.checked;
+          if (!chk) {
+            Swal.showValidationMessage('El cierre está reservado para Diciembre. Marca la casilla si deseas realizar una prueba anticipada.');
+            return false;
+          }
+          return true;
+        }
+      }).then((result) => {
+        if (result.isConfirmed) {
+          this.pedirConfirmacionTexto(true);
+        }
+      });
+    } else {
+      this.pedirConfirmacionTexto(false);
+    }
+  }
+
+  private pedirConfirmacionTexto(forzar: boolean) {
     Swal.fire({
       title: `🏛️ Cierre Fiscal Ejercicio ${this.ejercicioCierre}`,
       html: `
@@ -408,14 +637,14 @@ export class AdminComponent implements OnInit {
       }
     }).then((result) => {
       if (result.isConfirmed) {
-        this.ejecutarCierre();
+        this.ejecutarCierre(forzar);
       }
     });
   }
 
-  ejecutarCierre() {
+  ejecutarCierre(forzar = false) {
     this.cargandoCierre = true;
-    this.svc.ejecutarCierreFiscal(this.ejercicioCierre).subscribe({
+    this.svc.ejecutarCierreFiscal(this.ejercicioCierre, forzar).subscribe({
       next: (res) => {
         this.cargandoCierre = false;
         this.toastSvc.show(`🏛️ Cierre Fiscal ${this.ejercicioCierre} concluido: ${res.obrasArchivadas} obras archivadas.`, 'success');
@@ -588,5 +817,249 @@ export class AdminComponent implements OnInit {
         });
       }
     });
+  }
+
+  guardarDatosInstitucion() {
+    if (!this.institucionForm.nombreMunicipio?.trim()) {
+      this.toastSvc.show('El nombre del municipio es obligatorio', 'warning');
+      return;
+    }
+    this.guardandoInstitucion = true;
+    this.institucionSvc.actualizarDatos(this.institucionForm).subscribe({
+      next: () => {
+        this.guardandoInstitucion = false;
+        this.toastSvc.show('✅ Datos institucionales actualizados correctamente.', 'success');
+      },
+      error: (err) => {
+        this.guardandoInstitucion = false;
+        this.toastSvc.show(err.error?.message || 'Error al actualizar los datos institucionales.', 'error');
+      }
+    });
+  }
+
+  onLogoSelected(event: any) {
+    const file: File = event.target?.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      this.toastSvc.show('El archivo debe ser una imagen (PNG, JPG, SVG, WebP)', 'warning');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      this.toastSvc.show('El logotipo no debe superar los 10 MB', 'warning');
+      return;
+    }
+    this.subiendoLogo = true;
+    this.institucionSvc.subirLogo(file).subscribe({
+      next: () => {
+        this.subiendoLogo = false;
+        this.toastSvc.show('✅ Logotipo institucional actualizado con éxito.', 'success');
+        event.target.value = '';
+      },
+      error: (err) => {
+        this.subiendoLogo = false;
+        this.toastSvc.show(err.error?.message || 'Error al subir el logotipo.', 'error');
+        event.target.value = '';
+      }
+    });
+  }
+
+  onMembreteSelected(event: any) {
+    const file: File = event.target?.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+      this.toastSvc.show('El archivo debe ser una imagen (PNG, JPG) o PDF', 'warning');
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      this.toastSvc.show('El membrete no debe superar los 20 MB', 'warning');
+      return;
+    }
+    this.subiendoMembrete = true;
+    this.institucionSvc.subirMembrete(file).subscribe({
+      next: () => {
+        this.subiendoMembrete = false;
+        this.toastSvc.show('✅ Hoja membretada oficial actualizada con éxito.', 'success');
+        event.target.value = '';
+      },
+      error: (err) => {
+        this.subiendoMembrete = false;
+        this.toastSvc.show(err.error?.message || 'Error al subir la hoja membretada.', 'error');
+        event.target.value = '';
+      }
+    });
+  }
+
+  restablecerLogo() {
+    Swal.fire({
+      title: '🔄 ¿Restablecer logotipo?',
+      text: 'Se volverá a mostrar el logotipo predeterminado del sistema.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, restablecer',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#3B82F6',
+      cancelButtonColor: '#4B5563',
+      background: '#1F2937',
+      color: '#F9FAFB'
+    }).then((r) => {
+      if (r.isConfirmed) {
+        this.institucionSvc.restablecerLogo().subscribe({
+          next: () => this.toastSvc.show('Logotipo restablecido al predeterminado.', 'info'),
+          error: (err) => this.toastSvc.show(err.error?.message || 'Error al restablecer.', 'error')
+        });
+      }
+    });
+  }
+
+  restablecerMembrete() {
+    Swal.fire({
+      title: '🔄 ¿Usar membrete estándar?',
+      text: 'Se eliminará la plantilla personalizada y los reportes usarán el encabezado institucional estándar.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, usar estándar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#3B82F6',
+      cancelButtonColor: '#4B5563',
+      background: '#1F2937',
+      color: '#F9FAFB'
+    }).then((r) => {
+      if (r.isConfirmed) {
+        this.institucionSvc.restablecerMembrete().subscribe({
+          next: () => this.toastSvc.show('Membrete restablecido al estándar.', 'info'),
+          error: (err) => this.toastSvc.show(err.error?.message || 'Error al restablecer.', 'error')
+        });
+      }
+    });
+  }
+
+  generarPdfMuestra() {
+    const doc = new jsPDF('p', 'pt', 'letter');
+    const pageWidth = 612;
+    const pageHeight = 792;
+    const cfg = this.institucionSvc.currentConfig;
+
+    const membreteUrl = this.institucionSvc.resolveMembreteUrl(cfg.membreteUrl);
+    if (membreteUrl) {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        try {
+          doc.addImage(img, 'PNG', 0, 0, pageWidth, pageHeight);
+        } catch (e) {
+          console.warn('No se pudo incrustar imagen de membrete completa, dibujando encabezado vectorial.', e);
+        }
+        this.dibujarCuerpoPdfMuestra(doc, cfg, pageWidth, pageHeight);
+        doc.save(`muestra_membrete_${(cfg.periodoAdministracion || 'oficial').replace(/\s+/g, '_')}.pdf`);
+      };
+      img.onerror = () => {
+        this.dibujarEncabezadoVectorial(doc, cfg, pageWidth);
+        this.dibujarCuerpoPdfMuestra(doc, cfg, pageWidth, pageHeight);
+        doc.save(`muestra_membrete_${(cfg.periodoAdministracion || 'oficial').replace(/\s+/g, '_')}.pdf`);
+      };
+      img.src = membreteUrl;
+    } else {
+      this.dibujarEncabezadoVectorial(doc, cfg, pageWidth);
+      this.dibujarCuerpoPdfMuestra(doc, cfg, pageWidth, pageHeight);
+      doc.save(`muestra_membrete_${(cfg.periodoAdministracion || 'oficial').replace(/\s+/g, '_')}.pdf`);
+    }
+  }
+
+  private dibujarEncabezadoVectorial(doc: jsPDF, cfg: any, pageWidth: number) {
+    doc.setFillColor(30, 45, 61);
+    doc.rect(0, 0, pageWidth, 55, 'F');
+
+    doc.setFillColor(232, 160, 32);
+    doc.rect(0, 55, pageWidth, 4, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text((cfg.nombreMunicipio || 'H. AYUNTAMIENTO CONSTITUCIONAL').toUpperCase(), pageWidth / 2, 22, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(240, 240, 240);
+    doc.text((cfg.dependencia || 'DIRECCIÓN DE OBRAS PÚBLICAS').toUpperCase(), pageWidth / 2, 35, { align: 'center' });
+
+    doc.setFontSize(7.5);
+    doc.setTextColor(232, 160, 32);
+    doc.text((cfg.periodoAdministracion || 'ADMINISTRACIÓN MUNICIPAL').toUpperCase(), pageWidth / 2, 47, { align: 'center' });
+  }
+
+  private dibujarCuerpoPdfMuestra(doc: jsPDF, cfg: any, pageWidth: number, pageHeight: number) {
+    doc.setTextColor(220, 225, 230);
+    doc.setFontSize(40);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DOCUMENTO DE MUESTRA', pageWidth / 2, 420, { align: 'center', angle: 35 });
+
+    doc.setTextColor(30, 41, 59);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('HOJA DE MUESTRA DE IDENTIDAD INSTITUCIONAL', pageWidth / 2, 110, { align: 'center' });
+
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(9.5);
+    doc.setTextColor(100, 116, 139);
+    if (cfg.lemaOficial) {
+      doc.text(`"${cfg.lemaOficial}"`, pageWidth / 2, 126, { align: 'center' });
+    }
+
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(1);
+    doc.line(50, 140, pageWidth - 50, 140);
+
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(50, 160, pageWidth - 100, 130, 6, 6, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('PARAMETROS VIGENTES DE LA ADMINISTRACIÓN', 65, 182);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(51, 65, 85);
+
+    doc.text(`• Municipio / Gobierno:`, 65, 204);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${cfg.nombreMunicipio || 'No definido'}`, 190, 204);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(`• Período Constitucional:`, 65, 222);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${cfg.periodoAdministracion || 'No definido'}`, 190, 222);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(`• Dependencia Operativa:`, 65, 240);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${cfg.dependencia || 'No definido'}`, 190, 240);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(`• Lema Oficial:`, 65, 258);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${cfg.lemaOficial || 'No definido'}`, 190, 258);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(`• Tipo de Membrete:`, 65, 276);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${cfg.membreteUrl ? 'Personalizado (Plantilla cargada)' : 'Predeterminado (Vectorial automático)'}`, 190, 276);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(71, 85, 105);
+    const explicacion = 'Esta página es una demostración en vivo de la configuración institucional vigente. Todos los reportes generados en el sistema (Fichas Técnicas de Obra, Padrón General de Obras, Integración de Expediente Unitario y Oficios Oficiales) utilizarán automáticamente estos encabezados, logotipos y lemas sin requerir modificaciones técnicas.';
+    const lines = doc.splitTextToSize(explicacion, pageWidth - 100);
+    doc.text(lines, 50, 320);
+
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.8);
+    doc.line(50, pageHeight - 55, pageWidth - 50, pageHeight - 55);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(cfg.piePaginaReporte || 'Palacio Municipal s/n, Centro.', pageWidth / 2, pageHeight - 40, { align: 'center' });
+    doc.text(`Fecha de impresión: ${new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}`, pageWidth / 2, pageHeight - 28, { align: 'center' });
   }
 }

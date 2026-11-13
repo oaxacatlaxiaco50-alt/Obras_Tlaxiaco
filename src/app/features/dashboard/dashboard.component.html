@@ -11,7 +11,7 @@
   <div class="kpi-row">
     <div class="kpi-card">
       <div class="kpi-icon" style="background:#ffffff; padding:4px; overflow:hidden;">
-        <img src="assets/logos/logo.png" alt="Logo Municipio" style="width:100%; height:100%; object-fit:contain;" />
+        <img [src]="institucionSvc.resolveLogoUrl((institucionSvc.config$ | async)?.logoUrl)" (error)="$any($event.target).src='assets/logos/logo.png'" alt="Logo Municipio" style="width:100%; height:100%; object-fit:contain;" />
       </div>
       <div>
         <div class="kpi-value">{{ obras().length }}</div>

@@ -1,4 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { AsyncPipe } from '@angular/common';
+import { InstitucionService } from '../../core/services/institucion.service';
 
 interface Desarrollador {
   iniciales: string;
@@ -10,16 +12,17 @@ interface Desarrollador {
 @Component({
   selector: 'app-acerca-de',
   standalone: true,
+  imports: [AsyncPipe],
   template: `
     <div class="about-page animate-fade-in">
       <!-- Encabezado con Logo Municipal -->
       <div class="card hero-card">
         <div class="hero-logo-wrap">
-          <img src="assets/logos/logo.png" alt="Logo H. Ayuntamiento de Tlaxiaco" class="hero-logo" />
+          <img [src]="institucionSvc.resolveLogoUrl((institucionSvc.config$ | async)?.logoUrl)" (error)="$any($event.target).src='assets/logos/logo.png'" alt="Logo Institucional" class="hero-logo" />
         </div>
         <div class="hero-info">
           <span class="badge badge-warning" style="margin-bottom: 10px; display: inline-block;">
-            🏛️ H. Ayuntamiento de la Heroica Ciudad de Tlaxiaco · 2025–2027
+            🏛️ {{ (institucionSvc.config$ | async)?.nombreMunicipio || 'H. Ayuntamiento de Tlaxiaco' }} · {{ (institucionSvc.config$ | async)?.periodoAdministracion || 'Administración Municipal' }}
           </span>
           <h1 class="hero-title">Sistema de Gestión y Control de Obras Públicas</h1>
           <p class="hero-desc">
@@ -287,30 +290,31 @@ interface Desarrollador {
   `]
 })
 export class AcercaDeComponent {
+  institucionSvc = inject(InstitucionService);
   desarrolladores: Desarrollador[] = [
     {
       iniciales: 'NM',
       nombre: 'Nayeli Morales López',
       rol: 'Desarrolladora de Software',
-      correo: ''
+      correo: 'nayelhylop3@gmail.com'
     },
     {
       iniciales: 'NO',
       nombre: 'Nancy Olivera Santiago',
       rol: 'Desarrolladora de Software',
-      correo: ''
+      correo: 'nancy.104.oliver@gmail.com'
     },
     {
       iniciales: 'KO',
       nombre: 'Kevin Andrew Osorio Aparicio',
       rol: 'Desarrollador de Software',
-      correo: ''
+      correo: 'andrewosorio589@gmail.com'
     },
     {
       iniciales: 'JH',
       nombre: 'Jorge Luis Hernández Matra',
       rol: 'Desarrollador de Software',
-      correo: ''
+      correo: 'yo.hemati2322@gmail.com'
     }
   ];
 }

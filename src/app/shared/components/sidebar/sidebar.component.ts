@@ -1,12 +1,14 @@
 import { Component, signal, inject } from '@angular/core';
+import { AsyncPipe } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { NotificacionService } from '../../../core/services/notificacion.service';
+import { InstitucionService } from '../../../core/services/institucion.service';
 
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, AsyncPipe],
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.css'
 })
@@ -14,6 +16,8 @@ export class SidebarComponent {
   collapsed = signal(false);
   auth = inject(AuthService);
   notifSvc = inject(NotificacionService);
+  institucionSvc = inject(InstitucionService);
+
   toggle() { this.collapsed.update(v => !v); }
   getRolClass(): string {
     const m: Record<string, string> = { ADMINISTRADOR: 'badge-admin', SUPERVISOR: 'badge-residente', AUDITOR: 'badge-lector' };

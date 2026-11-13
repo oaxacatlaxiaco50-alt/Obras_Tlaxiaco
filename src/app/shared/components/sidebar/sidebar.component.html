@@ -2,12 +2,12 @@
   <div class="sidebar-header">
     <div class="sidebar-logo">
       <div class="logo-icon">
-        <img src="assets/logos/logo.png" alt="Logo Municipio" class="logo-img" />
+        <img [src]="institucionSvc.resolveLogoUrl((institucionSvc.config$ | async)?.logoUrl)" (error)="$any($event.target).src='assets/logos/logo.png'" alt="Logo Municipio" class="logo-img" />
       </div>
       @if (!collapsed()) {
         <div class="logo-text">
           <span class="logo-main">ResidenciaObra</span>
-          <span class="logo-sub">H. Ayuntamiento Tlaxiaco</span>
+          <span class="logo-sub">{{ (institucionSvc.config$ | async)?.nombreMunicipio || 'H. Ayuntamiento Tlaxiaco' }}</span>
         </div>
       }
     </div>
@@ -25,12 +25,10 @@
       <span class="nav-icon">🗺️</span>
       @if (!collapsed()) { <span class="nav-label">Geolocalización</span> }
     </a>
-    @if (auth.hasRole('admin', 'residente')) {
-      <a routerLink="/obras" routerLinkActive="active" class="nav-item">
-        <span class="nav-icon">📁</span>
-        @if (!collapsed()) { <span class="nav-label">Expedientes</span> }
-      </a>
-    }
+    <a routerLink="/obras" routerLinkActive="active" class="nav-item">
+      <span class="nav-icon">📁</span>
+      @if (!collapsed()) { <span class="nav-label">Expedientes</span> }
+    </a>
     @if (auth.hasRole('admin')) {
       <a routerLink="/bitacora/cambios" routerLinkActive="active" class="nav-item">
         <span class="nav-icon">🔒</span>

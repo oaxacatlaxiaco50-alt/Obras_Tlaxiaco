@@ -7,6 +7,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { UsuariosService } from '../../core/services/usuarios.service';
 import { ToastService } from '../../core/services/toast.service';
 import { MetasService } from '../../core/services/metas.service';
+import { InstitucionService } from '../../core/services/institucion.service';
 import { ObraResponse, ObraEstatus, ESTATUS_LABEL, ESTATUS_COLOR, CATEGORIAS_METAS_CATALOG, ObraMeta } from '../../core/models/obra.model';
 import { UserResponse } from '../../core/models/user.model';
 import { jsPDF } from 'jspdf';
@@ -55,10 +56,12 @@ import Swal from 'sweetalert2';
             <option value="Salud y Espacios Públicos">🏥 Salud y Espacios Públicos</option>
             <option value="Infraestructura General">🏗️ Infraestructura General</option>
           </select>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn btn-secondary" (click)="exportarPDF()">📄 Exportar PDF</button>
-            <button class="btn btn-secondary" style="border-color: #10B981; color: #10B981;" (click)="exportarExcel()">📊 Exportar Excel</button>
-          </div>
+          @if (auth.hasRole('admin', 'residente', 'lector')) {
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-secondary" (click)="exportarPDF()">📄 Exportar PDF</button>
+              <button class="btn btn-secondary" style="border-color: #10B981; color: #10B981;" (click)="exportarExcel()">📊 Exportar Excel</button>
+            </div>
+          }
         </div>
         <div class="filter-row" style="margin-top: 16px;">
           <div class="status-tabs">
@@ -96,7 +99,7 @@ import Swal from 'sweetalert2';
                     <div class="obra-name-cell">
                       <span class="obra-code">{{ obra.codigo || obra.id }}</span>
                       <span class="obra-name">{{ obra.nombre }}</span>
-                      <span class="obra-location">🏷️ {{ obra.categoria || 'Infraestructura General' }} · {{ obra.direccion || 'Tlaxiaco' }}</span>
+                      <span class="obra-location">🏷️ {{ limpiarTextoReporte(obra.categoria) || 'Infraestructura General' }} · {{ obra.direccion || 'Tlaxiaco' }}</span>
                     </div>
                   </td>
                   <td>
@@ -575,6 +578,7 @@ export class ObrasListComponent implements OnInit {
   usuariosSvc = inject(UsuariosService);
   toastSvc = inject(ToastService);
   metasSvc = inject(MetasService);
+  institucionSvc = inject(InstitucionService);
 
   mostrarModalNuevaObra = signal(false);
   creandoObra = signal(false);
@@ -676,7 +680,13 @@ export class ObrasListComponent implements OnInit {
     }
   }
 
-  obrasFiltradas = computed(() => this.todasLasObras());
+  obrasFiltradas = computed(() => {
+    const list = this.todasLasObras();
+    if (this.filtroStatus() === 'todas') {
+      return list.filter(o => o.estatus !== 'CANCELADA' && o.estatus !== 'INACTIVA' && o.estatus !== 'ELIMINADA');
+    }
+    return list;
+  });
 
   updateFiltroTexto(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
@@ -914,7 +924,7 @@ export class ObrasListComponent implements OnInit {
     const monto = parseFloat(rawMonto) || 0;
     const responsableId = Number(formData.get('responsableId')) || 0;
     const descripcion = (formData.get('descripcion') as string)?.trim() || '';
-    const categoria = (formData.get('categoria') as string) || 'Infraestructura General';
+    const categoria = this.limpiarTextoReporte(formData.get('categoria') as string) || 'Infraestructura General';
     const latitud = this.latitudSeleccionada() ?? 17.266108;
     const longitud = this.longitudSeleccionada() ?? -97.676773;
 
@@ -1093,6 +1103,15 @@ export class ObrasListComponent implements OnInit {
     this.toastSvc.show(`Se subieron ${files.length} archivo(s) a ${carpeta}`, 'success');
   }
 
+  limpiarTextoReporte(texto?: string | null): string {
+    if (!texto) return '';
+    return texto
+      .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}]/gu, '')
+      .replace(/[^\x20-\x7E\xA0-\xFF]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   exportarPDF() {
     this.toastSvc.show('📄 Generando PDF Ejecutivo, por favor espera...', 'info');
     const list = this.todasLasObras();
@@ -1109,16 +1128,21 @@ export class ObrasListComponent implements OnInit {
     doc.setFillColor(30, 45, 61); // #1E2D3D dark header
     doc.rect(0, 0, pageWidth, 26, 'F');
 
-    // Título institucional
+    // Título institucional dinámico
+    const cfg = this.institucionSvc.currentConfig;
+    const municipio = (cfg?.nombreMunicipio || 'H. AYUNTAMIENTO CONSTITUCIONAL DE HEROICA CIUDAD DE TLAXIACO').toUpperCase();
+    const dependencia = (cfg?.dependencia || 'DIRECCIÓN DE OBRAS PÚBLICAS Y DESARROLLO URBANO').toUpperCase();
+    const periodo = cfg?.periodoAdministracion ? ` · ${cfg.periodoAdministracion.toUpperCase()}` : '';
+
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.text('H. AYUNTAMIENTO CONSTITUCIONAL DE HEROICA CIUDAD DE TLAXIACO', pageWidth / 2, 10, { align: 'center' });
+    doc.setFontSize(11);
+    doc.text(municipio, pageWidth / 2, 10, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setTextColor(232, 160, 32); // #E8A020 accent
-    doc.text('DIRECCIÓN DE OBRAS PÚBLICAS Y DESARROLLO URBANO · EXPEDIENTES TÉCNICOS', pageWidth / 2, 17, { align: 'center' });
+    doc.text(`${dependencia}${periodo}`, pageWidth / 2, 17, { align: 'center' });
 
     doc.setFontSize(8);
     doc.setTextColor(200, 200, 200);
@@ -1170,8 +1194,8 @@ export class ObrasListComponent implements OnInit {
     doc.text('#', 17, y + 5.5);
     doc.text('CÓDIGO', 26, y + 5.5);
     doc.text('NOMBRE DE LA OBRA', 60, y + 5.5);
-    doc.text('CATEGORÍA', 145, y + 5.5);
-    doc.text('INVERSIÓN ($)', 205, y + 5.5, { align: 'right' });
+    doc.text('CATEGORÍA', 140, y + 5.5);
+    doc.text('INVERSIÓN ($)', 215, y + 5.5, { align: 'right' });
     doc.text('ESTATUS', 235, y + 5.5);
     doc.text('% AVANCE', 275, y + 5.5, { align: 'right' });
 
@@ -1190,8 +1214,8 @@ export class ObrasListComponent implements OnInit {
         doc.text('#', 17, y + 5.5);
         doc.text('CÓDIGO', 26, y + 5.5);
         doc.text('NOMBRE DE LA OBRA', 60, y + 5.5);
-        doc.text('CATEGORÍA', 145, y + 5.5);
-        doc.text('INVERSIÓN ($)', 205, y + 5.5, { align: 'right' });
+        doc.text('CATEGORÍA', 140, y + 5.5);
+        doc.text('INVERSIÓN ($)', 215, y + 5.5, { align: 'right' });
         doc.text('ESTATUS', 235, y + 5.5);
         doc.text('% AVANCE', 275, y + 5.5, { align: 'right' });
         y += 8;
@@ -1206,18 +1230,18 @@ export class ObrasListComponent implements OnInit {
       doc.setTextColor(50, 50, 50);
       doc.setFontSize(8);
       doc.text(String(i + 1), 17, y + 4.8);
-      doc.text(o.codigo || `OBR-${o.id}`, 26, y + 4.8);
+      doc.text(this.limpiarTextoReporte(o.codigo) || `OBR-${o.id}`, 26, y + 4.8);
 
-      const nombreTrunc = o.nombre.length > 45 ? o.nombre.slice(0, 42) + '...' : o.nombre;
+      const nombreLimpio = this.limpiarTextoReporte(o.nombre);
+      const nombreTrunc = nombreLimpio.length > 42 ? nombreLimpio.slice(0, 39) + '...' : nombreLimpio;
       doc.text(nombreTrunc, 60, y + 4.8);
 
-      const catTrunc = (o.categoria || 'Infraestructura General').length > 28
-        ? (o.categoria || 'Infraestructura General').slice(0, 25) + '...'
-        : (o.categoria || 'Infraestructura General');
-      doc.text(catTrunc, 145, y + 4.8);
+      const catLimpia = this.limpiarTextoReporte(o.categoria) || 'Infraestructura General';
+      const catTrunc = catLimpia.length > 28 ? catLimpia.slice(0, 25) + '...' : catLimpia;
+      doc.text(catTrunc, 140, y + 4.8);
 
-      doc.text(this.svc.formatMonto(o.monto), 205, y + 4.8, { align: 'right' });
-      doc.text(ESTATUS_LABEL[o.estatus] || o.estatus, 235, y + 4.8);
+      doc.text(this.svc.formatMonto(o.monto), 215, y + 4.8, { align: 'right' });
+      doc.text(this.limpiarTextoReporte(ESTATUS_LABEL[o.estatus] || o.estatus), 235, y + 4.8);
 
       const pct = o.porcentajeAvance ?? (o.estatus === 'COMPLETADA' || o.estatus === 'FINALIZADA' ? 100 : 0);
       doc.text(`${pct}%`, 275, y + 4.8, { align: 'right' });
@@ -1262,13 +1286,13 @@ export class ObrasListComponent implements OnInit {
 
     const data: any[] = list.map((o, index) => ({
       'No.': index + 1,
-      'Código': o.codigo || `OBR-${o.id}`,
-      'Nombre de la Obra': o.nombre,
-      'Categoría': o.categoria || 'Infraestructura General',
-      'Ubicación / Dirección': o.direccion || 'Heroica Ciudad de Tlaxiaco',
+      'Código': this.limpiarTextoReporte(o.codigo) || `OBR-${o.id}`,
+      'Nombre de la Obra': this.limpiarTextoReporte(o.nombre),
+      'Categoría': this.limpiarTextoReporte(o.categoria) || 'Infraestructura General',
+      'Ubicación / Dirección': this.limpiarTextoReporte(o.direccion) || 'Heroica Ciudad de Tlaxiaco',
       'Inversión ($ MXN)': o.monto,
       'Monto Formateado': this.svc.formatMonto(o.monto),
-      'Estatus': ESTATUS_LABEL[o.estatus] || o.estatus,
+      'Estatus': this.limpiarTextoReporte(ESTATUS_LABEL[o.estatus] || o.estatus),
       'Avance Físico (%)': o.porcentajeAvance ?? (o.estatus === 'COMPLETADA' || o.estatus === 'FINALIZADA' ? 100 : 0),
       'Fecha Inicio': o.fechaInicio,
       'Fecha Fin': o.fechaFin,

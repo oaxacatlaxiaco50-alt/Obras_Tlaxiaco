@@ -1,10 +1,11 @@
 import { Component, AfterViewInit, ElementRef, ViewChild, OnInit, OnDestroy, inject, signal, PLATFORM_ID } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { SlicePipe, isPlatformBrowser } from '@angular/common';
+import { SlicePipe, AsyncPipe, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ObrasService } from '../../core/services/obras.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
+import { InstitucionService } from '../../core/services/institucion.service';
 import { ObraResponse, ESTATUS_LABEL, ESTATUS_COLOR } from '../../core/models/obra.model';
 import { Chart, registerables } from 'chart.js';
 
@@ -13,7 +14,7 @@ Chart.register(...registerables);
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [RouterLink, SlicePipe, FormsModule],
+  imports: [RouterLink, SlicePipe, AsyncPipe, FormsModule],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
 })
@@ -33,6 +34,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   auth = inject(AuthService);
   platformId = inject(PLATFORM_ID);
   toastSvc = inject(ToastService);
+  institucionSvc = inject(InstitucionService);
 
   mostrarModalNuevaObra = signal(false);
 

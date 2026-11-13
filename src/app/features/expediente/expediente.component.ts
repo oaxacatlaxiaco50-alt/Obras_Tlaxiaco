@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ObrasService } from '../../core/services/obras.service';
 import { AvancesService } from '../../core/services/avances.service';
@@ -12,6 +12,7 @@ import { ExpedientesService, ExpedienteObraItem, EstadoDocumentoChecklist, Secci
 import { AuthService } from '../../core/services/auth.service';
 import { UsuariosService } from '../../core/services/usuarios.service';
 import { ToastService } from '../../core/services/toast.service';
+import { InstitucionService } from '../../core/services/institucion.service';
 import { ObraResponse, ObraAvance, ObraArchivo, ObraEstatus, ESTATUS_LABEL, ESTATUS_COLOR, ObraMeta, ConceptoSugerido, CATEGORIAS_METAS_CATALOG } from '../../core/models/obra.model';
 import { UserResponse } from '../../core/models/user.model';
 import { MetasService } from '../../core/services/metas.service';
@@ -25,7 +26,7 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
 @Component({
   selector: 'app-expediente',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, FormsModule],
+  imports: [DatePipe, DecimalPipe, FormsModule, AsyncPipe],
   template: `
     @if (obra()) {
       <div class="expediente" id="pdfContent">
@@ -49,17 +50,15 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
             
             
             @if (tabActiva() !== 'editar') {
-              @if (auth.hasRole('admin')) {
+              @if (auth.hasRole('admin', 'residente')) {
                 <button class="btn" style="background:var(--danger); color:white; border:none; box-shadow:0 4px 12px rgba(239, 68, 68, 0.3); display:inline-flex; align-items:center; gap:6px;" (click)="tabActiva.set('editar')">
                   ✏️ Editar Obra
                 </button>
               }
-              @if (auth.hasRole('admin', 'residente')) {
-                <button class="btn" style="background:linear-gradient(135deg,#10B981,#059669); color:#fff; border:none; box-shadow:0 4px 12px rgba(16,185,129,0.3); display:inline-flex; align-items:center; gap:6px;" (click)="mostrarModalIntegracionExp.set(true)">
-                  📂 Integración de Expedientes
-                </button>
-              }
-              @if (auth.hasRole('admin') || (auth.hasRole('residente') && !svc.isBlocked(obra()!))) {
+              <button class="btn" style="background:linear-gradient(135deg,#10B981,#059669); color:#fff; border:none; box-shadow:0 4px 12px rgba(16,185,129,0.3); display:inline-flex; align-items:center; gap:6px;" (click)="mostrarModalIntegracionExp.set(true)">
+                📂 Integración de Expedientes
+              </button>
+              @if (auth.hasRole('admin', 'lector') || (auth.hasRole('residente') && !svc.isBlocked(obra()!))) {
                 <button class="btn btn-secondary" (click)="mostrarModalReportes.set(true)">📄 Generar Reporte</button>
               }
             } @else {
@@ -74,53 +73,51 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
         <!-- TABS NAV -->
         <div class="exp-tabs-nav" style="display:flex; gap:8px; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:12px; overflow-x:auto;">
           <button class="tab-pill" [class.active]="tabActiva() === 'resumen'" (click)="tabActiva.set('resumen')">📊 Resumen General</button>
-          @if (auth.hasRole('admin', 'residente')) {
-            <button class="tab-pill" [class.active]="tabActiva() === 'archivos'" (click)="tabActiva.set('archivos')">📁 Archivos y Evidencias</button>
+          <button class="tab-pill" [class.active]="tabActiva() === 'archivos'" (click)="tabActiva.set('archivos')">📁 Archivos y Evidencias</button>
+          @if (auth.hasRole('admin', 'residente', 'contratista')) {
             <button class="tab-pill" [class.active]="tabActiva() === 'avances'" (click)="tabActiva.set('avances')" style="color:var(--accent);">🎯 Actualizar Avances</button>
           }
           
         </div>
 
         <!-- KPI Strip -->
-        @if (auth.hasRole('admin', 'residente')) {
-          <div class="kpi-strip" [style.display]="tabActiva() === 'resumen' ? '' : 'none'">
-            <div class="strip-item">
-              <span class="strip-label">💰 Monto</span>
-              <span class="strip-val accent">{{ svc.formatMonto(obra()!.monto) }}</span>
-            </div>
-            <div class="strip-sep"></div>
-            <div class="strip-item">
-              <span class="strip-label">📈 Avance</span>
-              <span class="strip-val" [style.color]="progressColor()">{{ ultimoPorcentaje() }}%</span>
-            </div>
-            <div class="strip-sep"></div>
-            <div class="strip-item">
-              <span class="strip-label">📅 Inicio</span>
-              <span class="strip-val">{{ fmtDate(obra()!.fechaInicio) }}</span>
-            </div>
-            <div class="strip-sep"></div>
-            <div class="strip-item">
-              <span class="strip-label">🏁 Fin</span>
-              <span class="strip-val">{{ fmtDate(obra()!.fechaFin) }}</span>
-            </div>
-            <div class="strip-sep"></div>
-            <div class="strip-item">
-              <span class="strip-label">👤 Responsable</span>
-              <span class="strip-val">Resp. #{{ obra()!.responsableId }}</span>
-            </div>
-            <div class="strip-sep"></div>
-            <div class="strip-item">
-              <span class="strip-label">🏢 Contratista</span>
-              <span class="strip-val">{{ obra()!.estatus }}</span>
-            </div>
+        <div class="kpi-strip" [style.display]="tabActiva() === 'resumen' ? '' : 'none'">
+          <div class="strip-item">
+            <span class="strip-label">💰 Monto</span>
+            <span class="strip-val accent">{{ svc.formatMonto(obra()!.monto) }}</span>
           </div>
-          <!-- Progress bar -->
-          <div class="exp-progress-wrap" [style.display]="tabActiva() === 'resumen' ? '' : 'none'">
-            <div class="progress-bar" style="height:12px">
-              <div class="progress-fill" [style.width.%]="ultimoPorcentaje()"></div>
-            </div>
+          <div class="strip-sep"></div>
+          <div class="strip-item">
+            <span class="strip-label">📈 Avance</span>
+            <span class="strip-val" [style.color]="progressColor()">{{ ultimoPorcentaje() }}%</span>
           </div>
-        }
+          <div class="strip-sep"></div>
+          <div class="strip-item">
+            <span class="strip-label">📅 Inicio</span>
+            <span class="strip-val">{{ fmtDate(obra()!.fechaInicio) }}</span>
+          </div>
+          <div class="strip-sep"></div>
+          <div class="strip-item">
+            <span class="strip-label">🏁 Fin</span>
+            <span class="strip-val">{{ fmtDate(obra()!.fechaFin) }}</span>
+          </div>
+          <div class="strip-sep"></div>
+          <div class="strip-item">
+            <span class="strip-label">👤 Responsable</span>
+            <span class="strip-val">Resp. #{{ obra()!.responsableId }}</span>
+          </div>
+          <div class="strip-sep"></div>
+          <div class="strip-item">
+            <span class="strip-label">🏢 Contratista</span>
+            <span class="strip-val">{{ obra()!.estatus }}</span>
+          </div>
+        </div>
+        <!-- Progress bar -->
+        <div class="exp-progress-wrap" [style.display]="tabActiva() === 'resumen' ? '' : 'none'">
+          <div class="progress-bar" style="height:12px">
+            <div class="progress-fill" [style.width.%]="ultimoPorcentaje()"></div>
+          </div>
+        </div>
 
         <!-- Description -->
         <div class="card exp-desc-card" [style.display]="tabActiva() === 'resumen' ? '' : 'none'">
@@ -128,8 +125,7 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
           <p>{{ obra()!.descripcion }}</p>
         </div>
 
-        @if (auth.hasRole('admin', 'residente')) {
-          <div class="exp-grid" [style.display]="(tabActiva() === 'resumen' || tabActiva() === 'archivos') ? '' : 'none'">
+        <div class="exp-grid" [style.display]="(tabActiva() === 'resumen' || tabActiva() === 'archivos') ? '' : 'none'">
             <!-- Timeline de Fotos -->
             <div class="card" style="padding:0; overflow:hidden;">
               <div class="seccion-header interactive-accordion-header" (click)="fotosAbiertas.set(!fotosAbiertas())" style="padding:14px 18px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; border-bottom:1px solid var(--border);">
@@ -221,30 +217,32 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
           </div>
 
           <!-- Upload + Camera -->
-          <div class="exp-grid-2" [style.display]="tabActiva() === 'archivos' ? '' : 'none'">
-            <div class="card upload-card">
-              <h3 class="sec-title">📁 Subir Archivos</h3>
+          <div class="exp-grid-2" [style.display]="tabActiva() === 'archivos' ? '' : 'none'" [style.grid-template-columns]="auth.hasRole('admin', 'residente', 'contratista') ? '1fr 1fr' : '1fr'">
+            @if (auth.hasRole('admin', 'residente', 'contratista')) {
+              <div class="card upload-card">
+                <h3 class="sec-title">📁 Subir Archivos</h3>
 
-                <div style="margin-bottom: 16px;">
-                  <label class="form-label" style="display:block; margin-bottom:8px; font-weight:600;">Destino / Clasificacion del Archivo</label>
-                  <select class="form-input" #faseUpload (change)="faseSubida.set(faseUpload.value)">
-                    <option value="GENERAL">Documento del Expediente (General)</option>
-                    <option value="ANTES">Evidencia Fotografica (Antes)</option>
-                    <option value="DURANTE">Evidencia Fotografica (Durante)</option>
-                    <option value="DESPUES">Evidencia Fotografica (Despues)</option>
-                  </select>
+                  <div style="margin-bottom: 16px;">
+                    <label class="form-label" style="display:block; margin-bottom:8px; font-weight:600;">Destino / Clasificacion del Archivo</label>
+                    <select class="form-input" #faseUpload (change)="faseSubida.set(faseUpload.value)">
+                      <option value="GENERAL">Documento del Expediente (General)</option>
+                      <option value="ANTES">Evidencia Fotografica (Antes)</option>
+                      <option value="DURANTE">Evidencia Fotografica (Durante)</option>
+                      <option value="DESPUES">Evidencia Fotografica (Despues)</option>
+                    </select>
+                  </div>
+                  <div class="upload-zone" (dragover)="$event.preventDefault()" (drop)="onDrop($event)">
+                  <div class="upload-icon">⬆️</div>
+                  <p class="upload-text">Arrastra archivos aquí o haz clic para seleccionar</p>
+                  <p class="upload-hint">Imágenes, videos y documentos · Máximo <strong>30 MB</strong> por archivo</p>
+                  <input type="file" #fileInput multiple accept="image/*,video/*,.pdf,.dwg" (change)="onFileSelect($event)" style="display:none">
+                  <button class="btn btn-secondary btn-sm" (click)="fileInput.click()">Seleccionar archivos</button>
                 </div>
-                <div class="upload-zone" (dragover)="$event.preventDefault()" (drop)="onDrop($event)">
-                <div class="upload-icon">⬆️</div>
-                <p class="upload-text">Arrastra archivos aquí o haz clic para seleccionar</p>
-                <p class="upload-hint">Imágenes, videos y documentos · Máximo <strong>30 MB</strong> por archivo</p>
-                <input type="file" #fileInput multiple accept="image/*,video/*,.pdf,.dwg" (change)="onFileSelect($event)" style="display:none">
-                <button class="btn btn-secondary btn-sm" (click)="fileInput.click()">Seleccionar archivos</button>
+                @if (uploadMsg()) {
+                  <p class="upload-feedback" [class.error]="uploadError()">{{ uploadMsg() }}</p>
+                }
               </div>
-              @if (uploadMsg()) {
-                <p class="upload-feedback" [class.error]="uploadError()">{{ uploadMsg() }}</p>
-              }
-            </div>
+            }
 
             <div class="card docs-card" style="padding:0; overflow:hidden;">
               <div class="seccion-header interactive-accordion-header" (click)="archivosAbiertos.set(!archivosAbiertos())" style="padding:14px 18px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; border-bottom:1px solid var(--border);">
@@ -299,7 +297,6 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
               </div>
             </div>
           </div>
-        }
 
         <!-- SECCIÓN DE CHECKLIST UNITARIO OFICIAL (FORMATO TLAXIACO 2026) -->
         <div [style.display]="tabActiva() === 'archivos' ? '' : 'none'">
@@ -311,7 +308,7 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
                     🏛️ INTEGRACIÓN DE EXPEDIENTE UNITARIO DE OBRA PÚBLICA EJERCICIO 2026
                   </h2>
                   <span style="font-size:0.8rem; color:var(--accent); font-weight:600;">
-                    H. AYUNTAMIENTO MUNICIPAL DE HEROICA CIUDAD DE TLAXIACO · REGIDURÍA DE OBRAS PÚBLICAS
+                    {{ (institucionSvc.config$ | async)?.nombreMunicipio || 'H. AYUNTAMIENTO CONSTITUCIONAL' }} · {{ (institucionSvc.config$ | async)?.dependencia || 'DIRECCIÓN DE OBRAS PÚBLICAS' }}
                   </span>
                 </div>
                 
@@ -390,19 +387,29 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
                             </td>
                             <td style="text-align:center;" (click)="$event.stopPropagation()">
                               <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
-                                <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
-                                <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
-                                <button type="button" class="btn-pill" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
-                                <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
+                                <button type="button" class="btn-pill" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.cursor]="auth.hasRole('admin', 'residente', 'contratista') ? 'pointer' : 'not-allowed'" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
+                                <button type="button" class="btn-pill" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.cursor]="auth.hasRole('admin', 'residente', 'contratista') ? 'pointer' : 'not-allowed'" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
+                                <button type="button" class="btn-pill" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.cursor]="auth.hasRole('admin', 'residente', 'contratista') ? 'pointer' : 'not-allowed'" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
+                                <button type="button" class="btn-pill" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.cursor]="auth.hasRole('admin', 'residente', 'contratista') ? 'pointer' : 'not-allowed'" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
                               </div>
                             </td>
                             <td style="text-align:center;" (click)="$event.stopPropagation()">
-                              <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
-                                {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
-                              </button>
+                              @if (auth.hasRole('admin', 'residente', 'contratista')) {
+                                <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
+                                  {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
+                                </button>
+                              } @else {
+                                @if (item.archivoUrl) {
+                                  <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
+                                    👁️ Ver Documento
+                                  </button>
+                                } @else {
+                                  <span class="badge badge-secondary" style="font-size:0.75rem; opacity:0.7;">⚪ Sin archivo</span>
+                                }
+                              }
                             </td>
                             <td (click)="$event.stopPropagation()">
-                              <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
+                              <input type="text" [readonly]="!auth.hasRole('admin', 'residente', 'contratista')" [value]="item.observaciones || ''" [placeholder]="auth.hasRole('admin', 'residente', 'contratista') ? 'Añadir nota u observación...' : 'Sin observaciones'" class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
                             </td>
                           </tr>
                         }
@@ -456,19 +463,29 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
                             </td>
                             <td style="text-align:center;" (click)="$event.stopPropagation()">
                               <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
-                                <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
-                                <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
-                                <button type="button" class="btn-pill" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
-                                <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
+                                <button type="button" class="btn-pill" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.cursor]="auth.hasRole('admin', 'residente', 'contratista') ? 'pointer' : 'not-allowed'" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
+                                <button type="button" class="btn-pill" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.cursor]="auth.hasRole('admin', 'residente', 'contratista') ? 'pointer' : 'not-allowed'" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
+                                <button type="button" class="btn-pill" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.cursor]="auth.hasRole('admin', 'residente', 'contratista') ? 'pointer' : 'not-allowed'" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
+                                <button type="button" class="btn-pill" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.cursor]="auth.hasRole('admin', 'residente', 'contratista') ? 'pointer' : 'not-allowed'" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
                               </div>
                             </td>
                             <td style="text-align:center;" (click)="$event.stopPropagation()">
-                              <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
-                                {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
-                              </button>
+                              @if (auth.hasRole('admin', 'residente', 'contratista')) {
+                                <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
+                                  {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
+                                </button>
+                              } @else {
+                                @if (item.archivoUrl) {
+                                  <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
+                                    👁️ Ver Documento
+                                  </button>
+                                } @else {
+                                  <span class="badge badge-secondary" style="font-size:0.75rem; opacity:0.7;">⚪ Sin archivo</span>
+                                }
+                              }
                             </td>
                             <td (click)="$event.stopPropagation()">
-                              <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
+                              <input type="text" [readonly]="!auth.hasRole('admin', 'residente', 'contratista')" [value]="item.observaciones || ''" [placeholder]="auth.hasRole('admin', 'residente', 'contratista') ? 'Añadir nota u observación...' : 'Sin observaciones'" class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
                             </td>
                           </tr>
                         }
@@ -522,19 +539,29 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
                             </td>
                             <td style="text-align:center;" (click)="$event.stopPropagation()">
                               <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
-                                <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
-                                <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
-                                <button type="button" class="btn-pill" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
-                                <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
+                                <button type="button" class="btn-pill" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.cursor]="auth.hasRole('admin', 'residente', 'contratista') ? 'pointer' : 'not-allowed'" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
+                                <button type="button" class="btn-pill" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.cursor]="auth.hasRole('admin', 'residente', 'contratista') ? 'pointer' : 'not-allowed'" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
+                                <button type="button" class="btn-pill" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.cursor]="auth.hasRole('admin', 'residente', 'contratista') ? 'pointer' : 'not-allowed'" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
+                                <button type="button" class="btn-pill" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.cursor]="auth.hasRole('admin', 'residente', 'contratista') ? 'pointer' : 'not-allowed'" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
                               </div>
                             </td>
                             <td style="text-align:center;" (click)="$event.stopPropagation()">
-                              <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
-                                {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
-                              </button>
+                              @if (auth.hasRole('admin', 'residente', 'contratista')) {
+                                <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
+                                  {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
+                                </button>
+                              } @else {
+                                @if (item.archivoUrl) {
+                                  <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
+                                    👁️ Ver Documento
+                                  </button>
+                                } @else {
+                                  <span class="badge badge-secondary" style="font-size:0.75rem; opacity:0.7;">⚪ Sin archivo</span>
+                                }
+                              }
                             </td>
                             <td (click)="$event.stopPropagation()">
-                              <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
+                              <input type="text" [readonly]="!auth.hasRole('admin', 'residente', 'contratista')" [value]="item.observaciones || ''" [placeholder]="auth.hasRole('admin', 'residente', 'contratista') ? 'Añadir nota u observación...' : 'Sin observaciones'" class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
                             </td>
                           </tr>
                         }
@@ -588,19 +615,29 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
                             </td>
                             <td style="text-align:center;" (click)="$event.stopPropagation()">
                               <div style="display:inline-flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; border:1px solid var(--border-light);">
-                                <button type="button" class="btn-pill" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
-                                <button type="button" class="btn-pill" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
-                                <button type="button" class="btn-pill" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
-                                <button type="button" class="btn-pill" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
+                                <button type="button" class="btn-pill" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.cursor]="auth.hasRole('admin', 'residente', 'contratista') ? 'pointer' : 'not-allowed'" [style.background]="item.estado === 'OK' ? '#10B981' : 'transparent'" [style.color]="item.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'OK')">OK</button>
+                                <button type="button" class="btn-pill" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.cursor]="auth.hasRole('admin', 'residente', 'contratista') ? 'pointer' : 'not-allowed'" [style.background]="item.estado === 'FALTANTE' ? '#EF4444' : 'transparent'" [style.color]="item.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'FALTANTE')">F</button>
+                                <button type="button" class="btn-pill" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.cursor]="auth.hasRole('admin', 'residente', 'contratista') ? 'pointer' : 'not-allowed'" [style.background]="item.estado === 'CORREGIR' ? '#F59E0B' : 'transparent'" [style.color]="item.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'CORREGIR')">C</button>
+                                <button type="button" class="btn-pill" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.cursor]="auth.hasRole('admin', 'residente', 'contratista') ? 'pointer' : 'not-allowed'" [style.background]="item.estado === 'NO_APLICA' ? '#6B7280' : 'transparent'" [style.color]="item.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoItem(item, 'NO_APLICA')">N/A</button>
                               </div>
                             </td>
                             <td style="text-align:center;" (click)="$event.stopPropagation()">
-                              <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
-                                {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
-                              </button>
+                              @if (auth.hasRole('admin', 'residente', 'contratista')) {
+                                <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
+                                  {{ item.archivoUrl ? '👁️ Ver Documento' : '📤 Subir / Abrir Espacio' }}
+                                </button>
+                              } @else {
+                                @if (item.archivoUrl) {
+                                  <button type="button" class="btn btn-secondary btn-sm" (click)="abrirModalGestionDoc(item)" style="display:inline-flex; align-items:center; gap:6px;">
+                                    👁️ Ver Documento
+                                  </button>
+                                } @else {
+                                  <span class="badge badge-secondary" style="font-size:0.75rem; opacity:0.7;">⚪ Sin archivo</span>
+                                }
+                              }
                             </td>
                             <td (click)="$event.stopPropagation()">
-                              <input type="text" [value]="item.observaciones || ''" placeholder="Añadir nota u observación..." class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
+                              <input type="text" [readonly]="!auth.hasRole('admin', 'residente', 'contratista')" [value]="item.observaciones || ''" [placeholder]="auth.hasRole('admin', 'residente', 'contratista') ? 'Añadir nota u observación...' : 'Sin observaciones'" class="form-input" style="font-size:0.8rem; padding:4px 10px; width:100%; border-radius:6px;" (change)="guardarObservaciones(item, $event)" />
                             </td>
                           </tr>
                         }
@@ -705,8 +742,9 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
             <div class="form-group"><label class="form-label">Beneficiarios</label><textarea name="beneficiarios" class="form-input" rows="2" placeholder="Ej. 40 HOGARES, 120 MUJERES Y 100 HOMBRES">{{ obra()!.beneficiarios || '' }}</textarea></div>
             <div class="form-group" style="margin-bottom: 24px;"><label class="form-label">Impacto Social</label><textarea name="impactoSocial" class="form-input" rows="3" placeholder="Describe el impacto social de la obra">{{ obra()!.impactoSocial || '' }}</textarea></div>
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              
-              <button type="button" class="btn btn-danger" (click)="eliminarObraAdmin()">🗑️ Eliminar Obra</button>
+              @if (auth.hasRole('admin')) {
+                <button type="button" class="btn btn-danger" (click)="eliminarObraAdmin()">🗑️ Eliminar Obra</button>
+              }
             </div>
           </form>
 
@@ -857,35 +895,39 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
                     Estado del Documento (Simbología)
                   </label>
                   <div style="display:flex; gap:6px; margin-top:8px;">
-                    <button type="button" class="btn-pill" style="flex:1; padding:8px;" [style.background]="documentoSeleccionado()!.estado === 'OK' ? '#10B981' : 'rgba(255,255,255,0.05)'" [style.color]="documentoSeleccionado()!.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoEnModal('OK')">🟢 OK</button>
-                    <button type="button" class="btn-pill" style="flex:1; padding:8px;" [style.background]="documentoSeleccionado()!.estado === 'FALTANTE' ? '#EF4444' : 'rgba(255,255,255,0.05)'" [style.color]="documentoSeleccionado()!.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoEnModal('FALTANTE')">🔴 F</button>
-                    <button type="button" class="btn-pill" style="flex:1; padding:8px;" [style.background]="documentoSeleccionado()!.estado === 'CORREGIR' ? '#F59E0B' : 'rgba(255,255,255,0.05)'" [style.color]="documentoSeleccionado()!.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoEnModal('CORREGIR')">🟡 C</button>
-                    <button type="button" class="btn-pill" style="flex:1; padding:8px;" [style.background]="documentoSeleccionado()!.estado === 'NO_APLICA' ? '#6B7280' : 'rgba(255,255,255,0.05)'" [style.color]="documentoSeleccionado()!.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoEnModal('NO_APLICA')">⚪ N/A</button>
+                    <button type="button" class="btn-pill" style="flex:1; padding:8px;" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.background]="documentoSeleccionado()!.estado === 'OK' ? '#10B981' : 'rgba(255,255,255,0.05)'" [style.color]="documentoSeleccionado()!.estado === 'OK' ? '#fff' : ''" (click)="cambiarEstadoEnModal('OK')">🟢 OK</button>
+                    <button type="button" class="btn-pill" style="flex:1; padding:8px;" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.background]="documentoSeleccionado()!.estado === 'FALTANTE' ? '#EF4444' : 'rgba(255,255,255,0.05)'" [style.color]="documentoSeleccionado()!.estado === 'FALTANTE' ? '#fff' : ''" (click)="cambiarEstadoEnModal('FALTANTE')">🔴 F</button>
+                    <button type="button" class="btn-pill" style="flex:1; padding:8px;" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.background]="documentoSeleccionado()!.estado === 'CORREGIR' ? '#F59E0B' : 'rgba(255,255,255,0.05)'" [style.color]="documentoSeleccionado()!.estado === 'CORREGIR' ? '#fff' : ''" (click)="cambiarEstadoEnModal('CORREGIR')">🟡 C</button>
+                    <button type="button" class="btn-pill" style="flex:1; padding:8px;" [disabled]="!auth.hasRole('admin', 'residente', 'contratista')" [style.background]="documentoSeleccionado()!.estado === 'NO_APLICA' ? '#6B7280' : 'rgba(255,255,255,0.05)'" [style.color]="documentoSeleccionado()!.estado === 'NO_APLICA' ? '#fff' : ''" (click)="cambiarEstadoEnModal('NO_APLICA')">⚪ N/A</button>
                   </div>
                 </div>
 
                 <!-- Subir o Reemplazar Archivo -->
-                <div>
-                  <label class="form-label" style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">
-                    Expediente Digital (.PDF / Imagen)
-                  </label>
-                  <div style="margin-top:8px;">
-                    <label class="btn btn-primary" style="width:100%; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px; padding:10px;">
-                      📤 {{ documentoSeleccionado()!.archivoUrl ? 'Reemplazar Archivo Digital' : 'Subir Archivo Digital' }}
-                      <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoEnModal($event)">
+                @if (auth.hasRole('admin', 'residente', 'contratista')) {
+                  <div>
+                    <label class="form-label" style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">
+                      Expediente Digital (.PDF / Imagen)
                     </label>
+                    <div style="margin-top:8px;">
+                      <label class="btn btn-primary" style="width:100%; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px; padding:10px;">
+                        📤 {{ documentoSeleccionado()!.archivoUrl ? 'Reemplazar Archivo Digital' : 'Subir Archivo Digital' }}
+                        <input type="file" accept=".pdf,image/*" style="display:none;" (change)="subirArchivoEnModal($event)">
+                      </label>
+                    </div>
                   </div>
-                </div>
+                }
 
                 <!-- Observaciones / Comentarios -->
                 <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
                   <label class="form-label" style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">
                     📝 Observaciones y Comentarios
                   </label>
-                  <textarea rows="6" #obsModalTextarea [value]="documentoSeleccionado()!.observaciones || ''" placeholder="Escribe anotaciones, correcciones o estatus de firma para este documento..." class="form-input" style="flex:1; font-size:0.85rem; padding:10px; resize:none; border-radius:8px;"></textarea>
-                  <button type="button" class="btn btn-secondary" style="margin-top:4px;" (click)="guardarObservacionesDesdeModal(obsModalTextarea.value)">
-                    💾 Guardar Comentario
-                  </button>
+                  <textarea rows="6" #obsModalTextarea [readonly]="!auth.hasRole('admin', 'residente', 'contratista')" [value]="documentoSeleccionado()!.observaciones || ''" placeholder="Escribe anotaciones, correcciones o estatus de firma para este documento..." class="form-input" style="flex:1; font-size:0.85rem; padding:10px; resize:none; border-radius:8px;"></textarea>
+                  @if (auth.hasRole('admin', 'residente', 'contratista')) {
+                    <button type="button" class="btn btn-secondary" style="margin-top:4px;" (click)="guardarObservacionesDesdeModal(obsModalTextarea.value)">
+                      💾 Guardar Comentario
+                    </button>
+                  }
                 </div>
 
               </div>
@@ -913,7 +955,11 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
                   <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-muted); gap:12px;">
                     <span style="font-size:3.5rem;">📁</span>
                     <p style="font-weight:600; font-size:0.95rem;">No hay archivo digital cargado para este requisito aún.</p>
-                    <span style="font-size:0.8rem;">Utiliza el botón 'Subir Archivo Digital' a la izquierda para adjuntar el PDF o imagen.</span>
+                    @if (auth.hasRole('admin', 'residente', 'contratista')) {
+                      <span style="font-size:0.8rem;">Utiliza el botón 'Subir Archivo Digital' a la izquierda para adjuntar el PDF o imagen.</span>
+                    } @else {
+                      <span style="font-size:0.8rem;">Modo consulta: Este requisito aún no cuenta con un documento adjunto.</span>
+                    }
                   </div>
                 }
               </div>
@@ -1009,7 +1055,11 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
             <div class="modal-body" style="padding:24px;">
               @if (!carpetaSeleccionadaExp()) {
                 <p style="margin-bottom:20px; color:var(--text-muted); font-size:0.9rem;">
-                  Selecciona una categoría para gestionar los documentos o agrega un nuevo expediente completo.
+                  @if (auth.hasRole('admin', 'residente', 'contratista')) {
+                    Selecciona una categoría para gestionar los documentos o agrega un nuevo expediente completo.
+                  } @else {
+                    Selecciona una categoría para consultar y descargar los documentos integrados en el expediente.
+                  }
                 </p>
                 <div class="folders-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
                   <div class="folder-card" (click)="carpetaSeleccionadaExp.set('Legal')">
@@ -1028,12 +1078,14 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
                     <span class="folder-icon">📸</span>
                     <span class="folder-name">Anexo Fotográfico</span>
                   </div>
-                  <div class="folder-card" style="border-style:dashed; border-color:var(--accent); background:rgba(16,185,129,0.05);" (click)="carpetaSeleccionadaExp.set('NUEVO')">
-                    <span class="folder-icon">➕</span>
-                    <span class="folder-name" style="color:var(--accent);">Nuevo Expediente</span>
-                  </div>
+                  @if (auth.hasRole('admin', 'residente', 'contratista')) {
+                    <div class="folder-card" style="border-style:dashed; border-color:var(--accent); background:rgba(16,185,129,0.05);" (click)="carpetaSeleccionadaExp.set('NUEVO')">
+                      <span class="folder-icon">➕</span>
+                      <span class="folder-name" style="color:var(--accent);">Nuevo Expediente</span>
+                    </div>
+                  }
                 </div>
-              } @else if (carpetaSeleccionadaExp() === 'NUEVO') {
+              } @else if (carpetaSeleccionadaExp() === 'NUEVO' && auth.hasRole('admin', 'residente', 'contratista')) {
                 <button class="btn btn-secondary btn-sm" style="margin-bottom:16px;" (click)="carpetaSeleccionadaExp.set(null)">
                   ⬅ Volver a las categorías
                 </button>
@@ -1096,16 +1148,18 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
                   }
                 </div>
 
-                <div class="drag-drop-zone" (dragover)="$event.preventDefault()" (drop)="onDrop($event)">
-                  <div class="drop-icon">📤</div>
-                  <p>Arrastra tus archivos aquí o <strong>haz clic para seleccionar</strong></p>
-                  <input type="file" #expInput multiple style="display:none;" (change)="onFileSelect($event)">
-                  <button class="btn btn-secondary btn-sm" style="margin-top:8px;" (click)="expInput.click()">Seleccionar archivos</button>
-                </div>
-                @if (uploadMsg()) {
-                  <p class="upload-feedback" [class.error]="uploadError()" style="margin-top: 10px; text-align: center; font-size: 0.9rem;">
-                    {{ uploadMsg() }}
-                  </p>
+                @if (auth.hasRole('admin', 'residente', 'contratista')) {
+                  <div class="drag-drop-zone" (dragover)="$event.preventDefault()" (drop)="onDrop($event)">
+                    <div class="drop-icon">📤</div>
+                    <p>Arrastra tus archivos aquí o <strong>haz clic para seleccionar</strong></p>
+                    <input type="file" #expInput multiple style="display:none;" (change)="onFileSelect($event)">
+                    <button class="btn btn-secondary btn-sm" style="margin-top:8px;" (click)="expInput.click()">Seleccionar archivos</button>
+                  </div>
+                  @if (uploadMsg()) {
+                    <p class="upload-feedback" [class.error]="uploadError()" style="margin-top: 10px; text-align: center; font-size: 0.9rem;">
+                      {{ uploadMsg() }}
+                    </p>
+                  }
                 }
               }
             </div>
@@ -1487,6 +1541,10 @@ export class ExpedienteComponent implements OnInit {
   }
 
   cambiarEstadoEnModal(estado: EstadoDocumentoChecklist): void {
+    if (!this.auth.hasRole('admin', 'residente', 'contratista')) {
+      this.toastSvc.show('Modo consulta: El rol Auditor no puede cambiar el estado de documentos.', 'warning');
+      return;
+    }
     const item = this.documentoSeleccionado();
     if (!item) return;
     this.cambiarEstadoItem(item, estado);
@@ -1494,6 +1552,10 @@ export class ExpedienteComponent implements OnInit {
   }
 
   subirArchivoEnModal(event: Event): void {
+    if (!this.auth.hasRole('admin', 'residente', 'contratista')) {
+      this.toastSvc.show('Modo consulta: El rol Auditor no tiene permiso para subir archivos.', 'warning');
+      return;
+    }
     const item = this.documentoSeleccionado();
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -1520,6 +1582,10 @@ export class ExpedienteComponent implements OnInit {
   }
 
   guardarObservacionesDesdeModal(texto: string): void {
+    if (!this.auth.hasRole('admin', 'residente', 'contratista')) {
+      this.toastSvc.show('Modo consulta: El rol Auditor no puede modificar observaciones.', 'warning');
+      return;
+    }
     const item = this.documentoSeleccionado();
     const currentObra = this.obra();
     if (!item || !currentObra) return;
@@ -1549,6 +1615,7 @@ export class ExpedienteComponent implements OnInit {
   archivosSvc = inject(ArchivosService);
   auth = inject(AuthService);
   usuariosSvc = inject(UsuariosService);
+  institucionSvc = inject(InstitucionService);
   responsables = signal<UserResponse[]>([]);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -1614,6 +1681,10 @@ export class ExpedienteComponent implements OnInit {
   }
 
   guardarObservaciones(item: ExpedienteObraItem, event: Event): void {
+    if (!this.auth.hasRole('admin', 'residente', 'contratista')) {
+      this.toastSvc.show('Modo consulta: El rol Auditor no puede modificar observaciones.', 'warning');
+      return;
+    }
     const input = event.target as HTMLInputElement;
     const obs = input.value.trim();
     const currentObra = this.obra();
@@ -1786,6 +1857,10 @@ export class ExpedienteComponent implements OnInit {
   }
 
   cambiarEstadoItem(item: ExpedienteObraItem, estado: EstadoDocumentoChecklist): void {
+    if (!this.auth.hasRole('admin', 'residente', 'contratista')) {
+      this.toastSvc.show('Modo consulta: El rol Auditor no puede cambiar el estado de documentos.', 'warning');
+      return;
+    }
     const currentObra = this.obra();
     if (!currentObra) return;
     this.expedientesSvc.actualizarEstado(currentObra.id, item.id, estado, item.observaciones).subscribe({
@@ -1828,8 +1903,17 @@ export class ExpedienteComponent implements OnInit {
       try {
         const doc = new jsPDF('p', 'pt', 'letter');
         
-        // Agregar fondo base64 (Logos y borde)
-        doc.addImage(fichaTecnicaBgBase64, 'PNG', 0, 0, 612, 792);
+        // Agregar fondo de membrete institucional (personalizado o predeterminado base64)
+        const customMembrete = this.institucionSvc.resolveMembreteUrl();
+        if (customMembrete) {
+          try {
+            doc.addImage(customMembrete, 'PNG', 0, 0, 612, 792);
+          } catch {
+            doc.addImage(fichaTecnicaBgBase64, 'PNG', 0, 0, 612, 792);
+          }
+        } else {
+          doc.addImage(fichaTecnicaBgBase64, 'PNG', 0, 0, 612, 792);
+        }
         
         // Titulo de la Obra
         doc.setFontSize(14);
@@ -1934,7 +2018,7 @@ export class ExpedienteComponent implements OnInit {
         ['Nombre del Proyecto', currentObra.nombre, '', ''],
         ['Código',             currentObra.codigo ?? '—', '', ''],
         ['Estatus',            currentObra.estatus, '', ''],
-        ['Categoria',          (currentObra.categoria ?? '—').replace(/[\u{1F300}-\u{1FFFF}\u{2600}-\u{27FF}]/gu, '').trim(), '', ''],
+        ['Categoria',          (currentObra.categoria ?? '—').replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}]/gu, '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').replace(/\s+/g, ' ').trim(), '', ''],
         ['Descripción',        currentObra.descripcion ?? '—', '', ''],
         ['', '', '', ''],
         ['FECHAS Y PRESUPUESTO', '', '', ''],

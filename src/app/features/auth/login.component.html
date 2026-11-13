@@ -6,9 +6,12 @@
   </div>
   <div class="login-card animate-fade-in-up" style="max-width: 500px;">
     <div class="login-header">
-      <img src="/assets/logos/logo.png" alt="H. Ayuntamiento Tlaxiaco" style="max-height: 80px; margin-bottom: 12px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));" onerror="this.onerror=null; this.src='assets/logos/logo.png';" />
+      <img [src]="institucionSvc.resolveLogoUrl((institucionSvc.config$ | async)?.logoUrl)" alt="Logotipo Institucional" style="max-height: 80px; margin-bottom: 12px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));" (error)="$any($event.target).src='assets/logos/logo.png'" />
       <h1 class="login-title">Sistema de Planeación Operativa</h1>
-      <p class="login-subtitle">H. Ayuntamiento de Tlaxiaco 2025-2027<br>Instituto Tecnológico de Tlaxiaco</p>
+      <p class="login-subtitle">
+        {{ (institucionSvc.config$ | async)?.nombreMunicipio || 'H. Ayuntamiento de Tlaxiaco' }}<br>
+        {{ (institucionSvc.config$ | async)?.periodoAdministracion || 'Administración Municipal' }}
+      </p>
     </div>
     <div class="login-divider"></div>
     <p class="role-label">Ingresa tus credenciales para acceder</p>
