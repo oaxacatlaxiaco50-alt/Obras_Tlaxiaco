@@ -5,12 +5,12 @@
   <div class="navbar-right">
     <!-- Botón para abrir el panel de personalización premium -->
     <button class="btn-icon theme-btn" (click)="themeSvc.togglePanel()" title="Personalización y Temas" [class.active-theme]="themeSvc.panelOpen()">
-      🎨
+      <app-icon name="palette" [size]="18"></app-icon>
     </button>
     <div class="navbar-divider"></div>
     <div class="notif-wrap">
       <button class="btn-icon notif-btn" (click)="toggleNotif()" [class.active]="showNotif()">
-        🔔
+        <app-icon name="bell" [size]="18"></app-icon>
         @if (notifSvc.noLeidas() > 0) {
           <span class="notif-badge">{{ notifSvc.noLeidas() }}</span>
         }
@@ -28,7 +28,7 @@
       </div>
     </div>
     <button class="btn btn-secondary btn-sm logout-btn" (click)="auth.logout()">
-      ⏻ Salir
+      <app-icon name="log-out" [size]="14" style="margin-right: 4px;"></app-icon> Salir
     </button>
   </div>
 </header>

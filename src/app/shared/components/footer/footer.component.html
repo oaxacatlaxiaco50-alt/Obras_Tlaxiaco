@@ -1,12 +1,15 @@
 <footer class="site-footer">
   <div class="footer-top">
     <div class="footer-brand">
-      <div class="footer-logo">🏗️ ResidenciaObra</div>
+      <div class="footer-logo" style="display: flex; align-items: center; gap: 8px;">
+        <app-icon name="hard-hat" [size]="20" color="var(--accent)"></app-icon>
+        <span>ResidenciaObra</span>
+      </div>
       <p class="footer-tagline">Sistema de Gestión Municipal de Obra Pública</p>
       <div class="footer-social">
-        <a href="#" class="social-link">🌐</a>
-        <a href="#" class="social-link">📧</a>
-        <a href="#" class="social-link">📞</a>
+        <a href="#" class="social-link" title="Sitio Oficial" style="display: inline-flex; align-items: center; justify-content: center;"><app-icon name="globe" [size]="16"></app-icon></a>
+        <a href="#" class="social-link" title="Contacto por Correo" style="display: inline-flex; align-items: center; justify-content: center;"><app-icon name="mail" [size]="16"></app-icon></a>
+        <a href="#" class="social-link" title="Teléfono Institucional" style="display: inline-flex; align-items: center; justify-content: center;"><app-icon name="phone" [size]="16"></app-icon></a>
       </div>
     </div>
     <div class="footer-cols">

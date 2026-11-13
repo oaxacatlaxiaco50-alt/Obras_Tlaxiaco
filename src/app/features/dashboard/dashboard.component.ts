@@ -7,6 +7,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { InstitucionService } from '../../core/services/institucion.service';
 import { ObraResponse, ESTATUS_LABEL, ESTATUS_COLOR } from '../../core/models/obra.model';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 import { Chart, registerables } from 'chart.js';
 
 Chart.register(...registerables);
@@ -14,7 +15,7 @@ Chart.register(...registerables);
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [RouterLink, SlicePipe, AsyncPipe, FormsModule],
+  imports: [RouterLink, SlicePipe, AsyncPipe, FormsModule, IconComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
 })

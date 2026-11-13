@@ -6,18 +6,21 @@ import { ObrasService } from '../../core/services/obras.service';
 import { AuthService } from '../../core/services/auth.service';
 import { EntradaBitacora, AccionBitacora } from '../../core/models/bitacora.model';
 import { ObraResponse } from '../../core/models/obra.model';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-historial-general',
   standalone: true,
-  imports: [CommonModule, FormsModule, CurrencyPipe, DatePipe],
+  imports: [CommonModule, FormsModule, CurrencyPipe, DatePipe, IconComponent],
   template: `
     <div class="hg-wrapper animate-fade-in">
       <!-- Header con Tabs -->
       <div class="hg-header">
         <div>
-          <h1 class="hg-title">📋 Historial y Archivo General</h1>
+          <h1 class="hg-title" style="display: flex; align-items: center; gap: 8px;">
+            <app-icon name="history" [size]="24" color="var(--accent)"></app-icon> Historial y Archivo General
+          </h1>
           <p class="hg-subtitle">Trazabilidad de auditoría de acciones y consulta histórica de ejercicios fiscales</p>
         </div>
 
@@ -26,14 +29,18 @@ import Swal from 'sweetalert2';
             <button
               class="tab-btn"
               [class.active]="tabActiva() === 'bitacora'"
-              (click)="cambiarTab('bitacora')">
-              📋 Bitácora de Acciones
+              (click)="cambiarTab('bitacora')"
+              style="display: inline-flex; align-items: center; gap: 6px;">
+              <app-icon name="file-text" [size]="14"></app-icon>
+              <span>Bitácora de Acciones</span>
             </button>
             <button
               class="tab-btn"
               [class.active]="tabActiva() === 'archivoFiscal'"
-              (click)="cambiarTab('archivoFiscal')">
-              🏛️ Archivo de Ejercicios Fiscales
+              (click)="cambiarTab('archivoFiscal')"
+              style="display: inline-flex; align-items: center; gap: 6px;">
+              <app-icon name="landmark" [size]="14"></app-icon>
+              <span>Archivo de Ejercicios Fiscales</span>
             </button>
           </div>
         }
@@ -46,7 +53,9 @@ import Swal from 'sweetalert2';
         <!-- Filtros Bitácora -->
         <div class="hg-filters">
           <div class="filter-group">
-            <label class="filter-label">🔍 Buscar en Bitácora</label>
+            <label class="filter-label" style="display: flex; align-items: center; gap: 4px;">
+              <app-icon name="search" [size]="13"></app-icon> Buscar en Bitácora
+            </label>
             <input
               class="filter-input"
               type="text"
@@ -56,7 +65,9 @@ import Swal from 'sweetalert2';
             />
           </div>
           <div class="filter-group">
-            <label class="filter-label">🎯 Acción</label>
+            <label class="filter-label" style="display: flex; align-items: center; gap: 4px;">
+              <app-icon name="target" [size]="13"></app-icon> Acción
+            </label>
             <select
               class="filter-input"
               [ngModel]="filtroAccion()"
@@ -71,7 +82,9 @@ import Swal from 'sweetalert2';
             </select>
           </div>
           <div class="filter-group">
-            <label class="filter-label">🏢 Módulo</label>
+            <label class="filter-label" style="display: flex; align-items: center; gap: 4px;">
+              <app-icon name="landmark" [size]="13"></app-icon> Módulo
+            </label>
             <select
               class="filter-input"
               [ngModel]="filtroModulo()"
@@ -117,7 +130,10 @@ import Swal from 'sweetalert2';
               }
               @if (entradasPagina().length === 0) {
                 <tr>
-                  <td colspan="7" class="hg-empty">🔍 No se encontraron registros con los filtros actuales</td>
+                  <td colspan="7" class="hg-empty">
+                    <app-icon name="search" [size]="16" style="margin-right: 6px;"></app-icon>
+                    No se encontraron registros con los filtros actuales
+                  </td>
                 </tr>
               }
             </tbody>
@@ -141,7 +157,8 @@ import Swal from 'sweetalert2';
         <div class="archivo-banner">
           <div>
             <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0 0 4px 0; color: var(--text-primary); display:flex; align-items:center; gap:8px;">
-              🏛️ Archivo Histórico de Cierres Fiscales
+              <app-icon name="landmark" [size]="18" color="var(--accent)"></app-icon>
+              <span>Archivo Histórico de Cierres Fiscales</span>
               <span class="badge badge-warning" style="font-size:0.7rem;">Auditoría y Consulta</span>
             </h3>
             <p style="font-size: 0.83rem; color: var(--text-muted); margin: 0;">
@@ -157,7 +174,9 @@ import Swal from 'sweetalert2';
         <!-- Filtros Archivo Fiscal -->
         <div class="hg-filters">
           <div class="filter-group">
-            <label class="filter-label">📅 Ejercicio Fiscal</label>
+            <label class="filter-label" style="display: flex; align-items: center; gap: 4px;">
+              <app-icon name="calendar" [size]="13"></app-icon> Ejercicio Fiscal
+            </label>
             <select
               class="filter-input"
               [ngModel]="filtroEjercicio()"
@@ -170,7 +189,9 @@ import Swal from 'sweetalert2';
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">📂 Categoría</label>
+            <label class="filter-label" style="display: flex; align-items: center; gap: 4px;">
+              <app-icon name="folder" [size]="13"></app-icon> Categoría
+            </label>
             <select
               class="filter-input"
               [ngModel]="filtroCategoria()"
@@ -187,7 +208,9 @@ import Swal from 'sweetalert2';
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">📅 Mes de Registro</label>
+            <label class="filter-label" style="display: flex; align-items: center; gap: 4px;">
+              <app-icon name="calendar" [size]="13"></app-icon> Mes de Registro
+            </label>
             <select
               class="filter-input"
               [ngModel]="filtroMes()"
@@ -209,7 +232,9 @@ import Swal from 'sweetalert2';
           </div>
 
           <div class="filter-group">
-            <label class="filter-label">🏷️ Estatus al Cierre</label>
+            <label class="filter-label" style="display: flex; align-items: center; gap: 4px;">
+              <app-icon name="tag" [size]="13"></app-icon> Estatus al Cierre
+            </label>
             <select
               class="filter-input"
               [ngModel]="filtroEstatus()"
@@ -222,7 +247,9 @@ import Swal from 'sweetalert2';
           </div>
 
           <div class="filter-group" style="flex: 1; min-width: 200px;">
-            <label class="filter-label">🔍 Buscar texto (Opcional)</label>
+            <label class="filter-label" style="display: flex; align-items: center; gap: 4px;">
+              <app-icon name="search" [size]="13"></app-icon> Buscar texto (Opcional)
+            </label>
             <input
               class="filter-input"
               type="text"
@@ -281,11 +308,17 @@ import Swal from 'sweetalert2';
                   </td>
                   <td>
                     @if (ob.estatus === 'COMPLETADA' || ob.estatus === 'FINALIZADA') {
-                      <span class="badge badge-completada">✅ Completada</span>
+                      <span class="badge badge-completada" style="display: inline-flex; align-items: center; gap: 4px;">
+                        <app-icon name="check-circle" [size]="12"></app-icon> Completada
+                      </span>
                     } @else if (ob.estatus === 'CANCELADA') {
-                      <span class="badge badge-cancelada">⛔ Cancelada</span>
+                      <span class="badge badge-cancelada" style="display: inline-flex; align-items: center; gap: 4px;">
+                        <app-icon name="x" [size]="12"></app-icon> Cancelada
+                      </span>
                     } @else if (ob.estatus === 'ELIMINADA') {
-                      <span class="badge badge-eliminada">🗑️ Eliminada</span>
+                      <span class="badge badge-eliminada" style="display: inline-flex; align-items: center; gap: 4px;">
+                        <app-icon name="trash" [size]="12"></app-icon> Eliminada
+                      </span>
                     } @else {
                       <span class="badge badge-ejercicio">{{ ob.estatus }}</span>
                     }
@@ -296,8 +329,8 @@ import Swal from 'sweetalert2';
                     </small>
                   </td>
                   <td>
-                    <button class="btn-ver-obra" (click)="verDetalleHistorico(ob)">
-                      👁️ Ficha Histórica
+                    <button class="btn-ver-obra" (click)="verDetalleHistorico(ob)" style="display: inline-flex; align-items: center; gap: 4px;">
+                      <app-icon name="eye" [size]="13"></app-icon> Ficha Histórica
                     </button>
                   </td>
                 </tr>
@@ -305,8 +338,9 @@ import Swal from 'sweetalert2';
               @if (obrasArchivadas().length === 0) {
                 <tr>
                   <td colspan="8" class="hg-empty">
-                    🏛️ No hay obras archivadas que coincidan con los filtros seleccionados.<br>
-                    <small style="color:var(--text-muted)">Realiza un Cierre Fiscal desde <strong>⚙️ Administración</strong> para archivar obras de un año específico.</small>
+                    <app-icon name="landmark" [size]="20" color="var(--accent)" style="margin-right: 6px;"></app-icon>
+                    No hay obras archivadas que coincidan con los filtros seleccionados.<br>
+                    <small style="color:var(--text-muted)">Realiza un Cierre Fiscal desde <strong>Administración</strong> para archivar obras de un año específico.</small>
                   </td>
                 </tr>
               }
@@ -321,8 +355,8 @@ import Swal from 'sweetalert2';
           <div class="modal-card animate-scale-up" (click)="$event.stopPropagation()">
             <div class="modal-header">
               <div>
-                <span class="badge badge-ejercicio" style="margin-bottom:6px; display:inline-block;">
-                  🏛️ EXPEDIENTE FISCAL ARCHIVADO · EJERCICIO {{ obraSeleccionadaModal.ejercicioFiscal }}
+                <span class="badge badge-ejercicio" style="margin-bottom:6px; display:inline-flex; align-items: center; gap: 4px;">
+                  <app-icon name="landmark" [size]="12"></app-icon> EXPEDIENTE FISCAL ARCHIVADO · EJERCICIO {{ obraSeleccionadaModal.ejercicioFiscal }}
                 </span>
                 <h2 style="font-size:1.25rem; font-weight:800; color:var(--text-primary); margin:0;">
                   {{ obraSeleccionadaModal.nombre }}
@@ -390,8 +424,8 @@ import Swal from 'sweetalert2';
             </div>
 
             <div class="modal-footer">
-              <span style="font-size:0.78rem; color:var(--text-muted);">
-                🔒 Registro histórico de sólo lectura. Los expedientes no pueden ser alterados.
+              <span style="font-size:0.78rem; color:var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
+                <app-icon name="lock" [size]="13"></app-icon> Registro histórico de sólo lectura. Los expedientes no pueden ser alterados.
               </span>
               <button class="btn-modal-close" (click)="cerrarModalHistorico()">Cerrar Ficha</button>
             </div>

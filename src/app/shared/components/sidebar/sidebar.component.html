@@ -11,48 +11,48 @@
         </div>
       }
     </div>
-    <button class="collapse-btn" (click)="toggle()">
-      {{ collapsed() ? '▶' : '◀' }}
+    <button class="collapse-btn" (click)="toggle()" title="Colapsar menú lateral">
+      <app-icon [name]="collapsed() ? 'chevron-right' : 'chevron-left'" [size]="14"></app-icon>
     </button>
   </div>
 
   <nav class="sidebar-nav">
     <a routerLink="/dashboard" routerLinkActive="active" class="nav-item">
-      <span class="nav-icon">📊</span>
+      <span class="nav-icon"><app-icon name="dashboard" [size]="18"></app-icon></span>
       @if (!collapsed()) { <span class="nav-label">Dashboard</span> }
     </a>
     <a routerLink="/mapa" routerLinkActive="active" class="nav-item">
-      <span class="nav-icon">🗺️</span>
+      <span class="nav-icon"><app-icon name="map-pin" [size]="18"></app-icon></span>
       @if (!collapsed()) { <span class="nav-label">Geolocalización</span> }
     </a>
     <a routerLink="/obras" routerLinkActive="active" class="nav-item">
-      <span class="nav-icon">📁</span>
+      <span class="nav-icon"><app-icon name="folder" [size]="18"></app-icon></span>
       @if (!collapsed()) { <span class="nav-label">Expedientes</span> }
     </a>
     @if (auth.hasRole('admin')) {
       <a routerLink="/bitacora/cambios" routerLinkActive="active" class="nav-item">
-        <span class="nav-icon">🔒</span>
+        <span class="nav-icon"><app-icon name="lock" [size]="18"></app-icon></span>
         @if (!collapsed()) { <span class="nav-label">Bitácora de Cambios</span> }
       </a>
     }
     <a routerLink="/bitacora" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" class="nav-item">
-      <span class="nav-icon">📋</span>
+      <span class="nav-icon"><app-icon name="archive" [size]="18"></app-icon></span>
       @if (!collapsed()) { <span class="nav-label">Historial General</span> }
     </a>
     @if (auth.hasRole('admin')) {
       <div class="nav-separator"></div>
       <a routerLink="/admin" routerLinkActive="active" class="nav-item">
-        <span class="nav-icon">⚙️</span>
+        <span class="nav-icon"><app-icon name="settings" [size]="18"></app-icon></span>
         @if (!collapsed()) { <span class="nav-label">Administración</span> }
       </a>
       <a routerLink="/audit-logs" routerLinkActive="active" class="nav-item">
-        <span class="nav-icon">🔍</span>
+        <span class="nav-icon"><app-icon name="search" [size]="18"></app-icon></span>
         @if (!collapsed()) { <span class="nav-label">Logs de Auditoría</span> }
       </a>
     }
     <div class="nav-separator"></div>
     <a routerLink="/acerca-de" routerLinkActive="active" class="nav-item">
-      <span class="nav-icon">ℹ️</span>
+      <span class="nav-icon"><app-icon name="info" [size]="18"></app-icon></span>
       @if (!collapsed()) { <span class="nav-label">Acerca de</span> }
     </a>
   </nav>

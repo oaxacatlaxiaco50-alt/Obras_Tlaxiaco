@@ -5,6 +5,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { NotificacionService } from '../../../core/services/notificacion.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import { NotifPanelComponent } from '../notif-panel/notif-panel.component';
+import { IconComponent } from '../icon/icon.component';
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard de Control',
@@ -16,7 +17,7 @@ const PAGE_TITLES: Record<string, string> = {
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [NotifPanelComponent],
+  imports: [NotifPanelComponent, IconComponent],
   templateUrl: './navbar.component.html',
   styleUrl: './navbar.component.css'
 })

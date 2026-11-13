@@ -6,19 +6,22 @@ import { RutasService } from '../../core/services/rutas.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ObraResponse, ESTATUS_LABEL } from '../../core/models/obra.model';
 import { RutaObraResponse } from '../../core/models/ruta.model';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 import * as L from 'leaflet';
 import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-mapa',
   standalone: true,
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, IconComponent],
   template: `
     <div class="mapa-page animate-fade-in" [class.fullscreen-page]="modoPantallaCompleta()">
       @if (!modoPantallaCompleta()) {
         <div class="mapa-header">
           <div>
-            <h1 class="mapa-title">🗺️ Geolocalización y Rutas Lineales de Obras</h1>
+            <h1 class="mapa-title" style="display: flex; align-items: center; gap: 8px;">
+              <app-icon name="map" [size]="24" color="var(--accent)"></app-icon> Geolocalización y Rutas Lineales de Obras
+            </h1>
             <p class="mapa-subtitle">Visualiza la ubicación GPS y realiza trazados lineales o perimetrales (pavimentaciones, vialidades, bardas, redes de agua)</p>
           </div>
           <div class="leyenda">
@@ -38,7 +41,9 @@ import Swal from 'sweetalert2';
           <!-- Buscador e interactivo de obras -->
           <div class="search-panel-box card">
             <div class="search-input-wrap">
-              <span class="search-ico">🔍</span>
+              <span class="search-ico" style="display: flex; align-items: center;">
+                <app-icon name="search" [size]="15" color="var(--text-muted)"></app-icon>
+              </span>
               <input 
                 type="text" 
                 placeholder="Buscar por nombre, código o categoría..." 
@@ -54,7 +59,7 @@ import Swal from 'sweetalert2';
             <!-- Desplegable selector directo de Obra -->
             <div style="margin-top: 10px;">
               <select class="form-input select-obra-mapa" (change)="seleccionarObraDesdeSelect($event)" [value]="obraFiltroExclusivo()?.id || ''">
-                <option value="">-- 📍 Seleccionar Obra Específica --</option>
+                <option value="">-- Seleccionar Obra Específica --</option>
                 @for (ob of obras(); track ob.id) {
                   <option [value]="ob.id">{{ ob.nombre }} ({{ ob.codigo || 'OBR-' + ob.id }})</option>
                 }
@@ -63,14 +68,16 @@ import Swal from 'sweetalert2';
 
             @if (obraFiltroExclusivo()) {
               <div class="enfoque-badge" style="margin-top: 10px; display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size:0.75rem; font-weight:700; color:var(--accent);">🎯 Mostrando solo: {{ obraFiltroExclusivo()!.nombre }}</span>
+                <span style="font-size:0.75rem; font-weight:700; color:var(--accent); display: flex; align-items: center; gap: 4px;">
+                  <app-icon name="target" [size]="13"></app-icon> Mostrando solo: {{ obraFiltroExclusivo()!.nombre }}
+                </span>
                 <button class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size:0.7rem;" (click)="limpiarFiltroExclusivo()">Ver todas</button>
               </div>
             }
           </div>
 
           <div class="list-search-info">
-            <span>💡 {{ obrasVisibles().length }} obra(s) encontrada(s). Haz clic en una para aislarla en el mapa.</span>
+            <span>{{ obrasVisibles().length }} obra(s) encontrada(s). Haz clic en una para aislarla en el mapa.</span>
           </div>
 
           @for (obra of obrasVisibles(); track obra.id) {
@@ -81,12 +88,14 @@ import Swal from 'sweetalert2';
               </div>
               <div class="mapa-obra-meta">
                 <span class="status-lbl">{{ getStatusText(obra) }}</span>
-                <span class="badge badge-warning" style="font-size:0.7rem;">🏷️ {{ obra.categoria || 'General' }}</span>
+                <span class="badge badge-warning" style="font-size:0.7rem; display: inline-flex; align-items: center; gap: 3px;">
+                  <app-icon name="tag" [size]="11"></app-icon> {{ obra.categoria || 'General' }}
+                </span>
               </div>
             </div>
           } @empty {
             <div class="empty-state" style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
-              🔍 No se encontraron obras con ese criterio de búsqueda.
+              <app-icon name="search" [size]="16" style="margin-right: 4px;"></app-icon> No se encontraron obras con ese criterio de búsqueda.
             </div>
           }
         </div>
@@ -98,13 +107,25 @@ import Swal from 'sweetalert2';
           <!-- Toolbar Superior de Controles del Mapa: Capas y Fullscreen -->
           <div class="mapa-toolbar">
             <div class="capas-switcher">
-              <span class="switcher-title">🛰️ Vistas del Mapa:</span>
-              <button class="capa-btn" [class.active]="capaMapaActual() === 'osm'" (click)="cambiarCapaMapa('osm')">🗺️ Callejero OSM</button>
-              <button class="capa-btn" [class.active]="capaMapaActual() === 'satellite'" (click)="cambiarCapaMapa('satellite')">🛰️ Satélite Real</button>
+              <span class="switcher-title" style="display: flex; align-items: center; gap: 4px;">
+                <app-icon name="globe" [size]="14"></app-icon> Vistas del Mapa:
+              </span>
+              <button class="capa-btn" [class.active]="capaMapaActual() === 'osm'" (click)="cambiarCapaMapa('osm')" style="display: inline-flex; align-items: center; gap: 4px;">
+                <app-icon name="map" [size]="13"></app-icon> Callejero OSM
+              </button>
+              <button class="capa-btn" [class.active]="capaMapaActual() === 'satellite'" (click)="cambiarCapaMapa('satellite')" style="display: inline-flex; align-items: center; gap: 4px;">
+                <app-icon name="globe" [size]="13"></app-icon> Satélite Real
+              </button>
             </div>
             <div class="toolbar-actions">
-              <button class="btn btn-secondary btn-sm" (click)="togglePantallaCompleta()">
-                {{ modoPantallaCompleta() ? '🗗 Salir de Pantalla Completa' : '⛶ Pantalla Completa' }}
+              <button class="btn btn-secondary btn-sm" (click)="togglePantallaCompleta()" style="display: inline-flex; align-items: center; gap: 5px;">
+                @if (modoPantallaCompleta()) {
+                  <app-icon name="minimize" [size]="14"></app-icon>
+                  <span>Salir de Pantalla Completa</span>
+                } @else {
+                  <app-icon name="maximize" [size]="14"></app-icon>
+                  <span>Pantalla Completa</span>
+                }
               </button>
             </div>
           </div>
@@ -118,12 +139,15 @@ import Swal from 'sweetalert2';
                  [style.left.px]="bannerLeft()"
                  (mousedown)="startDrag($event)">
               <div class="trazar-header">
-                <span>📐 <strong>{{ rutaEnEdicion() ? 'Modificando Trazado: ' + rutaEnEdicion()!.nombre : 'Modo Trazado Lineal' }}</strong></span>
-                <span class="drag-handle">🖐️ Mover</span>
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <app-icon name="ruler" [size]="15" color="var(--accent)"></app-icon>
+                  <strong>{{ rutaEnEdicion() ? 'Modificando Trazado: ' + rutaEnEdicion()!.nombre : 'Modo Trazado Lineal' }}</strong>
+                </span>
+                <span class="drag-handle">Mover</span>
               </div>
               <p class="trazar-hint">
                 @if (esFiguraCerrada()) {
-                  ✅ <strong>Perímetro cerrado.</strong> Puedes guardar la ruta o presionar "Deshacer" para seguir agregando puntos.
+                  <strong>Perímetro cerrado.</strong> Puedes guardar la ruta o presionar "Deshacer" para seguir agregando puntos.
                 } @else if (puntosTrazados().length >= 3) {
                   Haz clic en el mapa para agregar más vértices, o <strong>haz clic sobre el punto verde inicial</strong> para cerrar la figura.
                 } @else {
@@ -132,23 +156,32 @@ import Swal from 'sweetalert2';
               </p>
               <div class="trazar-meta">
                 <span class="dist-badge">📏 {{ distanciaTotal() }} m</span>
-                <span class="badge badge-info">📍 {{ puntosTrazados().length }} pts</span>
+                <span class="badge badge-info" style="display: inline-flex; align-items: center; gap: 3px;">
+                  <app-icon name="map-pin" [size]="11"></app-icon> {{ puntosTrazados().length }} pts
+                </span>
                 @if (esFiguraCerrada()) {
-                  <span class="badge badge-closed">🔗 Cerrado</span>
+                  <span class="badge badge-closed" style="display: inline-flex; align-items: center; gap: 3px;">
+                    <app-icon name="link" [size]="11"></app-icon> Cerrado
+                  </span>
                 } @else if (rutaEnEdicion()) {
-                  <span class="badge badge-warning">✏️ Editando</span>
+                  <span class="badge badge-warning" style="display: inline-flex; align-items: center; gap: 3px;">
+                    <app-icon name="pencil" [size]="11"></app-icon> Editando
+                  </span>
                 }
               </div>
               <input type="text" [(ngModel)]="nombreNuevaRuta" (mousedown)="$event.stopPropagation()" placeholder="Nombre de la ruta (ej. Tramo Calle Juárez)" class="form-input form-input-sm">
               <div class="trazar-actions">
-                <button class="btn btn-secondary btn-sm" (click)="deshacerUltimoPunto()" (mousedown)="$event.stopPropagation()" [disabled]="puntosTrazados().length === 0">⏮️ Deshacer</button>
+                <button class="btn btn-secondary btn-sm" (click)="deshacerUltimoPunto()" (mousedown)="$event.stopPropagation()" [disabled]="puntosTrazados().length === 0" style="display: inline-flex; align-items: center; gap: 4px;">
+                  <app-icon name="undo" [size]="13"></app-icon> Deshacer
+                </button>
                 @if (puntosTrazados().length >= 3 && !esFiguraCerrada()) {
-                  <button class="btn btn-snap btn-sm" (click)="cerrarFiguraConInicio()" (mousedown)="$event.stopPropagation()" title="Unir el último punto exactamente con el primero">
-                    🔗 Unir Inicio
+                  <button class="btn btn-snap btn-sm" (click)="cerrarFiguraConInicio()" (mousedown)="$event.stopPropagation()" title="Unir el último punto exactamente con el primero" style="display: inline-flex; align-items: center; gap: 4px;">
+                    <app-icon name="link" [size]="13"></app-icon> Unir Inicio
                   </button>
                 }
-                <button class="btn btn-primary btn-sm" [style.grid-column]="(puntosTrazados().length >= 3 && !esFiguraCerrada()) ? 'span 2' : 'auto'" (click)="guardarRutaLineal()" (mousedown)="$event.stopPropagation()" [disabled]="puntosTrazados().length < 2 || !nombreNuevaRuta.trim()">
-                  {{ rutaEnEdicion() ? '💾 Actualizar Trazado' : '💾 Guardar Ruta' }}
+                <button class="btn btn-primary btn-sm" [style.grid-column]="(puntosTrazados().length >= 3 && !esFiguraCerrada()) ? 'span 2' : 'auto'" (click)="guardarRutaLineal()" (mousedown)="$event.stopPropagation()" [disabled]="puntosTrazados().length < 2 || !nombreNuevaRuta.trim()" style="display: inline-flex; align-items: center; justify-content: center; gap: 5px;">
+                  <app-icon name="save" [size]="14"></app-icon>
+                  <span>{{ rutaEnEdicion() ? 'Actualizar Trazado' : 'Guardar Ruta' }}</span>
                 </button>
               </div>
               <button class="btn btn-danger btn-sm" (click)="cancelarTrazado()" (mousedown)="$event.stopPropagation()" style="width:100%">✕ Cancelar {{ rutaEnEdicion() ? 'Edición' : 'Trazado' }}</button>
@@ -164,13 +197,13 @@ import Swal from 'sweetalert2';
               <div class="popup-header">
                 <strong>{{ obraSeleccionada()!.nombre }}</strong>
                 <div style="display:flex; align-items:center; gap:8px;">
-                  <span class="drag-handle" style="font-size:0.7rem;">🖐️ Mover</span>
+                  <span class="drag-handle" style="font-size:0.7rem;">Mover</span>
                   <button (click)="deseleccionarObra()" (mousedown)="$event.stopPropagation()">✕</button>
                 </div>
               </div>
               <p class="popup-desc">{{ truncate(obraSeleccionada()!.descripcion) }}</p>
               <div class="popup-meta" style="margin-top: 12px;">
-                <span><strong>Categoría:</strong> 🏷️ {{ obraSeleccionada()!.categoria || 'Infraestructura General' }}</span>
+                <span><strong>Categoría:</strong> {{ obraSeleccionada()!.categoria || 'Infraestructura General' }}</span>
                 <span><strong>Estatus:</strong> {{ getStatusText(obraSeleccionada()!) }}</span>
                 <span><strong>Monto:</strong> {{ svc.formatMonto(obraSeleccionada()!.monto) }}</span>
                 <span><strong>Dirección:</strong> {{ obraSeleccionada()!.direccion || 'Sin dirección especificada' }}</span>
@@ -180,13 +213,21 @@ import Swal from 'sweetalert2';
               <!-- Rutas existentes con opción de Modificar y Eliminar -->
               @if (rutasGuardadas().length > 0) {
                 <div class="rutas-lista-wrap">
-                  <div class="rutas-lista-title">🛣️ Rutas Trazadas en la Obra:</div>
+                  <div class="rutas-lista-title" style="display: flex; align-items: center; gap: 6px;">
+                    <app-icon name="map" [size]="14" color="var(--accent)"></app-icon> Rutas Trazadas en la Obra:
+                  </div>
                   @for (ruta of rutasGuardadas(); track ruta.id) {
                     <div class="ruta-item">
-                      <span class="ruta-name">📍 {{ ruta.nombre }} ({{ ruta.puntos.length }} pts)</span>
+                      <span class="ruta-name" style="display: inline-flex; align-items: center; gap: 4px;">
+                        <app-icon name="map-pin" [size]="12"></app-icon> {{ ruta.nombre }} ({{ ruta.puntos.length }} pts)
+                      </span>
                       <div style="display:flex; gap:4px; align-items:center;">
-                        <button class="btn-edit-ruta" (click)="modificarRuta(ruta)" title="Modificar trazado de esta ruta">✏️ Editar</button>
-                        <button class="btn-del-ruta" (click)="eliminarRuta(ruta.id)" title="Eliminar ruta">🗑️</button>
+                        <button class="btn-edit-ruta" (click)="modificarRuta(ruta)" title="Modificar trazado de esta ruta" style="display: inline-flex; align-items: center; gap: 3px;">
+                          <app-icon name="pencil" [size]="11"></app-icon> Editar
+                        </button>
+                        <button class="btn-del-ruta" (click)="eliminarRuta(ruta.id)" title="Eliminar ruta">
+                          <app-icon name="trash" [size]="12"></app-icon>
+                        </button>
                       </div>
                     </div>
                   }
@@ -196,12 +237,16 @@ import Swal from 'sweetalert2';
               <!-- Botones de Acción -->
               <div style="display:flex; flex-direction:column; gap:8px; margin-top:14px">
                 <div style="display:flex; gap:8px;">
-                  <button class="btn btn-secondary btn-sm" style="flex:1" (click)="activarTrazado()">📐 Nuevo Trazado</button>
-                  <a [routerLink]="['/obras', obraSeleccionada()!.id]" class="btn btn-primary btn-sm" style="flex:1;text-align:center">📂 Expediente</a>
+                  <button class="btn btn-secondary btn-sm" style="flex:1; display: inline-flex; align-items: center; justify-content: center; gap: 5px;" (click)="activarTrazado()">
+                    <app-icon name="ruler" [size]="14"></app-icon> Nuevo Trazado
+                  </button>
+                  <a [routerLink]="['/obras', obraSeleccionada()!.id]" class="btn btn-primary btn-sm" style="flex:1; text-align:center; display: inline-flex; align-items: center; justify-content: center; gap: 5px;">
+                    <app-icon name="folder" [size]="14"></app-icon> Expediente
+                  </a>
                 </div>
                 <!-- Botón Navegación GPS directo a Google Maps -->
-                <a [href]="getGoogleMapsUrl(obraSeleccionada()!)" target="_blank" class="btn btn-secondary btn-sm" style="width:100%; text-align:center; background: rgba(59, 130, 246, 0.1); border-color: #3B82F6; color: #60A5FA;">
-                  🚘 Abrir Navegación GPS (Google Maps) ↗
+                <a [href]="getGoogleMapsUrl(obraSeleccionada()!)" target="_blank" class="btn btn-secondary btn-sm" style="width:100%; text-align:center; background: rgba(59, 130, 246, 0.1); border-color: #3B82F6; color: #60A5FA; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                  <app-icon name="navigation" [size]="14" color="#60A5FA"></app-icon> Abrir Navegación GPS (Google Maps) ↗
                 </a>
               </div>
             </div>

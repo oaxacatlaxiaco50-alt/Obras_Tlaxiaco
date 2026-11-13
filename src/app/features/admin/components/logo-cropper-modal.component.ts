@@ -1,23 +1,28 @@
 import { Component, ElementRef, ViewChild, Input, Output, EventEmitter, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { IconComponent } from '../../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-logo-cropper-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, IconComponent],
   template: `
     <div class="modal-overlay animate-fade-in" (click)="onBackdropClick($event)">
       <div class="modal-box animate-scale-in">
         <div class="modal-header">
           <div class="modal-title-row">
-            <span class="modal-icon">📐</span>
+            <span class="modal-icon" style="display:flex; align-items:center;">
+              <app-icon name="crop" [size]="22" color="#c084fc"></app-icon>
+            </span>
             <div>
               <h3 class="modal-title">Ajustar y Encuadrar Logotipo Municipal</h3>
               <p class="modal-desc">Arrastra la imagen o usa el zoom para centrarla y dejarla a la medida exacta.</p>
             </div>
           </div>
-          <button type="button" class="btn-close" (click)="cancelar.emit()">✕</button>
+          <button type="button" class="btn-close" (click)="cancelar.emit()">
+            <app-icon name="x" [size]="16"></app-icon>
+          </button>
         </div>
 
         <div class="modal-body">
@@ -44,7 +49,9 @@ import { FormsModule } from '@angular/forms';
           <!-- Controles de manipulación -->
           <div class="controls-panel">
             <div class="control-row">
-              <label class="control-label">🔍 Zoom / Escala ({{ zoom.toFixed(1) }}x):</label>
+              <label class="control-label" style="display:flex; align-items:center; gap:5px;">
+                <app-icon name="search" [size]="14"></app-icon> Zoom / Escala ({{ zoom.toFixed(1) }}x):
+              </label>
               <div class="zoom-slider-box">
                 <button type="button" class="btn-zoom-step" (click)="adjustZoom(-0.1)">-</button>
                 <input type="range" [(ngModel)]="zoom" min="0.5" max="3" step="0.05" (input)="draw()" class="slider-input" />
@@ -53,20 +60,24 @@ import { FormsModule } from '@angular/forms';
             </div>
 
             <div class="control-row">
-              <label class="control-label">🎨 Fondo del Logotipo:</label>
+              <label class="control-label" style="display:flex; align-items:center; gap:5px;">
+                <app-icon name="palette" [size]="14"></app-icon> Fondo del Logotipo:
+              </label>
               <div class="bg-options">
                 <button type="button" class="btn-bg-opt" [class.active]="bgColor === 'transparent'" (click)="setBg('transparent')">
-                  🏁 Transparente
+                  Transparente
                 </button>
                 <button type="button" class="btn-bg-opt" [class.active]="bgColor === '#ffffff'" (click)="setBg('#ffffff')">
-                  ⚪ Fondo Blanco
+                  Fondo Blanco
                 </button>
               </div>
             </div>
 
             <!-- Vistas previas en vivo -->
             <div class="previews-section">
-              <span class="preview-title">👁️ Vista previa en el sistema:</span>
+              <span class="preview-title" style="display:flex; align-items:center; gap:5px;">
+                <app-icon name="eye" [size]="14"></app-icon> Vista previa en el sistema:
+              </span>
               <div class="preview-cards-row">
                 <div class="preview-item">
                   <div class="preview-bubble sidebar-bubble">
@@ -95,8 +106,8 @@ import { FormsModule } from '@angular/forms';
           <button type="button" class="btn btn-secondary" (click)="cancelar.emit()">
             Cancelar
           </button>
-          <button type="button" class="btn btn-primary btn-save" (click)="guardarAjuste()">
-            💾 Guardar y Aplicar Logotipo
+          <button type="button" class="btn btn-primary btn-save" (click)="guardarAjuste()" style="display:inline-flex; align-items:center; gap:6px;">
+            <app-icon name="save" [size]="16"></app-icon> Guardar y Aplicar Logotipo
           </button>
         </div>
       </div>

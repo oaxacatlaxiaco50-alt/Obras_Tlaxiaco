@@ -5,11 +5,12 @@ import { ObrasService } from '../../../core/services/obras.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Notificacion } from '../../../core/models/notification.model';
+import { IconComponent } from '../icon/icon.component';
 
 @Component({
   selector: 'app-notif-panel',
   standalone: true,
-  imports: [],
+  imports: [IconComponent],
   template: `
     <div class="notif-panel animate-fade-in-up">
       <div class="notif-head">
@@ -24,7 +25,9 @@ import { Notificacion } from '../../../core/models/notification.model';
       <div class="notif-list">
         @for (n of svc.notifs(); track n.id) {
           <div class="notif-item" [class.unread]="!n.leida" (click)="abrirNotificacion(n)">
-            <span class="notif-ico">{{ svc.getIcono(n.tipo) }}</span>
+            <span class="notif-ico">
+              <app-icon [name]="svc.getIconName(n.tipo)" [color]="svc.getIconColor(n.tipo)" [size]="18"></app-icon>
+            </span>
             <div class="notif-body">
               <p class="notif-titulo">{{ n.titulo }}</p>
               <p class="notif-msg">{{ n.mensaje }}</p>

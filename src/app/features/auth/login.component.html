@@ -19,7 +19,7 @@
     <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
       <div class="form-group">
         <label for="username" class="form-label">
-          <span class="label-icon">👤</span> Usuario
+          <span class="label-icon"><app-icon name="user" [size]="16" color="var(--accent)"></app-icon></span> Usuario
         </label>
         <div class="input-wrapper">
           <input 
@@ -38,7 +38,7 @@
       
       <div class="form-group">
         <label for="password" class="form-label">
-          <span class="label-icon">🔑</span> Contraseña
+          <span class="label-icon"><app-icon name="key" [size]="16" color="var(--accent)"></app-icon></span> Contraseña
         </label>
         <div class="input-wrapper">
           <input 
@@ -50,7 +50,7 @@
             autocomplete="current-password"
             [class.is-invalid]="loginForm.get('password')?.invalid && loginForm.get('password')?.touched">
           <button type="button" class="toggle-password-btn" (click)="togglePasswordVisibility()" title="Mostrar/ocultar contraseña" tabindex="-1">
-            {{ showPassword ? '👁️' : '🙈' }}
+            <app-icon [name]="showPassword ? 'eye-off' : 'eye'" [size]="16"></app-icon>
           </button>
         </div>
         @if (loginForm.get('password')?.invalid && loginForm.get('password')?.touched) {
@@ -59,15 +59,16 @@
       </div>
 
       @if (sessionClosedWarning) {
-        <div class="session-warning-banner">
-          <span style="font-size: 1.2rem;">⚠️</span>
+        <div class="session-warning-banner" style="display: flex; align-items: center; gap: 8px;">
+          <app-icon name="alert-triangle" [size]="18" color="var(--warning)"></app-icon>
           <span><strong>Sesión finalizada:</strong> Se inició sesión con tu cuenta en otro equipo o navegador.</span>
         </div>
       }
 
       @if (errorMessage) {
-        <div class="error-banner">
-          <span>⚠️</span> {{ errorMessage }}
+        <div class="error-banner" style="display: flex; align-items: center; gap: 8px;">
+          <app-icon name="alert-triangle" [size]="16" color="var(--danger)"></app-icon>
+          <span>{{ errorMessage }}</span>
         </div>
       }
 
@@ -76,14 +77,17 @@
           <span class="spinner"></span>
           <span>Iniciando sesión...</span>
         } @else {
-          <span>Ingresar al Sistema →</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px;">
+            <span>Ingresar al Sistema</span>
+            <app-icon name="chevron-right" [size]="16"></app-icon>
+          </span>
         }
       </button>
     </form>
     
     <div class="login-footer">
       <p class="login-footer-note">
-        <strong>⚠️ AVISO LEGAL Y TÉRMINOS DE USO</strong><br>
+        <strong>AVISO LEGAL Y TÉRMINOS DE USO</strong><br>
         Por disposición oficial del Instituto Tecnológico de Tlaxiaco, 
         <strong style="color:var(--danger)">QUEDA ESTRICTAMENTE PROHIBIDA LA VENTA O COMERCIALIZACIÓN</strong> 
         de este software, ya que fue desarrollado de manera voluntaria y con fines académicos e institucionales.

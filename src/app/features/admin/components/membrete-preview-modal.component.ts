@@ -1,16 +1,19 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { IconComponent } from '../../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-membrete-preview-modal',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, IconComponent],
   template: `
     <div class="modal-overlay animate-fade-in" (click)="onBackdropClick($event)">
       <div class="modal-box animate-scale-in">
         <div class="modal-header">
           <div class="modal-title-row">
-            <span class="modal-icon">📑</span>
+            <span class="modal-icon" style="display:flex; align-items:center;">
+              <app-icon name="file-text" [size]="22" color="#3b82f6"></app-icon>
+            </span>
             <div>
               <h3 class="modal-title">
                 {{ modoConfirmar ? 'Confirmar Nueva Hoja Membretada' : 'Vista Previa de la Hoja Membretada Oficial' }}
@@ -22,7 +25,9 @@ import { CommonModule } from '@angular/common';
               </p>
             </div>
           </div>
-          <button type="button" class="btn-close" (click)="cerrar.emit()">✕</button>
+          <button type="button" class="btn-close" (click)="cerrar.emit()">
+            <app-icon name="x" [size]="16"></app-icon>
+          </button>
         </div>
 
         <div class="modal-body">
@@ -43,30 +48,40 @@ import { CommonModule } from '@angular/common';
           <!-- Explicación y Márgenes -->
           <div class="doc-usage-info">
             <div class="alert-info-box">
-              <span class="info-box-icon">ℹ️</span>
+              <span class="info-box-icon" style="display:flex; align-items:center;">
+                <app-icon name="info" [size]="20" color="#60a5fa"></app-icon>
+              </span>
               <p style="margin:0; font-size:0.8rem; line-height:1.45; color:#cbd5e1;">
                 <strong>Márgenes Automáticos:</strong> El sistema detecta los arcos superiores y el dibujo del palacio municipal inferior, colocando las tablas, firmas y textos <strong>exclusivamente en la zona central limpia</strong> para evitar cualquier texto encimado.
               </p>
             </div>
 
-            <h4 class="usage-title">🏛️ Documentos Oficiales que Utilizan esta Plantilla:</h4>
+            <h4 class="usage-title" style="display:flex; align-items:center; gap:6px;">
+              <app-icon name="landmark" [size]="16" color="var(--accent)"></app-icon> Documentos Oficiales que Utilizan esta Plantilla:
+            </h4>
             <div class="usage-list">
               <div class="usage-item">
-                <span class="usage-icon">📄</span>
+                <span class="usage-icon" style="display:flex; align-items:center;">
+                  <app-icon name="file-text" [size]="18" color="#3b82f6"></app-icon>
+                </span>
                 <div>
                   <strong>Ficha Técnica Oficial de Entrega de Obra:</strong>
                   <p>Incrusta esta plantilla con las fotos del Antes, Durante y Después, metas físicas, inversión autorizada y firmas de entrega.</p>
                 </div>
               </div>
               <div class="usage-item">
-                <span class="usage-icon">🗂️</span>
+                <span class="usage-icon" style="display:flex; align-items:center;">
+                  <app-icon name="folder" [size]="18" color="#f59e0b"></app-icon>
+                </span>
                 <div>
                   <strong>Carátula del Expediente Unitario (44 Requisitos):</strong>
                   <p>Genera la portada auditada para entrega a la Auditoría Superior (OSFE) con folios y sellos institucionales.</p>
                 </div>
               </div>
               <div class="usage-item">
-                <span class="usage-icon">📊</span>
+                <span class="usage-icon" style="display:flex; align-items:center;">
+                  <app-icon name="file-spreadsheet" [size]="18" color="#10b981"></app-icon>
+                </span>
                 <div>
                   <strong>Reportes Ejecutivos de Supervisión y Estimaciones:</strong>
                   <p>Encabeza los reportes financieros periódicos para la Comisión de Hacienda y Cabildo Municipal.</p>
@@ -81,12 +96,12 @@ import { CommonModule } from '@angular/common';
             {{ modoConfirmar ? 'Cancelar' : 'Cerrar' }}
           </button>
           @if (modoConfirmar) {
-            <button type="button" class="btn btn-primary" (click)="confirmar.emit()">
-              💾 Confirmar y Guardar Hoja Oficial
+            <button type="button" class="btn btn-primary" (click)="confirmar.emit()" style="display:inline-flex; align-items:center; gap:6px;">
+              <app-icon name="save" [size]="16"></app-icon> Confirmar y Guardar Hoja Oficial
             </button>
           } @else {
-            <a [href]="imagenUrl" download="hoja_membretada_oficial.png" class="btn btn-primary">
-              📥 Descargar Plantilla
+            <a [href]="imagenUrl" download="hoja_membretada_oficial.png" class="btn btn-primary" style="display:inline-flex; align-items:center; gap:6px;">
+              <app-icon name="download" [size]="16"></app-icon> Descargar Plantilla
             </a>
           }
         </div>

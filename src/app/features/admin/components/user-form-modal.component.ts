@@ -1,17 +1,26 @@
 import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { UserResponse } from '../../../core/models/user.model';
+import { IconComponent } from '../../../shared/components/icon/icon.component';
 import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-user-form-modal',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, IconComponent],
   template: `
     <div class="modal-backdrop" (click)="onClose()">
       <div class="modal-content" (click)="$event.stopPropagation()">
         <div class="modal-header">
-          <h2>{{ user ? '✏️ Editar Usuario' : '👤 Nuevo Usuario' }}</h2>
+          <h2 style="display: flex; align-items: center; gap: 8px;">
+            @if (user) {
+              <app-icon name="pencil" [size]="18" color="var(--accent)"></app-icon>
+              <span>Editar Usuario</span>
+            } @else {
+              <app-icon name="user-plus" [size]="18" color="var(--accent)"></app-icon>
+              <span>Nuevo Usuario</span>
+            }
+          </h2>
           <button class="close-btn" (click)="onClose()">×</button>
         </div>
         
@@ -27,7 +36,7 @@ import Swal from 'sweetalert2';
                 [class.is-invalid]="invalidField('firstName')"
               >
               @if (invalidField('firstName')) {
-                <small class="error-msg">⚠️ El nombre es obligatorio.</small>
+                <small class="error-msg">El nombre es obligatorio.</small>
               }
             </div>
             <div class="form-group">
@@ -40,7 +49,7 @@ import Swal from 'sweetalert2';
                 [class.is-invalid]="invalidField('lastName')"
               >
               @if (invalidField('lastName')) {
-                <small class="error-msg">⚠️ Los apellidos son obligatorios.</small>
+                <small class="error-msg">Los apellidos son obligatorios.</small>
               }
             </div>
           </div>
@@ -56,12 +65,12 @@ import Swal from 'sweetalert2';
             >
             @if (invalidField('email')) {
               @if (userForm.get('email')?.errors?.['required']) {
-                <small class="error-msg">⚠️ El correo electrónico es obligatorio.</small>
+                <small class="error-msg">El correo electrónico es obligatorio.</small>
               } @else if (userForm.get('email')?.errors?.['email']) {
-                <small class="error-msg">⚠️ Ingresa un formato de correo válido (ej. usuario&#64;dominio.com).</small>
+                <small class="error-msg">Ingresa un formato de correo válido (ej. usuario&#64;dominio.com).</small>
               }
             } @else if (isEmailTaken()) {
-              <small class="error-msg">🚫 Este correo electrónico ya está registrado. Usa otro diferente.</small>
+              <small class="error-msg">Este correo electrónico ya está registrado. Usa otro diferente.</small>
             }
           </div>
           
@@ -77,17 +86,21 @@ import Swal from 'sweetalert2';
                 [readonly]="!!user"
               >
               @if (user) {
-                <small class="hint">🔒 El nombre de usuario no se puede modificar</small>
+                <small class="hint" style="display: flex; align-items: center; gap: 4px;">
+                  <app-icon name="lock" [size]="12"></app-icon> El nombre de usuario no se puede modificar
+                </small>
               } @else if (isUsernameTaken()) {
-                <small class="error-msg">🚫 El usuario "&#64;{{ userForm.get('username')?.value?.trim() }}" ya está ocupado. Usa otro.</small>
+                <small class="error-msg">El usuario "&#64;{{ userForm.get('username')?.value?.trim() }}" ya está ocupado. Usa otro.</small>
               } @else if (invalidField('username')) {
                 @if (userForm.get('username')?.errors?.['required']) {
-                  <small class="error-msg">⚠️ El nombre de usuario es obligatorio.</small>
+                  <small class="error-msg">El nombre de usuario es obligatorio.</small>
                 } @else if (userForm.get('username')?.errors?.['minlength']) {
-                  <small class="error-msg">⚠️ Debe tener al menos 3 caracteres.</small>
+                  <small class="error-msg">Debe tener al menos 3 caracteres.</small>
                 }
               } @else if (userForm.get('username')?.value?.trim()?.length >= 3) {
-                <small class="ok-msg">✅ Nombre de usuario disponible</small>
+                <small class="ok-msg" style="display: flex; align-items: center; gap: 4px;">
+                  <app-icon name="check-circle" [size]="12" color="#10b981"></app-icon> Nombre de usuario disponible
+                </small>
               }
             </div>
             <div class="form-group">
@@ -104,10 +117,10 @@ import Swal from 'sweetalert2';
               }
               @if (invalidField('password')) {
                 @if (userForm.get('password')?.errors?.['required']) {
-                  <small class="error-msg">⚠️ La contraseña es obligatoria.</small>
+                  <small class="error-msg">La contraseña es obligatoria.</small>
                 } @else if (userForm.get('password')?.errors?.['minlength']) {
                   <small class="error-msg">
-                    ⚠️ Mínimo 8 caracteres (actual: {{ userForm.get('password')?.value?.length || 0 }}/8).
+                    Mínimo 8 caracteres (actual: {{ userForm.get('password')?.value?.length || 0 }}/8).
                   </small>
                 }
               }
@@ -124,14 +137,20 @@ import Swal from 'sweetalert2';
               <option value="AUDITOR">Auditor (Lectura)</option>
             </select>
             @if (invalidField('role')) {
-              <small class="error-msg">⚠️ Debes seleccionar un rol para el usuario.</small>
+              <small class="error-msg">Debes seleccionar un rol para el usuario.</small>
             }
           </div>
           
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" (click)="onClose()">Cancelar</button>
-            <button type="submit" class="btn btn-primary">
-              {{ user ? '💾 Guardar Cambios' : '✅ Crear Usuario' }}
+            <button type="submit" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+              @if (user) {
+                <app-icon name="save" [size]="15"></app-icon>
+                <span>Guardar Cambios</span>
+              } @else {
+                <app-icon name="user-plus" [size]="15"></app-icon>
+                <span>Crear Usuario</span>
+              }
             </button>
           </div>
         </form>

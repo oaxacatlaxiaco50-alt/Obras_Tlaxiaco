@@ -11,39 +11,53 @@ import { UserResponse } from '../../core/models/user.model';
 import { UserFormModalComponent } from './components/user-form-modal.component';
 import { LogoCropperModalComponent } from './components/logo-cropper-modal.component';
 import { MembretePreviewModalComponent } from './components/membrete-preview-modal.component';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 import Swal from 'sweetalert2';
 import jsPDF from 'jspdf';
 
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, UserFormModalComponent, LogoCropperModalComponent, MembretePreviewModalComponent],
+  imports: [CommonModule, FormsModule, UserFormModalComponent, LogoCropperModalComponent, MembretePreviewModalComponent, IconComponent],
   template: `
     <div class="admin-page animate-fade-in">
       <div class="admin-header">
         <div>
-          <h1 class="admin-title">⚙️ Administración del Sistema</h1>
+          <h1 class="admin-title" style="display:flex; align-items:center; gap:8px;">
+            <app-icon name="settings" [size]="24" color="var(--accent)"></app-icon>
+            Administración del Sistema
+          </h1>
           <p class="admin-subtitle">Gestión de usuarios, roles, cierre fiscal y configuración institucional</p>
         </div>
-        <button class="btn btn-primary" (click)="openUserModal()">+ Nuevo Usuario</button>
+        <button class="btn btn-primary" (click)="openUserModal()" style="display:inline-flex; align-items:center; gap:6px;">
+          <app-icon name="user-plus" [size]="16"></app-icon> Nuevo Usuario
+        </button>
       </div>
 
       <!-- Stats -->
       <div class="admin-stats">
         <div class="kpi-card">
-          <div class="kpi-icon" style="background:rgba(59,130,246,0.12)">👥</div>
+          <div class="kpi-icon" style="background:rgba(59,130,246,0.12); display:flex; align-items:center; justify-content:center;">
+            <app-icon name="users" [size]="20" color="#3b82f6"></app-icon>
+          </div>
           <div><div class="kpi-value">{{ usuarios.length }}</div><div class="kpi-label">Usuarios Registrados</div></div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-icon" style="background:rgba(232,160,32,0.12)">🏗️</div>
+          <div class="kpi-icon" style="background:rgba(232,160,32,0.12); display:flex; align-items:center; justify-content:center;">
+            <app-icon name="folder" [size]="20" color="var(--accent)"></app-icon>
+          </div>
           <div><div class="kpi-value">{{ totalObras }}</div><div class="kpi-label">Total Obras Activas</div></div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-icon" style="background:rgba(239,68,68,0.12)">🔒</div>
+          <div class="kpi-icon" style="background:rgba(239,68,68,0.12); display:flex; align-items:center; justify-content:center;">
+            <app-icon name="lock" [size]="20" color="var(--danger)"></app-icon>
+          </div>
           <div><div class="kpi-value" style="color:var(--danger)">0</div><div class="kpi-label">Obras Bloqueadas</div></div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-icon" style="background:rgba(45,212,191,0.12)">🏛️</div>
+          <div class="kpi-icon" style="background:rgba(45,212,191,0.12); display:flex; align-items:center; justify-content:center;">
+            <app-icon name="landmark" [size]="20" color="var(--success)"></app-icon>
+          </div>
           <div><div class="kpi-value" style="color:var(--accent)">{{ ejercicioCierre }}</div><div class="kpi-label">Ejercicio Fiscal Actual</div></div>
         </div>
       </div>
@@ -53,12 +67,14 @@ import jsPDF from 'jspdf';
         <div class="fiscal-header">
           <div class="fiscal-header-info">
             <div class="fiscal-title-row">
-              <span class="fiscal-badge-icon">🏛️</span>
+              <span class="fiscal-badge-icon">
+                <app-icon name="archive" [size]="20" color="#f59e0b"></app-icon>
+              </span>
               <h3 class="sec-title" style="margin:0;">Cierre de Ejercicio Fiscal Anual</h3>
               <span class="badge badge-warning">Exclusivo Administrador</span>
             </div>
             <p class="fiscal-desc">
-              Al finalizar el año, este proceso archiva de forma segura las obras del ejercicio en curso para que el padrón del nuevo año arranque <strong>completamente limpio (0 obras)</strong>. Las obras incompletas se concluyen administrativamente y las obras eliminadas/canceladas conservan su estado en el archivo. Puedes consultar el histórico en <strong>📋 Historial General &gt; Archivo Fiscal</strong>.
+              Al finalizar el año, este proceso archiva de forma segura las obras del ejercicio en curso para que el padrón del nuevo año arranque <strong>completamente limpio (0 obras)</strong>. Las obras incompletas se concluyen administrativamente y las obras eliminadas/canceladas conservan su estado en el archivo. Puedes consultar el histórico en <strong>Historial General &gt; Archivo Fiscal</strong>.
             </p>
           </div>
           <div class="fiscal-controls">
@@ -71,7 +87,7 @@ import jsPDF from 'jspdf';
               </select>
             </div>
             <button class="btn btn-warning fiscal-btn" (click)="confirmarCierreFiscal()" [disabled]="cargandoCierre">
-              🔒 Realizar Cierre Fiscal {{ ejercicioCierre }}
+              <app-icon name="lock" [size]="16" style="margin-right: 4px;"></app-icon> Realizar Cierre Fiscal {{ ejercicioCierre }}
             </button>
           </div>
         </div>
@@ -100,7 +116,9 @@ import jsPDF from 'jspdf';
         <div class="fiscal-header">
           <div class="fiscal-header-info">
             <div class="fiscal-title-row">
-              <span class="fiscal-badge-icon">🎨</span>
+              <span class="fiscal-badge-icon">
+                <app-icon name="landmark" [size]="20" color="#3b82f6"></app-icon>
+              </span>
               <h3 class="sec-title" style="margin:0;">Identidad Institucional y Hoja Membretada Dinámica</h3>
               <span class="badge badge-warning">Exclusivo Administrador</span>
             </div>
@@ -110,10 +128,10 @@ import jsPDF from 'jspdf';
           </div>
           <div class="inst-actions-top">
             <button type="button" class="btn btn-pdf-sample" (click)="generarPdfMuestra()" title="Descargar muestra del membrete">
-              📄 Generar PDF de Muestra
+              <app-icon name="file-text" [size]="16"></app-icon> Generar PDF de Muestra
             </button>
             <button type="button" class="btn btn-save-identidad" (click)="guardarDatosInstitucion()" [disabled]="guardandoInstitucion">
-              💾 {{ guardandoInstitucion ? 'Guardando...' : 'Guardar Cambios' }}
+              <app-icon name="save" [size]="16"></app-icon> {{ guardandoInstitucion ? 'Guardando...' : 'Guardar Cambios' }}
             </button>
           </div>
         </div>
@@ -123,7 +141,9 @@ import jsPDF from 'jspdf';
           <!-- Columna A: Logotipo -->
           <div class="asset-box">
             <div class="asset-title-row">
-              <span class="asset-title">🏛️ Logotipo Oficial del Municipio</span>
+              <span class="asset-title" style="display:flex; align-items:center; gap:6px;">
+                <app-icon name="landmark" [size]="16" color="#94a3b8"></app-icon> Logotipo Oficial del Municipio
+              </span>
               <span class="asset-hint">Puedes encuadrarlo, recortarlo y hacer zoom a la medida</span>
             </div>
             <div class="asset-preview-wrap">
@@ -133,10 +153,10 @@ import jsPDF from 'jspdf';
               <div class="asset-btns">
                 <input type="file" #logoFileInput (change)="onLogoFilePicked($event)" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none;" />
                 <button type="button" class="btn btn-logo-crop" (click)="logoFileInput.click()" [disabled]="subiendoLogo">
-                  ✂️ {{ subiendoLogo ? 'Guardando...' : 'Cargar y Encuadrar Logo' }}
+                  <app-icon name="scissors" [size]="15"></app-icon> {{ subiendoLogo ? 'Guardando...' : 'Cargar y Encuadrar Logo' }}
                 </button>
                 <button type="button" class="btn btn-reset-subtle" (click)="restablecerLogo()">
-                  🔄 Restablecer Predeterminado
+                  <app-icon name="refresh" [size]="13"></app-icon> Restablecer Predeterminado
                 </button>
               </div>
             </div>
@@ -146,11 +166,13 @@ import jsPDF from 'jspdf';
           <div class="asset-box">
             <div class="asset-title-row">
               <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span class="asset-title">📑 Hoja Membretada para Reportes (PDF)</span>
+                <span class="asset-title" style="display:flex; align-items:center; gap:6px;">
+                  <app-icon name="file-text" [size]="16" color="#94a3b8"></app-icon> Hoja Membretada para Reportes (PDF)
+                </span>
                 @if ((institucionSvc.config$ | async)?.membreteUrl) {
-                  <span class="badge badge-success" style="font-size:0.7rem;">🟢 Activa</span>
+                  <span class="badge badge-success" style="font-size:0.7rem;">Activa</span>
                 } @else {
-                  <span class="badge badge-info" style="font-size:0.7rem;">⚪ Estándar</span>
+                  <span class="badge badge-info" style="font-size:0.7rem;">Estándar</span>
                 }
               </div>
               <span class="asset-hint">Fondo oficial para Fichas Técnicas, Expediente Unitario y Reportes</span>
@@ -160,25 +182,25 @@ import jsPDF from 'jspdf';
               <div class="mini-sheet-container" (click)="verVistaPreviaMembrete()" title="Clic para ampliar hoja membretada">
                 <img [src]="institucionSvc.resolveMembreteUrl((institucionSvc.config$ | async)?.membreteUrl) || 'assets/logos/hoja_membretada_oficial.png'" alt="Hoja membretada" class="mini-sheet-preview-img" (error)="$any($event.target).src='assets/logos/hoja_membretada_oficial.png'" />
                 <div class="mini-sheet-zoom-overlay">
-                  <span>🔍 Ver Completa</span>
+                  <span><app-icon name="eye" [size]="13" color="#ffffff"></app-icon> Ver Completa</span>
                 </div>
               </div>
 
               <!-- Acciones de Hoja Membretada -->
               <div class="asset-btns">
                 <button type="button" class="btn btn-preview-sheet" (click)="verVistaPreviaMembrete()">
-                  👁️ Ver Vista Previa
+                  <app-icon name="eye" [size]="15"></app-icon> Ver Vista Previa
                 </button>
                 <button type="button" class="btn btn-activate-official" (click)="activarMembreteOficialTlaxiaco()" [disabled]="subiendoMembrete" title="Activa la hoja membretada con los logos y palacio municipal">
-                  ⭐ Activar Membrete Tlaxiaco
+                  <app-icon name="star" [size]="15"></app-icon> Activar Membrete Tlaxiaco
                 </button>
                 <input type="file" #membreteFileInput (change)="onMembreteSelected($event)" accept="image/png,image/jpeg,image/webp,application/pdf" style="display:none;" />
                 <button type="button" class="btn btn-upload-sheet" (click)="membreteFileInput.click()" [disabled]="subiendoMembrete">
-                  📤 {{ subiendoMembrete ? 'Subiendo...' : 'Subir Otra Hoja' }}
+                  <app-icon name="upload" [size]="15"></app-icon> {{ subiendoMembrete ? 'Subiendo...' : 'Subir Otra Hoja' }}
                 </button>
                 @if ((institucionSvc.config$ | async)?.membreteUrl) {
                   <button type="button" class="btn btn-reset-subtle" (click)="restablecerMembrete()">
-                    🔄 Usar Membrete Estándar
+                    <app-icon name="refresh" [size]="13"></app-icon> Usar Membrete Estándar
                   </button>
                 }
               </div>
@@ -189,7 +211,9 @@ import jsPDF from 'jspdf';
         <!-- Fila Inferior: Formulario Completo de Datos Oficiales (Ancho Total) -->
         <div class="inst-data-form-box">
           <div class="inst-form-header">
-            <h4 class="inst-form-title">🏛️ Datos Oficiales de la Administración Municipal</h4>
+            <h4 class="inst-form-title" style="display:flex; align-items:center; gap:6px;">
+              <app-icon name="landmark" [size]="16" color="var(--accent)"></app-icon> Datos Oficiales de la Administración Municipal
+            </h4>
             <span class="inst-form-hint">Toda la información se muestra completa y se actualiza en tiempo real en los documentos</span>
           </div>
 
@@ -214,7 +238,7 @@ import jsPDF from 'jspdf';
               </div>
               <div class="inst-field-row">
                 <label class="inst-label">Lema o Eslogan Oficial:</label>
-                <input type="text" [(ngModel)]="institucionForm.lemaOficial" class="inst-full-input" placeholder="Ej. El poder de servir al pueblo" />
+                <input type="text" [(ngModel)]="institucionForm.lemaOficial" class="inst-full-input" placeholder="Ej. Orden, Progreso y Bienestar" />
               </div>
             </div>
 
@@ -229,7 +253,9 @@ import jsPDF from 'jspdf';
 
       <!-- Users Table -->
       <div class="card">
-        <h3 class="sec-title">👥 Usuarios del Sistema</h3>
+        <h3 class="sec-title" style="display:flex; align-items:center; gap:8px;">
+          <app-icon name="users" [size]="18" color="var(--accent)"></app-icon> Usuarios del Sistema
+        </h3>
         <div class="table-wrap">
           <table>
             <thead>
@@ -255,25 +281,36 @@ import jsPDF from 'jspdf';
                   <td><span class="badge" [class]="'badge-' + (u.roles[0] || '').toLowerCase()">{{ u.roles[0] || 'Sin Rol' }}</span></td>
                   <td>
                     @if(u.active) {
-                      <span style="color:var(--success)">✅ Activo</span>
+                      <span style="color:var(--success); display:inline-flex; align-items:center; gap:4px;">
+                        <app-icon name="check-circle" [size]="14" color="var(--success)"></app-icon> Activo
+                      </span>
                     } @else {
-                      <span style="color:var(--danger)">❌ Inactivo</span>
+                      <span style="color:var(--danger); display:inline-flex; align-items:center; gap:4px;">
+                        <app-icon name="x" [size]="14" color="var(--danger)"></app-icon> Inactivo
+                      </span>
                     }
                   </td>
                   <td>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                      <button class="btn btn-secondary btn-sm" (click)="openUserModal(u)">✏️ Editar</button>
+                      <button class="btn btn-secondary btn-sm" (click)="openUserModal(u)" style="display:inline-flex; align-items:center; gap:4px;">
+                        <app-icon name="pencil" [size]="13"></app-icon> Editar
+                      </button>
                       @if(u.active) {
-                        <button class="btn btn-warning btn-sm" (click)="deactivateUser(u.id)" [disabled]="u.roles.includes('ADMINISTRADOR') && activeAdminsCount() <= 1">⚠️ Desactivar</button>
+                        <button class="btn btn-warning btn-sm" (click)="deactivateUser(u.id)" [disabled]="u.roles.includes('ADMINISTRADOR') && activeAdminsCount() <= 1" style="display:inline-flex; align-items:center; gap:4px;">
+                          <app-icon name="lock" [size]="13"></app-icon> Desactivar
+                        </button>
                       } @else {
-                        <button class="btn btn-primary btn-sm" (click)="reactivateUser(u.id)">🔄 Reactivar</button>
+                        <button class="btn btn-primary btn-sm" (click)="reactivateUser(u.id)" style="display:inline-flex; align-items:center; gap:4px;">
+                          <app-icon name="refresh" [size]="13"></app-icon> Reactivar
+                        </button>
                       }
                       <button
                         class="btn btn-danger-outline btn-sm"
                         (click)="deleteUserPermanently(u)"
                         [disabled]="u.username === auth.usuario()?.username || (u.roles.includes('ADMINISTRADOR') && activeAdminsCount() <= 1)"
-                        title="Eliminar usuario permanentemente">
-                        🗑️ Eliminar
+                        title="Eliminar usuario permanentemente"
+                        style="display:inline-flex; align-items:center; gap:4px;">
+                        <app-icon name="trash" [size]="13"></app-icon> Eliminar
                       </button>
                     </div>
                   </td>
@@ -287,10 +324,14 @@ import jsPDF from 'jspdf';
       <!-- Config -->
       <div class="admin-config-grid">
         <div class="card">
-          <h3 class="sec-title">⏱️ Reglas del Sistema</h3>
+          <h3 class="sec-title" style="display:flex; align-items:center; gap:8px;">
+            <app-icon name="shield-check" [size]="18" color="var(--accent)"></app-icon> Reglas del Sistema
+          </h3>
           <div class="rule-list">
             <div class="rule-item">
-              <span class="rule-icon">🔒</span>
+              <span class="rule-icon" style="display:flex; align-items:center; justify-content:center;">
+                <app-icon name="lock" [size]="20" color="var(--warning)"></app-icon>
+              </span>
               <div>
                 <div class="rule-name">Bloqueo automático de edición</div>
                 <div class="rule-desc">Las obras se bloquean tras <strong>15 días</strong> sin actualización</div>
@@ -298,7 +339,9 @@ import jsPDF from 'jspdf';
               <span class="badge badge-warning">Activo</span>
             </div>
             <div class="rule-item">
-              <span class="rule-icon">🔗</span>
+              <span class="rule-icon" style="display:flex; align-items:center; justify-content:center;">
+                <app-icon name="folder" [size]="20" color="var(--success)"></app-icon>
+              </span>
               <div>
                 <div class="rule-name">URLs únicas por proyecto</div>
                 <div class="rule-desc">Cada obra tiene una URL permanente e irrepetible</div>
@@ -306,7 +349,9 @@ import jsPDF from 'jspdf';
               <span class="badge badge-success">Activo</span>
             </div>
             <div class="rule-item">
-              <span class="rule-icon">📦</span>
+              <span class="rule-icon" style="display:flex; align-items:center; justify-content:center;">
+                <app-icon name="file-text" [size]="20" color="#3b82f6"></app-icon>
+              </span>
               <div>
                 <div class="rule-name">Límite de archivos</div>
                 <div class="rule-desc">Máximo <strong>30 MB</strong> por archivo subido</div>
@@ -316,7 +361,9 @@ import jsPDF from 'jspdf';
           </div>
         </div>
         <div class="card">
-          <h3 class="sec-title">🔑 Roles y Permisos del Sistema</h3>
+          <h3 class="sec-title" style="display:flex; align-items:center; gap:8px;">
+            <app-icon name="lock" [size]="18" color="var(--accent)"></app-icon> Roles y Permisos del Sistema
+          </h3>
           <div class="perms-table">
             <div class="perm-row header">
               <span>Acción / Permiso</span><span>Admin</span><span>Supervisor</span><span>Contratista</span><span>Auditor</span>
@@ -324,10 +371,10 @@ import jsPDF from 'jspdf';
             @for (p of permisos; track p.nombre) {
               <div class="perm-row">
                 <span>{{ p.nombre }}</span>
-                <span>{{ p.admin ? '✅' : '❌' }}</span>
-                <span>{{ p.supervisor ? '✅' : '❌' }}</span>
-                <span>{{ p.contratista ? '✅' : '❌' }}</span>
-                <span>{{ p.auditor ? '✅' : '❌' }}</span>
+                <span><app-icon [name]="p.admin ? 'check' : 'x'" [size]="15" [color]="p.admin ? 'var(--success)' : 'var(--danger)'"></app-icon></span>
+                <span><app-icon [name]="p.supervisor ? 'check' : 'x'" [size]="15" [color]="p.supervisor ? 'var(--success)' : 'var(--danger)'"></app-icon></span>
+                <span><app-icon [name]="p.contratista ? 'check' : 'x'" [size]="15" [color]="p.contratista ? 'var(--success)' : 'var(--danger)'"></app-icon></span>
+                <span><app-icon [name]="p.auditor ? 'check' : 'x'" [size]="15" [color]="p.auditor ? 'var(--success)' : 'var(--danger)'"></app-icon></span>
               </div>
             }
           </div>

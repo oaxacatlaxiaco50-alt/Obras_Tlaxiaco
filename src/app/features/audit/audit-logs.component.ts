@@ -3,17 +3,20 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuditLogService } from '../../core/services/audit-log.service';
 import { AuditLog } from '../../core/models/audit-log.model';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-audit-logs',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, IconComponent],
   template: `
     <div class="al-wrapper animate-fade-in">
       <!-- Header -->
       <div class="al-header">
         <div>
-          <h1 class="al-title">🔍 Logs de Auditoría</h1>
+          <h1 class="al-title" style="display: flex; align-items: center; gap: 8px;">
+            <app-icon name="history" [size]="24" color="var(--accent)"></app-icon> Logs de Auditoría
+          </h1>
           <p class="al-subtitle">Registro detallado de todas las acciones del sistema · {{ totalElementos() }} registros</p>
         </div>
       </div>
@@ -21,7 +24,9 @@ import { AuditLog } from '../../core/models/audit-log.model';
       <!-- Filtros -->
       <div class="al-filters">
         <div class="filter-group">
-          <label class="filter-label">👤 Usuario</label>
+          <label class="filter-label" style="display: flex; align-items: center; gap: 4px;">
+            <app-icon name="user" [size]="14"></app-icon> Usuario
+          </label>
           <input
             class="filter-input"
             type="text"
@@ -31,7 +36,9 @@ import { AuditLog } from '../../core/models/audit-log.model';
           />
         </div>
         <div class="filter-group">
-          <label class="filter-label">📄 Registros por página</label>
+          <label class="filter-label" style="display: flex; align-items: center; gap: 4px;">
+            <app-icon name="file-text" [size]="14"></app-icon> Registros por página
+          </label>
           <select class="filter-input" [(ngModel)]="tamanioPagina" (ngModelChange)="cargar(0)">
             <option [value]="10">10</option>
             <option [value]="20">20</option>
@@ -80,7 +87,10 @@ import { AuditLog } from '../../core/models/audit-log.model';
               }
               @if (logs().length === 0) {
                 <tr>
-                  <td colspan="6" class="al-empty">🔍 No se encontraron registros de auditoría</td>
+                  <td colspan="6" class="al-empty">
+                    <app-icon name="search" [size]="16" style="margin-right: 6px;"></app-icon>
+                    No se encontraron registros de auditoría
+                  </td>
                 </tr>
               }
             </tbody>

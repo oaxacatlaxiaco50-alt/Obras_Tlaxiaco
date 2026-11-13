@@ -97,6 +97,16 @@ export class NotificacionService {
     return iconos[tipo] || 'ℹ️';
   }
 
+  getIconName(tipo: string): string {
+    const iconos: Record<string, string> = { exito: 'check-circle', advertencia: 'alert-triangle', error: 'x', info: 'info' };
+    return iconos[tipo] || 'info';
+  }
+
+  getIconColor(tipo: string): string {
+    const colores: Record<string, string> = { exito: '#10B981', advertencia: '#F59E0B', error: '#EF4444', info: '#3B82F6' };
+    return colores[tipo] || 'var(--accent)';
+  }
+
   tiempoRelativo(fechaStr: string): string {
     const fecha = new Date(fechaStr);
     const diff = (Date.now() - fecha.getTime()) / 60000;

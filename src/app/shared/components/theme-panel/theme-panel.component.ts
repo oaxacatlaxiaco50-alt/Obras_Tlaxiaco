@@ -1,16 +1,18 @@
 import { Component, inject } from '@angular/core';
+import { IconComponent } from '../icon/icon.component';
 import { ThemeService, Theme } from '../../../core/services/theme.service';
 
 @Component({
   selector: 'app-theme-panel',
   standalone: true,
+  imports: [IconComponent],
   template: `
     @if (themeSvc.panelOpen()) {
       <div class="panel-overlay animate-fade-in" (click)="themeSvc.closePanel()"></div>
       <div class="theme-panel animate-slide-in">
         <div class="panel-header">
           <div class="panel-title-wrap">
-            <span class="panel-icon">🎨</span>
+            <span class="panel-icon"><app-icon name="palette" [size]="20" color="var(--accent)"></app-icon></span>
             <h3>Personalización Premium</h3>
           </div>
           <button class="close-panel-btn" (click)="themeSvc.closePanel()">✕</button>
@@ -20,7 +22,10 @@ import { ThemeService, Theme } from '../../../core/services/theme.service';
           <p class="panel-intro">Personaliza la tipografía, colores de acento y presets visuales del sistema en tiempo real.</p>
           
           <!-- Presets de Tema Completo -->
-          <div class="section-title">🎭 Presets de Tema</div>
+          <div class="section-title" style="display: flex; align-items: center; gap: 6px;">
+            <app-icon name="palette" [size]="15" color="var(--accent)"></app-icon>
+            <span>Presets de Tema</span>
+          </div>
           <div class="theme-presets-grid">
             <button class="preset-btn theme-default" [class.active]="themeSvc.currentTheme() === 'default'" (click)="themeSvc.setTheme('default')">
               <span class="preset-indicator"></span> Default Oscuro
@@ -49,7 +54,10 @@ import { ThemeService, Theme } from '../../../core/services/theme.service';
           </div>
 
           <!-- Color de Acento -->
-          <div class="section-title">⚡ Color de Acento Primario</div>
+          <div class="section-title" style="display: flex; align-items: center; gap: 6px;">
+            <app-icon name="star" [size]="15" color="var(--accent)"></app-icon>
+            <span>Color de Acento Primario</span>
+          </div>
           <div class="accent-presets-grid">
             @for (color of themeSvc.presetColors; track color.value) {
               <button 
@@ -67,7 +75,7 @@ import { ThemeService, Theme } from '../../../core/services/theme.service';
 
           <!-- Selector de color personalizado -->
           <div class="custom-color-picker-wrap">
-            <span class="picker-label">🎨 Color Personalizado:</span>
+            <span class="picker-label">Color Personalizado:</span>
             <div class="picker-input-container">
               <input 
                 type="color" 
@@ -80,7 +88,10 @@ import { ThemeService, Theme } from '../../../core/services/theme.service';
           </div>
 
           <!-- Selección de Tipografía -->
-          <div class="section-title">🔠 Tipografía de la Suite</div>
+          <div class="section-title" style="display: flex; align-items: center; gap: 6px;">
+            <app-icon name="file-text" [size]="15" color="var(--accent)"></app-icon>
+            <span>Tipografía de la Suite</span>
+          </div>
           <div class="font-list">
             @for (font of themeSvc.availableFonts; track font.value) {
               <button 

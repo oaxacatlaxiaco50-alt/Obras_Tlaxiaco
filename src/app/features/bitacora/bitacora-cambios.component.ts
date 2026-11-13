@@ -5,25 +5,30 @@ import { AuthService } from '../../core/services/auth.service';
 import { AuditLogService } from '../../core/services/audit-log.service';
 import { AuditLog } from '../../core/models/audit-log.model';
 import { AuditLogsComponent } from '../audit/audit-logs.component';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 
 export type PeriodoFiltro = 'dia' | 'semana' | 'mes' | 'todo';
 
 @Component({
   selector: 'app-bitacora-cambios',
   standalone: true,
-  imports: [CommonModule, FormsModule, AuditLogsComponent],
+  imports: [CommonModule, FormsModule, AuditLogsComponent, IconComponent],
   template: `
     @if (auth.hasRole('admin')) {
       <div class="bc-wrapper animate-fade-in">
         <!-- Header -->
         <div class="bc-header">
           <div>
-            <h1 class="bc-title">🔒 Bitácora de Cambios</h1>
+            <h1 class="bc-title" style="display: flex; align-items: center; gap: 8px;">
+              <app-icon name="lock" [size]="24" color="var(--accent)"></app-icon> Bitácora de Cambios
+            </h1>
             <p class="bc-subtitle">Acciones registradas (filtrado por {{ getLabelPeriodo() }}) · Solo Administrador</p>
           </div>
           <div class="bc-header-controls">
             <div class="bc-period-selector">
-              <label class="period-label">📅 Periodo:</label>
+              <label class="period-label" style="display: flex; align-items: center; gap: 4px;">
+                <app-icon name="calendar" [size]="14"></app-icon> Periodo:
+              </label>
               <select
                 class="period-select"
                 [ngModel]="filtroPeriodo()"
@@ -49,15 +54,21 @@ export type PeriodoFiltro = 'dia' | 'semana' | 'mes' | 'todo';
           </div>
           <div class="bc-kpi edit">
             <span class="bc-kpi-valor">{{ totalEdiciones() }}</span>
-            <span class="bc-kpi-label">✏️ Ediciones</span>
+            <span class="bc-kpi-label" style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+              <app-icon name="pencil" [size]="13" color="#3B82F6"></app-icon> Ediciones
+            </span>
           </div>
           <div class="bc-kpi delete">
             <span class="bc-kpi-valor">{{ totalEliminaciones() }}</span>
-            <span class="bc-kpi-label">🗑️ Eliminaciones</span>
+            <span class="bc-kpi-label" style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+              <app-icon name="trash" [size]="13" color="#EF4444"></app-icon> Eliminaciones
+            </span>
           </div>
           <div class="bc-kpi user">
             <span class="bc-kpi-valor">{{ usuariosActivos() }}</span>
-            <span class="bc-kpi-label">👥 Usuarios Activos</span>
+            <span class="bc-kpi-label" style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+              <app-icon name="users" [size]="13" color="#10B981"></app-icon> Usuarios Activos
+            </span>
           </div>
         </div>
 
@@ -93,8 +104,13 @@ export type PeriodoFiltro = 'dia' | 'semana' | 'mes' | 'todo';
                     </div>
                   </td>
                   <td>
-                    <span class="badge-accion" [attr.data-accion]="accionLabel(e)">
-                      {{ accionLabel(e) === 'Eliminar' ? '🗑️' : '✏️' }} {{ accionLabel(e) }}
+                    <span class="badge-accion" [attr.data-accion]="accionLabel(e)" style="display: inline-flex; align-items: center; gap: 4px;">
+                      @if (accionLabel(e) === 'Eliminar') {
+                        <app-icon name="trash" [size]="12"></app-icon>
+                      } @else {
+                        <app-icon name="pencil" [size]="12"></app-icon>
+                      }
+                      <span>{{ accionLabel(e) }}</span>
                     </span>
                   </td>
                   <td class="bc-modulo">{{ e.module }}</td>
@@ -109,7 +125,9 @@ export type PeriodoFiltro = 'dia' | 'semana' | 'mes' | 'todo';
               @if (entradas().length === 0) {
                 <tr>
                   <td colspan="7" class="bc-empty">
-                    <div class="empty-icon">✅</div>
+                    <div class="empty-icon">
+                      <app-icon name="check-circle" [size]="32" color="var(--success)"></app-icon>
+                    </div>
                     <div>Sin registros en el periodo seleccionado ({{ getLabelPeriodo() }})</div>
                   </td>
                 </tr>
@@ -119,9 +137,9 @@ export type PeriodoFiltro = 'dia' | 'semana' | 'mes' | 'todo';
         </div>
 
         <!-- Nota de acceso -->
-        <div class="bc-nota">
-          🔐 Esta vista es exclusiva para el rol <strong>Administrador</strong>.
-          Puedes cambiar el periodo de consulta usando el filtro superior.
+        <div class="bc-nota" style="display: flex; align-items: center; gap: 8px;">
+          <app-icon name="shield-check" [size]="18" color="var(--accent)"></app-icon>
+          <span>Esta vista es exclusiva para el rol <strong>Administrador</strong>. Puedes cambiar el periodo de consulta usando el filtro superior.</span>
         </div>
 
         <!-- Logs de Auditoría completas al final de la página -->
@@ -131,7 +149,9 @@ export type PeriodoFiltro = 'dia' | 'semana' | 'mes' | 'todo';
       </div>
     } @else {
       <div class="bc-acceso-denegado">
-        <span class="bc-lock">🔒</span>
+        <span class="bc-lock">
+          <app-icon name="lock" [size]="48" color="var(--danger)"></app-icon>
+        </span>
         <h2>Acceso restringido</h2>
         <p>Esta sección es exclusiva para el rol <strong>Administrador</strong>.</p>
       </div>

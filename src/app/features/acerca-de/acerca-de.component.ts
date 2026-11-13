@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { AsyncPipe } from '@angular/common';
 import { InstitucionService } from '../../core/services/institucion.service';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 
 interface Desarrollador {
   iniciales: string;
@@ -12,7 +13,7 @@ interface Desarrollador {
 @Component({
   selector: 'app-acerca-de',
   standalone: true,
-  imports: [AsyncPipe],
+  imports: [AsyncPipe, IconComponent],
   template: `
     <div class="about-page animate-fade-in">
       <!-- Encabezado con Logo Municipal -->
@@ -21,8 +22,9 @@ interface Desarrollador {
           <img [src]="institucionSvc.resolveLogoUrl((institucionSvc.config$ | async)?.logoUrl)" (error)="$any($event.target).src='assets/logos/logo.png'" alt="Logo Institucional" class="hero-logo" />
         </div>
         <div class="hero-info">
-          <span class="badge badge-warning" style="margin-bottom: 10px; display: inline-block;">
-            🏛️ {{ (institucionSvc.config$ | async)?.nombreMunicipio || 'H. Ayuntamiento de Tlaxiaco' }} · {{ (institucionSvc.config$ | async)?.periodoAdministracion || 'Administración Municipal' }}
+          <span class="badge badge-warning" style="margin-bottom: 10px; display: inline-flex; align-items: center; gap: 6px;">
+            <app-icon name="landmark" [size]="14"></app-icon>
+            <span>{{ (institucionSvc.config$ | async)?.nombreMunicipio || 'H. Ayuntamiento de Tlaxiaco' }} · {{ (institucionSvc.config$ | async)?.periodoAdministracion || 'Administración Municipal' }}</span>
           </span>
           <h1 class="hero-title">Sistema de Gestión y Control de Obras Públicas</h1>
           <p class="hero-desc">
@@ -38,21 +40,27 @@ interface Desarrollador {
       <!-- Módulos Principales -->
       <div class="features-grid">
         <div class="card feature-item">
-          <span class="feature-icon">📁</span>
+          <span class="feature-icon">
+            <app-icon name="folder" [size]="28" color="var(--accent)"></app-icon>
+          </span>
           <div>
             <h3>Expediente Unitario Digital</h3>
             <p>Control de requisitos técnicos, sociales, de contratación y comprobatorios con visor y descarga oficial.</p>
           </div>
         </div>
         <div class="card feature-item">
-          <span class="feature-icon">🎯</span>
+          <span class="feature-icon">
+            <app-icon name="target" [size]="28" color="var(--accent)"></app-icon>
+          </span>
           <div>
             <h3>Seguimiento de Metas y Avances</h3>
             <p>Registro cuantitativo de avances físicos con evidencia fotográfica (Antes, Durante y Después).</p>
           </div>
         </div>
         <div class="card feature-item">
-          <span class="feature-icon">🗺️</span>
+          <span class="feature-icon">
+            <app-icon name="map-pin" [size]="28" color="var(--accent)"></app-icon>
+          </span>
           <div>
             <h3>Geolocalización y Trazabilidad</h3>
             <p>Ubicación en mapa interactivo, bitácora inmutable de modificaciones y logs de auditoría.</p>
@@ -64,7 +72,10 @@ interface Desarrollador {
       <div class="card team-section">
         <div class="section-header">
           <div>
-            <h2 class="sec-title">👩‍💻👨‍💻 Equipo de Desarrolladores</h2>
+            <h2 class="sec-title" style="display: flex; align-items: center; gap: 8px;">
+              <app-icon name="code" [size]="22" color="var(--accent)"></app-icon>
+              <span>Equipo de Desarrolladores</span>
+            </h2>
             <p class="sec-subtitle">Ingeniería y desarrollo del sistema · Formas de contacto</p>
           </div>
         </div>
@@ -77,7 +88,9 @@ interface Desarrollador {
                 <h3 class="dev-name">{{ dev.nombre }}</h3>
                 <span class="dev-role">{{ dev.rol }}</span>
                 <div class="dev-contact">
-                  <span class="contact-icon">✉️</span>
+                  <span class="contact-icon">
+                    <app-icon name="mail" [size]="16" color="var(--accent)"></app-icon>
+                  </span>
                   <div class="contact-text">
                     <span class="contact-label">Correo electrónico:</span>
                     @if (dev.correo) {

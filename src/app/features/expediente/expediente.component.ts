@@ -22,11 +22,12 @@ import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
 import Swal from 'sweetalert2';
 import { fichaTecnicaBgBase64 } from './ficha-bg';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-expediente',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, FormsModule, AsyncPipe],
+  imports: [DatePipe, DecimalPipe, FormsModule, AsyncPipe, IconComponent],
   template: `
     @if (obra()) {
       <div class="expediente" id="pdfContent">
@@ -52,18 +53,22 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
             @if (tabActiva() !== 'editar') {
               @if (auth.hasRole('admin', 'residente')) {
                 <button class="btn" style="background:var(--danger); color:white; border:none; box-shadow:0 4px 12px rgba(239, 68, 68, 0.3); display:inline-flex; align-items:center; gap:6px;" (click)="tabActiva.set('editar')">
-                  ✏️ Editar Obra
+                  <app-icon name="pencil" [size]="15"></app-icon> Editar Obra
                 </button>
               }
               <button class="btn" style="background:linear-gradient(135deg,#10B981,#059669); color:#fff; border:none; box-shadow:0 4px 12px rgba(16,185,129,0.3); display:inline-flex; align-items:center; gap:6px;" (click)="mostrarModalIntegracionExp.set(true)">
-                📂 Integración de Expedientes
+                <app-icon name="folder" [size]="15"></app-icon> Integración de Expedientes
               </button>
               @if (auth.hasRole('admin', 'lector') || (auth.hasRole('residente') && !svc.isBlocked(obra()!))) {
-                <button class="btn btn-secondary" (click)="mostrarModalReportes.set(true)">📄 Generar Reporte</button>
+                <button class="btn btn-secondary" (click)="mostrarModalReportes.set(true)" style="display:inline-flex; align-items:center; gap:6px;">
+                  <app-icon name="file-text" [size]="15"></app-icon> Generar Reporte
+                </button>
               }
             } @else {
               <button class="btn btn-secondary" (click)="tabActiva.set('resumen')">Cancelar</button>
-              <button class="btn btn-primary" type="button" (click)="guardarEdicionObra($event)">💾 Guardar Cambios</button>
+              <button class="btn btn-primary" type="button" (click)="guardarEdicionObra($event)" style="display:inline-flex; align-items:center; gap:6px;">
+                <app-icon name="save" [size]="15"></app-icon> Guardar Cambios
+              </button>
             }
 
           </div>
@@ -72,10 +77,16 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
         
         <!-- TABS NAV -->
         <div class="exp-tabs-nav" style="display:flex; gap:8px; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:12px; overflow-x:auto;">
-          <button class="tab-pill" [class.active]="tabActiva() === 'resumen'" (click)="tabActiva.set('resumen')">📊 Resumen General</button>
-          <button class="tab-pill" [class.active]="tabActiva() === 'archivos'" (click)="tabActiva.set('archivos')">📁 Archivos y Evidencias</button>
+          <button class="tab-pill" [class.active]="tabActiva() === 'resumen'" (click)="tabActiva.set('resumen')" style="display:inline-flex; align-items:center; gap:6px;">
+            <app-icon name="dashboard" [size]="15"></app-icon> Resumen General
+          </button>
+          <button class="tab-pill" [class.active]="tabActiva() === 'archivos'" (click)="tabActiva.set('archivos')" style="display:inline-flex; align-items:center; gap:6px;">
+            <app-icon name="folder" [size]="15"></app-icon> Archivos y Evidencias
+          </button>
           @if (auth.hasRole('admin', 'residente', 'contratista')) {
-            <button class="tab-pill" [class.active]="tabActiva() === 'avances'" (click)="tabActiva.set('avances')" style="color:var(--accent);">🎯 Actualizar Avances</button>
+            <button class="tab-pill" [class.active]="tabActiva() === 'avances'" (click)="tabActiva.set('avances')" style="color:var(--accent); display:inline-flex; align-items:center; gap:6px;">
+              <app-icon name="plus" [size]="15"></app-icon> Actualizar Avances
+            </button>
           }
           
         </div>
@@ -304,8 +315,8 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
             <div class="checklist-header" style="background:var(--bg-dark); padding:20px 24px; border-bottom:2px solid var(--border); display:flex; flex-direction:column; gap:12px;">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                 <div>
-                  <h2 style="font-size:1.1rem; font-weight:800; color:var(--text-primary); margin:0;">
-                    🏛️ INTEGRACIÓN DE EXPEDIENTE UNITARIO DE OBRA PÚBLICA EJERCICIO {{ getEjercicioFiscal() }}
+                  <h2 style="font-size:1.1rem; font-weight:800; color:var(--text-primary); margin:0; display:flex; align-items:center; gap:8px;">
+                    <app-icon name="landmark" [size]="18" color="var(--accent)"></app-icon> INTEGRACIÓN DE EXPEDIENTE UNITARIO DE OBRA PÚBLICA EJERCICIO {{ getEjercicioFiscal() }}
                   </h2>
                   <span style="font-size:0.8rem; color:var(--accent); font-weight:600;">
                     {{ (institucionSvc.config$ | async)?.nombreMunicipio || 'H. AYUNTAMIENTO CONSTITUCIONAL' }} · {{ (institucionSvc.config$ | async)?.dependencia || 'DIRECCIÓN DE OBRAS PÚBLICAS' }}
@@ -315,11 +326,11 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
                 <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                   <!-- Controles Globales de Acordeón -->
                   <div style="display:flex; gap:6px;">
-                    <button type="button" class="btn btn-secondary btn-sm" (click)="desplegarTodasSecciones()" style="font-size:0.78rem; padding:4px 10px;">
-                      📂 Desplegar Todo
+                    <button type="button" class="btn btn-secondary btn-sm" (click)="desplegarTodasSecciones()" style="font-size:0.78rem; padding:4px 10px; display:inline-flex; align-items:center; gap:5px;">
+                      <app-icon name="folder-open" [size]="13"></app-icon> Desplegar Todo
                     </button>
-                    <button type="button" class="btn btn-secondary btn-sm" (click)="colapsarTodasSecciones()" style="font-size:0.78rem; padding:4px 10px;">
-                      📁 Colapsar Todo
+                    <button type="button" class="btn btn-secondary btn-sm" (click)="colapsarTodasSecciones()" style="font-size:0.78rem; padding:4px 10px; display:inline-flex; align-items:center; gap:5px;">
+                      <app-icon name="folder" [size]="13"></app-icon> Colapsar Todo
                     </button>
                   </div>
 
@@ -821,23 +832,33 @@ import { fichaTecnicaBgBase64 } from './ficha-bg';
           <div class="modal-overlay animate-fade-in" style="z-index: 4000; padding:20px; display:flex; justify-content:center; align-items:center;" (click)="mostrarModalReportes.set(false)" (window:keydown.escape)="mostrarModalReportes.set(false)">
             <div class="modal-content animate-slide-in" style="max-width:550px;" (click)="$event.stopPropagation()">
               <div class="modal-header">
-                <h2 class="modal-title">📑 Seleccionar Tipo de Reporte</h2>
-                <button class="btn-close" (click)="mostrarModalReportes.set(false)">✖</button>
+                <h2 class="modal-title" style="display:flex; align-items:center; gap:8px;">
+                  <app-icon name="file-text" [size]="20" color="#3b82f6"></app-icon> Seleccionar Tipo de Reporte
+                </h2>
+                <button class="btn-close" (click)="mostrarModalReportes.set(false)">
+                  <app-icon name="x" [size]="16"></app-icon>
+                </button>
               </div>
               <div class="modal-body" style="padding:24px; display:flex; flex-direction:column; gap:16px;">
                 
                 <button class="btn btn-secondary" style="justify-content:flex-start; text-align:left; padding:16px; border:1px solid var(--border); box-shadow:var(--shadow-sm);" (click)="generarReporteChecklistPDF()" [disabled]="generandoPDF()">
-                  <div style="font-size:1.1rem; font-weight:bold; color:var(--text-primary); margin-bottom:4px;">📄 1. Integración de Expediente Unitario</div>
+                  <div style="font-size:1.1rem; font-weight:bold; color:var(--text-primary); margin-bottom:4px; display:flex; align-items:center; gap:8px;">
+                    <app-icon name="file-check" [size]="18" color="#3b82f6"></app-icon> 1. Integración de Expediente Unitario
+                  </div>
                   <div style="font-size:0.85rem; color:var(--text-muted); white-space:normal;">Lista de verificación de documentos (Proyecto, Contratación, etc.)</div>
                 </button>
 
                 <button class="btn btn-secondary" style="justify-content:flex-start; text-align:left; padding:16px; border:1px solid var(--border); box-shadow:var(--shadow-sm);" (click)="generarFichaTecnicaPDF()" [disabled]="generandoPDF()">
-                  <div style="font-size:1.1rem; font-weight:bold; color:var(--text-primary); margin-bottom:4px;">📄 2. Ficha Técnica de la Obra</div>
+                  <div style="font-size:1.1rem; font-weight:bold; color:var(--text-primary); margin-bottom:4px; display:flex; align-items:center; gap:8px;">
+                    <app-icon name="file-text" [size]="18" color="var(--accent)"></app-icon> 2. Ficha Técnica de la Obra
+                  </div>
                   <div style="font-size:0.85rem; color:var(--text-muted); white-space:normal;">Reporte en PDF con la información general y lista de metas.</div>
                 </button>
 
                 <button class="btn btn-primary" style="justify-content:flex-start; text-align:left; padding:16px; border:1px solid transparent; box-shadow:var(--shadow-md);" (click)="generarExcelAvances()">
-                  <div style="font-size:1.1rem; font-weight:bold; color:#fff; margin-bottom:4px;">📊 3. Reporte Completo de Avances (Excel)</div>
+                  <div style="font-size:1.1rem; font-weight:bold; color:#fff; margin-bottom:4px; display:flex; align-items:center; gap:8px;">
+                    <app-icon name="file-spreadsheet" [size]="18" color="#ffffff"></app-icon> 3. Reporte Completo de Avances (Excel)
+                  </div>
                   <div style="font-size:0.85rem; color:rgba(255,255,255,0.8); white-space:normal;">Hoja de cálculo con todos los datos, metas e historial de reportes.</div>
                 </button>
                 

@@ -10,6 +10,7 @@ import { MetasService } from '../../core/services/metas.service';
 import { InstitucionService } from '../../core/services/institucion.service';
 import { ObraResponse, ObraEstatus, ESTATUS_LABEL, ESTATUS_COLOR, CATEGORIAS_METAS_CATALOG, ObraMeta } from '../../core/models/obra.model';
 import { UserResponse } from '../../core/models/user.model';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
@@ -19,17 +20,21 @@ import Swal from 'sweetalert2';
 @Component({
   selector: 'app-obras-list',
   standalone: true,
-  imports: [RouterLink, DatePipe, FormsModule],
+  imports: [RouterLink, DatePipe, FormsModule, IconComponent],
   template: `
     <div class="list-page animate-fade-in">
       <div class="list-header">
         <div>
-          <h1 class="list-title">📁 Expedientes de Obra</h1>
+          <h1 class="list-title" style="display: flex; align-items: center; gap: 10px;">
+            <app-icon name="folder" [size]="26" color="var(--accent)"></app-icon> Expedientes de Obra
+          </h1>
           <p class="list-subtitle">Consulta y gestiona la información detallada de cada proyecto municipal</p>
         </div>
         @if (auth.hasRole('admin', 'residente')) {
           <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-            <button class="btn" style="background: linear-gradient(135deg, #10B981, #059669); color: white; border: none; box-shadow: 0 4px 12px rgba(16,185,129,0.3);" (click)="abrirModal('obra')">+ Nueva Obra</button>
+            <button class="btn" style="background: linear-gradient(135deg, #10B981, #059669); color: white; border: none; box-shadow: 0 4px 12px rgba(16,185,129,0.3); display: inline-flex; align-items: center; gap: 6px;" (click)="abrirModal('obra')">
+              <app-icon name="plus" [size]="16"></app-icon> Nueva Obra
+            </button>
           </div>
         }
       </div>
@@ -38,7 +43,9 @@ import Swal from 'sweetalert2';
       <div class="card filter-card">
         <div class="filter-row" style="display:flex; gap:16px; flex-wrap:wrap; align-items:center;">
           <div class="search-box" style="flex:1; min-width:280px;">
-            <span class="search-icon">🔍</span>
+            <span class="search-icon" style="display: flex; align-items: center;">
+              <app-icon name="search" [size]="16" color="var(--text-muted)"></app-icon>
+            </span>
             <input 
               type="text" 
               placeholder="Buscar por código, nombre o descripción en servidor..." 
@@ -48,31 +55,47 @@ import Swal from 'sweetalert2';
             />
           </div>
           <select [value]="filtroCategoria()" (change)="cambiarCategoria($event)" class="form-input" style="width:240px; border-color:var(--border-light);">
-            <option value="todas">🏷️ Todas las Categorías</option>
-            <option value="Pavimentación y Vialidades">🛣️ Pavimentación y Vialidades</option>
-            <option value="Agua Potable y Drenaje">💧 Agua Potable y Drenaje</option>
-            <option value="Electrificación y Alumbrado">⚡ Electrificación y Alumbrado</option>
-            <option value="Educación y Escuelas">🏫 Educación y Escuelas</option>
-            <option value="Salud y Espacios Públicos">🏥 Salud y Espacios Públicos</option>
-            <option value="Infraestructura General">🏗️ Infraestructura General</option>
+            <option value="todas">Todas las Categorías</option>
+            <option value="Pavimentación y Vialidades">Pavimentación y Vialidades</option>
+            <option value="Agua Potable y Drenaje">Agua Potable y Drenaje</option>
+            <option value="Electrificación y Alumbrado">Electrificación y Alumbrado</option>
+            <option value="Educación y Escuelas">Educación y Escuelas</option>
+            <option value="Salud y Espacios Públicos">Salud y Espacios Públicos</option>
+            <option value="Infraestructura General">Infraestructura General</option>
           </select>
           @if (auth.hasRole('admin', 'residente', 'lector')) {
             <div style="display: flex; gap: 8px;">
-              <button class="btn btn-secondary" (click)="exportarPDF()">📄 Exportar PDF</button>
-              <button class="btn btn-secondary" style="border-color: #10B981; color: #10B981;" (click)="exportarExcel()">📊 Exportar Excel</button>
+              <button class="btn btn-secondary" style="display: inline-flex; align-items: center; gap: 6px;" (click)="exportarPDF()">
+                <app-icon name="file-text" [size]="15" color="#EF4444"></app-icon> Exportar PDF
+              </button>
+              <button class="btn btn-secondary" style="border-color: #10B981; color: #10B981; display: inline-flex; align-items: center; gap: 6px;" (click)="exportarExcel()">
+                <app-icon name="file-spreadsheet" [size]="15" color="#10B981"></app-icon> Exportar Excel
+              </button>
             </div>
           }
         </div>
         <div class="filter-row" style="margin-top: 16px;">
           <div class="status-tabs">
             <button class="tab-btn" [class.active]="filtroStatus() === 'todas'" (click)="cambiarEstatusTab('todas')">Todas</button>
-            <button class="tab-btn" [class.active]="filtroStatus() === 'PLANIFICADA'" (click)="cambiarEstatusTab('PLANIFICADA')">📋 Planificadas</button>
-            <button class="tab-btn" [class.active]="filtroStatus() === 'EN_PROCESO'" (click)="cambiarEstatusTab('EN_PROCESO')">🟢 En Proceso</button>
-            <button class="tab-btn" [class.active]="filtroStatus() === 'COMPLETADA'" (click)="cambiarEstatusTab('COMPLETADA')">🔵 Completadas</button>
-            <button class="tab-btn" [class.active]="filtroStatus() === 'INACTIVA'" (click)="cambiarEstatusTab('INACTIVA')">🟠 Inactivas</button>
-            <button class="tab-btn" [class.active]="filtroStatus() === 'CANCELADA'" (click)="cambiarEstatusTab('CANCELADA')">🔴 Canceladas</button>
+            <button class="tab-btn" [class.active]="filtroStatus() === 'PLANIFICADA'" (click)="cambiarEstatusTab('PLANIFICADA')">
+              <app-icon name="calendar" [size]="14"></app-icon> Planificadas
+            </button>
+            <button class="tab-btn" [class.active]="filtroStatus() === 'EN_PROCESO'" (click)="cambiarEstatusTab('EN_PROCESO')">
+              <app-icon name="refresh" [size]="14" color="#10B981"></app-icon> En Proceso
+            </button>
+            <button class="tab-btn" [class.active]="filtroStatus() === 'COMPLETADA'" (click)="cambiarEstatusTab('COMPLETADA')">
+              <app-icon name="check-circle" [size]="14" color="#3B82F6"></app-icon> Completadas
+            </button>
+            <button class="tab-btn" [class.active]="filtroStatus() === 'INACTIVA'" (click)="cambiarEstatusTab('INACTIVA')">
+              <app-icon name="alert-triangle" [size]="14" color="#F59E0B"></app-icon> Inactivas
+            </button>
+            <button class="tab-btn" [class.active]="filtroStatus() === 'CANCELADA'" (click)="cambiarEstatusTab('CANCELADA')">
+              <app-icon name="x" [size]="14" color="#EF4444"></app-icon> Canceladas
+            </button>
             @if (auth.hasRole('admin')) {
-              <button class="tab-btn" [class.active]="filtroStatus() === 'ELIMINADA'" (click)="cambiarEstatusTab('ELIMINADA')" style="margin-left:auto; border-color:rgba(239,68,68,0.35); color:#F87171;">🗑️ Eliminadas (Papelera)</button>
+              <button class="tab-btn" [class.active]="filtroStatus() === 'ELIMINADA'" (click)="cambiarEstatusTab('ELIMINADA')" style="margin-left:auto; border-color:rgba(239,68,68,0.35); color:#F87171; display: inline-flex; align-items: center; gap: 5px;">
+                <app-icon name="trash" [size]="14" color="#F87171"></app-icon> Eliminadas (Papelera)
+              </button>
             }
           </div>
         </div>
@@ -99,7 +122,9 @@ import Swal from 'sweetalert2';
                     <div class="obra-name-cell">
                       <span class="obra-code">{{ obra.codigo || obra.id }}</span>
                       <span class="obra-name">{{ obra.nombre }}</span>
-                      <span class="obra-location">🏷️ {{ limpiarTextoReporte(obra.categoria) || 'Infraestructura General' }} · {{ obra.direccion || 'Tlaxiaco' }}</span>
+                      <span class="obra-location" style="display: flex; align-items: center; gap: 4px;">
+                        <app-icon name="tag" [size]="11" color="var(--accent)"></app-icon> {{ limpiarTextoReporte(obra.categoria) || 'Infraestructura General' }} · {{ obra.direccion || 'Tlaxiaco' }}
+                      </span>
                     </div>
                   </td>
                   <td>
@@ -130,16 +155,16 @@ import Swal from 'sweetalert2';
                   <td style="text-align: right;" (click)="$event.stopPropagation()">
                     <div class="actions-cell" style="display:inline-flex; gap:6px; align-items:center;">
                       @if (obra.estatus === 'ELIMINADA' || filtroStatus() === 'ELIMINADA') {
-                        <button type="button" class="btn btn-sm" style="background:rgba(16,185,129,0.15); color:#34D399; border:1px solid rgba(16,185,129,0.35);" (click)="restaurarObra(obra)">
-                          ♻️ Restaurar
+                        <button type="button" class="btn btn-sm" style="background:rgba(16,185,129,0.15); color:#34D399; border:1px solid rgba(16,185,129,0.35); display: inline-flex; align-items: center; gap: 4px;" (click)="restaurarObra(obra)">
+                          <app-icon name="refresh" [size]="13" color="#34D399"></app-icon> Restaurar
                         </button>
                         @if (puedeBorrarDefinitivo(obra)) {
-                          <button type="button" class="btn btn-sm" style="background:rgba(239,68,68,0.15); color:#F87171; border:1px solid rgba(239,68,68,0.35);" (click)="eliminarObraDefinitivamente(obra)" title="Ya cumplió más de 30 días en la papelera">
-                            🔥 Borrar Definitivo
+                          <button type="button" class="btn btn-sm" style="background:rgba(239,68,68,0.15); color:#F87171; border:1px solid rgba(239,68,68,0.35); display: inline-flex; align-items: center; gap: 4px;" (click)="eliminarObraDefinitivamente(obra)" title="Ya cumplió más de 30 días en la papelera">
+                            <app-icon name="trash" [size]="13" color="#F87171"></app-icon> Borrar Definitivo
                           </button>
                         } @else {
-                          <button type="button" class="btn btn-sm" style="background:rgba(156,163,175,0.12); color:#9CA3AF; border:1px solid rgba(156,163,175,0.3); cursor:not-allowed;" (click)="eliminarObraDefinitivamente(obra)" [title]="'Faltan ' + diasRestantesPapelera(obra) + ' días para cumplir 30 días en la papelera'">
-                            🔒 Disponible en {{ diasRestantesPapelera(obra) }}d
+                          <button type="button" class="btn btn-sm" style="background:rgba(156,163,175,0.12); color:#9CA3AF; border:1px solid rgba(156,163,175,0.3); cursor:not-allowed; display: inline-flex; align-items: center; gap: 4px;" (click)="eliminarObraDefinitivamente(obra)" [title]="'Faltan ' + diasRestantesPapelera(obra) + ' días para cumplir 30 días en la papelera'">
+                            <app-icon name="lock" [size]="13" color="#9CA3AF"></app-icon> Disponible en {{ diasRestantesPapelera(obra) }}d
                           </button>
                         }
                       } @else {
@@ -162,7 +187,9 @@ import Swal from 'sweetalert2';
                 <tr>
                   <td colspan="6" class="empty-table-cell">
                     <div class="empty-state">
-                      <span class="empty-icon">📁</span>
+                      <span class="empty-icon">
+                        <app-icon name="folder-open" [size]="48" color="var(--text-muted)"></app-icon>
+                      </span>
                       <p class="empty-text">No se encontraron expedientes con los criterios seleccionados.</p>
                     </div>
                   </td>
@@ -186,13 +213,21 @@ import Swal from 'sweetalert2';
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
-            <button class="btn btn-secondary btn-sm" (click)="irAPagina(0)" [disabled]="paginaActual() === 0">⏮️ Primera</button>
-            <button class="btn btn-secondary btn-sm" (click)="irAPagina(paginaActual() - 1)" [disabled]="paginaActual() === 0">◀️ Anterior</button>
+            <button class="btn btn-secondary btn-sm" (click)="irAPagina(0)" [disabled]="paginaActual() === 0" style="display: inline-flex; align-items: center; gap: 4px;">
+              <app-icon name="chevrons-left" [size]="13"></app-icon> Primera
+            </button>
+            <button class="btn btn-secondary btn-sm" (click)="irAPagina(paginaActual() - 1)" [disabled]="paginaActual() === 0" style="display: inline-flex; align-items: center; gap: 4px;">
+              <app-icon name="chevron-left" [size]="13"></app-icon> Anterior
+            </button>
             <span style="font-size:0.85rem; padding:0 8px; font-weight:600; color:var(--text-primary);">
               Página {{ paginaActual() + 1 }} de {{ totalPaginas() }}
             </span>
-            <button class="btn btn-secondary btn-sm" (click)="irAPagina(paginaActual() + 1)" [disabled]="paginaActual() >= totalPaginas() - 1">Siguiente ▶️</button>
-            <button class="btn btn-secondary btn-sm" (click)="irAPagina(totalPaginas() - 1)" [disabled]="paginaActual() >= totalPaginas() - 1">Última ⏭️</button>
+            <button class="btn btn-secondary btn-sm" (click)="irAPagina(paginaActual() + 1)" [disabled]="paginaActual() >= totalPaginas() - 1" style="display: inline-flex; align-items: center; gap: 4px;">
+              Siguiente <app-icon name="chevron-right" [size]="13"></app-icon>
+            </button>
+            <button class="btn btn-secondary btn-sm" (click)="irAPagina(totalPaginas() - 1)" [disabled]="paginaActual() >= totalPaginas() - 1" style="display: inline-flex; align-items: center; gap: 4px;">
+              Última <app-icon name="chevrons-right" [size]="13"></app-icon>
+            </button>
           </div>
         </div>
       </div>
@@ -202,7 +237,9 @@ import Swal from 'sweetalert2';
       <div class="modal-overlay animate-fade-in">
         <div class="modal-content animate-slide-in" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
           <div class="modal-header">
-            <h2 class="modal-title">🏗️ Crear Nueva Obra</h2>
+            <h2 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+              <app-icon name="hard-hat" [size]="22" color="var(--accent)"></app-icon> Crear Nueva Obra
+            </h2>
             <button class="btn-close" (click)="cerrarModalNuevaObra()">✕</button>
           </div>
           <form class="modal-form" (submit)="crearObra($event)">
@@ -236,12 +273,12 @@ import Swal from 'sweetalert2';
               <div class="form-group">
                 <label class="form-label">Categoría de Obra *</label>
                 <select class="form-input" name="categoria" required [value]="valCategoria()" (change)="actualizarCategoriaSugerida($any($event.target).value)">
-                  <option value="🛣️ Pavimentación y Vialidades">🛣️ Pavimentación y Vialidades</option>
-                  <option value="💧 Agua Potable y Drenaje">💧 Agua Potable y Drenaje</option>
-                  <option value="⚡ Electrificación y Alumbrado">⚡ Electrificación y Alumbrado</option>
-                  <option value="🏫 Educación y Escuelas">🏫 Educación y Escuelas</option>
-                  <option value="🏥 Salud y Espacios Públicos">🏥 Salud y Espacios Públicos</option>
-                  <option value="🏗️ Infraestructura General" selected>🏗️ Infraestructura General</option>
+                  <option value="Pavimentación y Vialidades">Pavimentación y Vialidades</option>
+                  <option value="Agua Potable y Drenaje">Agua Potable y Drenaje</option>
+                  <option value="Electrificación y Alumbrado">Electrificación y Alumbrado</option>
+                  <option value="Educación y Escuelas">Educación y Escuelas</option>
+                  <option value="Salud y Espacios Públicos">Salud y Espacios Públicos</option>
+                  <option value="Infraestructura General" selected>Infraestructura General</option>
                 </select>
               </div>
             </div>
@@ -269,7 +306,9 @@ import Swal from 'sweetalert2';
             <div class="form-row">
               <!-- Mapa -->
               <div class="form-group">
-                <label class="form-label">📍 Ubicación en el Mapa (Haz clic o arrastra)</label>
+                <label class="form-label" style="display: flex; align-items: center; gap: 6px;">
+                  <app-icon name="map-pin" [size]="16" color="var(--accent)"></app-icon> Ubicación en el Mapa (Haz clic o arrastra)
+                </label>
                 <div id="modal-map" style="width: 100%; height: 200px; border-radius: 10px; margin-top: 6px; border: 1px solid var(--border); overflow: hidden; background: #0b131e;"></div>
                 <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--accent); margin-top: 6px; background: rgba(0,0,0,0.25); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);">
                   <span>Latitud: <strong>{{ latitudSeleccionada() ?? 17.266108 }}</strong></span>
@@ -298,7 +337,9 @@ import Swal from 'sweetalert2';
 
             <!-- Panel de Selección de Metas -->
             <div class="form-group" style="margin-bottom: 24px; padding: 20px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);">
-              <label class="form-label" style="font-size: 1.1rem; color: var(--accent); margin-bottom: 12px; display: block;">🎯 Selecciona las metas físicas que aplican a esta obra:</label>
+              <label class="form-label" style="font-size: 1.1rem; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <app-icon name="target" [size]="18" color="var(--accent)"></app-icon> Selecciona las metas físicas que aplican a esta obra:
+              </label>
               
               <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px;">
                 @for (sug of conceptosSugeridos(); track sug.nombre) {
@@ -339,8 +380,13 @@ import Swal from 'sweetalert2';
 
             <div class="modal-actions">
               <button type="button" class="btn btn-secondary" (click)="cerrarModalNuevaObra()">Cancelar</button>
-              <button type="submit" class="btn btn-primary" [disabled]="creandoObra()">
-                {{ creandoObra() ? '⏳ Guardando...' : '💾 Guardar Proyecto' }}
+              <button type="submit" class="btn btn-primary" [disabled]="creandoObra()" style="display: inline-flex; align-items: center; gap: 6px;">
+                @if (creandoObra()) {
+                  <span>Guardando...</span>
+                } @else {
+                  <app-icon name="save" [size]="16"></app-icon>
+                  <span>Guardar Proyecto</span>
+                }
               </button>
             </div>
           </form>
@@ -352,7 +398,9 @@ import Swal from 'sweetalert2';
       <div class="modal-overlay animate-fade-in">
         <div class="modal-content animate-slide-in">
           <div class="modal-header">
-            <h2 class="modal-title">📂 Crear Nuevo Expediente</h2>
+            <h2 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+              <app-icon name="folder-open" [size]="22" color="var(--accent)"></app-icon> Crear Nuevo Expediente
+            </h2>
             <button class="btn-close" (click)="mostrarModalNuevoExpediente.set(false)">✕</button>
           </div>
           <form class="modal-form" (submit)="crearExpediente($event)">
@@ -387,7 +435,9 @@ import Swal from 'sweetalert2';
             </div>
             <div class="modal-actions">
               <button type="button" class="btn btn-secondary" (click)="mostrarModalNuevoExpediente.set(false)">Cancelar</button>
-              <button type="submit" class="btn btn-primary">📁 Integrar Expediente</button>
+              <button type="submit" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+                <app-icon name="folder" [size]="16"></app-icon> Integrar Expediente
+              </button>
             </div>
           </form>
         </div>
@@ -398,7 +448,9 @@ import Swal from 'sweetalert2';
       <div class="modal-overlay animate-fade-in">
         <div class="modal-content animate-slide-in" style="max-width: 650px;">
           <div class="modal-header">
-            <h2 class="modal-title">🗂️ Integración de Expedientes</h2>
+            <h2 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+              <app-icon name="layers" [size]="22" color="var(--accent)"></app-icon> Integración de Expedientes
+            </h2>
             <button class="btn-close" (click)="mostrarModalIntegracion.set(false)">✕</button>
           </div>
           <div class="modal-body" style="padding: 24px;">
@@ -408,30 +460,38 @@ import Swal from 'sweetalert2';
               </p>
               <div class="folders-grid">
                 <div class="folder-card" (click)="abrirCarpeta('Legal')">
-                  <span class="folder-icon">⚖️</span>
+                  <span class="folder-icon">
+                    <app-icon name="scale" [size]="32" color="#6366F1"></app-icon>
+                  </span>
                   <span class="folder-name">Legal</span>
                   <span class="folder-count">{{ archivosSubidos()['Legal'].length }} archivos</span>
                 </div>
                 <div class="folder-card" (click)="abrirCarpeta('Social')">
-                  <span class="folder-icon">👥</span>
+                  <span class="folder-icon">
+                    <app-icon name="users" [size]="32" color="#10B981"></app-icon>
+                  </span>
                   <span class="folder-name">Social</span>
                   <span class="folder-count">{{ archivosSubidos()['Social'].length }} archivos</span>
                 </div>
                 <div class="folder-card" (click)="abrirCarpeta('Técnicos')">
-                  <span class="folder-icon">📐</span>
+                  <span class="folder-icon">
+                    <app-icon name="ruler" [size]="32" color="#F59E0B"></app-icon>
+                  </span>
                   <span class="folder-name">Técnicos</span>
                   <span class="folder-count">{{ archivosSubidos()['Técnicos'].length }} archivos</span>
                 </div>
                 <div class="folder-card" (click)="abrirCarpeta('Anexo Fotográfico')">
-                  <span class="folder-icon">📸</span>
+                  <span class="folder-icon">
+                    <app-icon name="camera" [size]="32" color="#EC4899"></app-icon>
+                  </span>
                   <span class="folder-name">Anexo Fotográfico</span>
                   <span class="folder-count">{{ archivosSubidos()['Anexo Fotográfico'].length }} archivos</span>
                 </div>
               </div>
             } @else {
               <!-- Vista interna de carpeta con Drag & Drop -->
-              <button class="btn btn-secondary btn-sm" style="margin-bottom: 16px;" (click)="carpetaSeleccionada.set(null)">
-                ⬅ Volver a las categorías
+              <button class="btn btn-secondary btn-sm" style="margin-bottom: 16px; display: inline-flex; align-items: center; gap: 6px;" (click)="carpetaSeleccionada.set(null)">
+                <app-icon name="chevron-left" [size]="14"></app-icon> Volver a las categorías
               </button>
               <h3 style="margin-bottom: 16px; color: var(--accent);">Carpeta: {{ carpetaSeleccionada() }}</h3>
               
@@ -441,7 +501,9 @@ import Swal from 'sweetalert2';
                 (dragover)="onDragOver($event)" 
                 (dragleave)="onDragLeave($event)" 
                 (drop)="onDrop($event)">
-                <div class="drop-icon">📤</div>
+                <div class="drop-icon">
+                  <app-icon name="upload" [size]="38" color="var(--accent)"></app-icon>
+                </div>
                 <p>Arrastra tus archivos aquí o <strong>haz clic para seleccionar</strong></p>
                 <input type="file" multiple class="file-input-hidden" (change)="onFileSelect($event)">
               </div>
@@ -449,7 +511,9 @@ import Swal from 'sweetalert2';
               <div class="file-list">
                 @for (file of archivosSubidos()[carpetaSeleccionada()!]; track file.name) {
                   <div class="file-item">
-                    <span class="file-icon">📄</span>
+                    <span class="file-icon">
+                      <app-icon name="file-text" [size]="16" color="var(--accent)"></app-icon>
+                    </span>
                     <span class="file-name">{{ file.name }}</span>
                     <span class="file-size">{{ (file.size / 1024).toFixed(1) }} KB</span>
                   </div>
@@ -596,7 +660,17 @@ export class ObrasListComponent implements OnInit {
   catalogoMetas = CATEGORIAS_METAS_CATALOG;
   conceptosSeleccionados = signal<string[]>([]);
   metasTemporales = signal<Partial<ObraMeta>[]>([]);
-  conceptosSugeridos = computed(() => this.catalogoMetas[this.valCategoria()] || []);
+  conceptosSugeridos = computed(() => {
+    const cat = this.valCategoria();
+    if (this.catalogoMetas[cat]) return this.catalogoMetas[cat];
+    const cleanCat = this.limpiarTextoReporte(cat).toLowerCase();
+    for (const k of Object.keys(this.catalogoMetas)) {
+      if (this.limpiarTextoReporte(k).toLowerCase() === cleanCat) {
+        return this.catalogoMetas[k];
+      }
+    }
+    return [];
+  });
 
   responsableSeleccionado = signal('');
   responsables = signal<UserResponse[]>([]);
