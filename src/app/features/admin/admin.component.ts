@@ -1267,11 +1267,11 @@ export class AdminComponent implements OnInit {
   private dibujarCuerpoPdfMuestra(doc: jsPDF, cfg: any, pageWidth: number, pageHeight: number, esMembreteGrafico = false) {
     const fechaHoy = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
 
-    // Marca de agua central suave
-    doc.setTextColor(230, 235, 240);
-    doc.setFontSize(36);
+    // Marca de agua de fondo muy tenue para no obstruir los textos ni la cabecera
+    doc.setTextColor(243, 246, 250);
+    doc.setFontSize(30);
     doc.setFont('helvetica', 'bold');
-    doc.text('DOCUMENTO DE MUESTRA', pageWidth / 2, 380, { align: 'center', angle: 30 });
+    doc.text('DOCUMENTO DE MUESTRA', pageWidth / 2, 290, { align: 'center', angle: 22 });
 
     const startY = esMembreteGrafico ? 115 : 75;
 
@@ -1293,19 +1293,27 @@ export class AdminComponent implements OnInit {
     doc.setLineWidth(0.8);
     doc.line(55, startY + 34, pageWidth - 55, startY + 34);
 
-    // Metadata superior: Fecha y Folio en el margen seguro
+    // Metadata superior: Fecha a la izquierda y Folio ordenado a la derecha sin empalmes
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(71, 85, 105);
-    doc.text(`FECHA DE EMISIÓN:`, 58, startY + 48);
+    doc.text('FECHA DE EMISIÓN:', 58, startY + 48);
     doc.setFont('helvetica', 'normal');
     doc.text(fechaHoy.toUpperCase(), 155, startY + 48);
 
+    // Folio a la derecha calculado con precisión para evitar cualquier encimado
+    const folioTexto = 'FOLIO: ';
+    const folioValor = 'MUESTRA-2026/01';
     doc.setFont('helvetica', 'bold');
-    doc.text(`FOLIO DE VALIDACIÓN:`, pageWidth - 220, startY + 48);
-    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    const folioValWidth = doc.getTextWidth(folioValor);
+    const folioLblWidth = doc.getTextWidth(folioTexto);
+    const rightMargin = pageWidth - 58;
+
+    doc.text(folioTexto, rightMargin - folioValWidth - folioLblWidth, startY + 48);
+    doc.setFont('helvetica', 'bold');
     doc.setTextColor(37, 99, 235);
-    doc.text(`EXP-Tlaxiaco/2026-M01`, pageWidth - 60, startY + 48, { align: 'right' });
+    doc.text(folioValor, rightMargin - folioValWidth, startY + 48);
 
     // Caja de parámetros vigentes
     const boxY = startY + 58;
@@ -1335,10 +1343,10 @@ export class AdminComponent implements OnInit {
     renderFila('• Municipio / Gobierno:', cfg.nombreMunicipio || 'H. Ayuntamiento Constitucional de Heroica Ciudad de Tlaxiaco', boxY + 40);
     renderFila('• Período Constitucional:', cfg.periodoAdministracion || 'Administración 2025 - 2027', boxY + 58);
     renderFila('• Dependencia Operativa:', cfg.dependencia || 'Dirección de Obras Públicas y Desarrollo Urbano', boxY + 76);
-    renderFila('• Lema Oficial:', cfg.lemaOficial || 'Orden, Progreso y Bienestar', boxY + 94);
+    renderFila('• Lema Oficial:', cfg.lemaOficial || 'ORDEN, PROGRESO Y BIENESTAR', boxY + 94);
     renderFila('• Tipo de Membrete:', esMembreteGrafico ? 'Oficial Gráfico (Palacio Municipal y Escudos de Arcos)' : 'Estándar Vectorial Institucional', boxY + 112);
 
-    // Cuadro explicativo
+    // Cuadro explicativo (sin emojis que corrompan fuentes estándar de jsPDF)
     const explY = boxY + boxHeight + 14;
     doc.setFillColor(241, 245, 249);
     doc.setDrawColor(203, 213, 225);
@@ -1347,7 +1355,7 @@ export class AdminComponent implements OnInit {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(30, 41, 59);
-    doc.text('ℹ️ USO Y APLICACIÓN DE ESTA PLANTILLA:', 70, explY + 18);
+    doc.text('VALIDEZ Y APLICACIÓN DE ESTA PLANTILLA OFICIAL:', 70, explY + 18);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.8);
