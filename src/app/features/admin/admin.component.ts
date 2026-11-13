@@ -9,13 +9,15 @@ import { InstitucionService } from '../../core/services/institucion.service';
 import { InstitucionConfigRequest } from '../../core/models/institucion-config.model';
 import { UserResponse } from '../../core/models/user.model';
 import { UserFormModalComponent } from './components/user-form-modal.component';
+import { LogoCropperModalComponent } from './components/logo-cropper-modal.component';
+import { MembretePreviewModalComponent } from './components/membrete-preview-modal.component';
 import Swal from 'sweetalert2';
 import jsPDF from 'jspdf';
 
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, UserFormModalComponent],
+  imports: [CommonModule, FormsModule, UserFormModalComponent, LogoCropperModalComponent, MembretePreviewModalComponent],
   template: `
     <div class="admin-page animate-fade-in">
       <div class="admin-header">
@@ -103,112 +105,123 @@ import jsPDF from 'jspdf';
               <span class="badge badge-warning">Exclusivo Administrador</span>
             </div>
             <p class="fiscal-desc">
-              Personaliza el logotipo oficial, el membrete para reportes PDF y los datos de la administración municipal vigente. Los cambios se aplican de forma inmediata en todo el sistema (Login, Barra lateral, Encabezados y Descargas PDF).
+              Personaliza el logotipo oficial con encuadre interactivo, la hoja membretada para reportes PDF y los datos de la administración municipal vigente. Los cambios se aplican de forma inmediata en todo el sistema (Login, Barra lateral, Encabezados y Descargas PDF).
             </p>
           </div>
           <div class="inst-actions-top">
-            <button class="btn btn-outline-primary" (click)="generarPdfMuestra()" title="Descargar muestra del membrete">
+            <button type="button" class="btn btn-outline-primary" (click)="generarPdfMuestra()" title="Descargar muestra del membrete">
               📄 Generar PDF de Muestra
             </button>
-            <button class="btn btn-primary" (click)="guardarDatosInstitucion()" [disabled]="guardandoInstitucion">
-              💾 {{ guardandoInstitucion ? 'Guardando...' : 'Guardar Datos' }}
+            <button type="button" class="btn btn-primary" (click)="guardarDatosInstitucion()" [disabled]="guardandoInstitucion">
+              💾 {{ guardandoInstitucion ? 'Guardando...' : 'Guardar Cambios' }}
             </button>
           </div>
         </div>
 
-        <div class="institucion-grid">
-          <!-- Columna A: Logo y Membrete -->
-          <div class="inst-assets-col">
-            <!-- Box Logotipo -->
-            <div class="asset-box">
-              <div class="asset-title-row">
-                <span class="asset-title">🏛️ Logotipo Oficial del Municipio</span>
-                <span class="asset-hint">Formato recomendado: PNG transparente o SVG</span>
-              </div>
-              <div class="asset-preview-wrap">
-                <div class="logo-preview-box">
-                  <img [src]="institucionSvc.resolveLogoUrl((institucionSvc.config$ | async)?.logoUrl)" (error)="$any($event.target).src='assets/logos/logo.png'" alt="Logotipo actual" class="preview-logo-img" />
-                </div>
-                <div class="asset-btns">
-                  <input type="file" #logoFileInput (change)="onLogoSelected($event)" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none;" />
-                  <button type="button" class="btn btn-sm btn-outline-warning" (click)="logoFileInput.click()" [disabled]="subiendoLogo">
-                    📤 {{ subiendoLogo ? 'Subiendo...' : 'Cargar Nuevo Logo' }}
-                  </button>
-                  <button type="button" class="btn btn-sm btn-danger-outline" (click)="restablecerLogo()">
-                    🔄 Restablecer Predeterminado
-                  </button>
-                </div>
-              </div>
+        <!-- Fila Superior: Logotipo y Hoja Membretada en 2 Columnas -->
+        <div class="inst-top-grid">
+          <!-- Columna A: Logotipo -->
+          <div class="asset-box">
+            <div class="asset-title-row">
+              <span class="asset-title">🏛️ Logotipo Oficial del Municipio</span>
+              <span class="asset-hint">Puedes encuadrarlo, recortarlo y hacer zoom a la medida</span>
             </div>
-
-            <!-- Box Hoja Membretada -->
-            <div class="asset-box">
-              <div class="asset-title-row">
-                <span class="asset-title">📑 Hoja Membretada para Reportes (PDF)</span>
-                <span class="asset-hint">Plantilla oficial para encabezados y fondos</span>
+            <div class="asset-preview-wrap">
+              <div class="logo-preview-box">
+                <img [src]="institucionSvc.resolveLogoUrl((institucionSvc.config$ | async)?.logoUrl)" (error)="$any($event.target).src='assets/logos/logo.png'" alt="Logotipo actual" class="preview-logo-img" />
               </div>
-              <div class="asset-preview-wrap">
-                <div class="membrete-status-box">
-                  @if ((institucionSvc.config$ | async)?.membreteUrl) {
-                    <div class="membrete-active-pill">
-                      <span class="status-dot online"></span>
-                      <div>
-                        <strong style="color:var(--success);">Membrete Personalizado Activo</strong>
-                        <p style="margin:2px 0 0 0; font-size:0.75rem; color:var(--text-muted);">Los reportes PDF imprimen esta plantilla oficial.</p>
-                      </div>
-                    </div>
-                  } @else {
-                    <div class="membrete-default-pill">
-                      <span class="status-dot" style="background:#94a3b8;"></span>
-                      <div>
-                        <strong>Membrete Estándar del Sistema</strong>
-                        <p style="margin:2px 0 0 0; font-size:0.75rem; color:var(--text-muted);">Generación vectorial con logo institucional y títulos.</p>
-                      </div>
-                    </div>
-                  }
-                </div>
-                <div class="asset-btns">
-                  <input type="file" #membreteFileInput (change)="onMembreteSelected($event)" accept="image/png,image/jpeg,application/pdf" style="display:none;" />
-                  <button type="button" class="btn btn-sm btn-outline-warning" (click)="membreteFileInput.click()" [disabled]="subiendoMembrete">
-                    📤 {{ subiendoMembrete ? 'Subiendo...' : 'Subir Hoja Membretada' }}
-                  </button>
-                  @if ((institucionSvc.config$ | async)?.membreteUrl) {
-                    <button type="button" class="btn btn-sm btn-danger-outline" (click)="restablecerMembrete()">
-                      🔄 Usar Membrete Estándar
-                    </button>
-                  }
-                </div>
+              <div class="asset-btns">
+                <input type="file" #logoFileInput (change)="onLogoFilePicked($event)" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none;" />
+                <button type="button" class="btn btn-sm btn-outline-warning" (click)="logoFileInput.click()" [disabled]="subiendoLogo">
+                  ✂️ {{ subiendoLogo ? 'Guardando...' : 'Cargar y Encuadrar Logo' }}
+                </button>
+                <button type="button" class="btn btn-sm btn-danger-outline" (click)="restablecerLogo()">
+                  🔄 Restablecer Predeterminado
+                </button>
               </div>
             </div>
           </div>
 
-          <!-- Columna B: Datos Institucionales -->
-          <div class="inst-fields-col">
-            <div class="form-row-2">
-              <div class="form-group">
-                <label class="inst-label">🏛️ Nombre Oficial del Municipio / Ayuntamiento:</label>
-                <input type="text" [(ngModel)]="institucionForm.nombreMunicipio" class="form-control" placeholder="Ej. H. Ayuntamiento Constitucional de Heroica Ciudad de Tlaxiaco" />
+          <!-- Columna B: Hoja Membretada con Miniatura en Vivo -->
+          <div class="asset-box">
+            <div class="asset-title-row">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="asset-title">📑 Hoja Membretada para Reportes (PDF)</span>
+                @if ((institucionSvc.config$ | async)?.membreteUrl) {
+                  <span class="badge badge-success" style="font-size:0.7rem;">🟢 Activa</span>
+                } @else {
+                  <span class="badge badge-info" style="font-size:0.7rem;">⚪ Estándar</span>
+                }
               </div>
-              <div class="form-group">
-                <label class="inst-label">📅 Período Constitucional de Administración:</label>
-                <input type="text" [(ngModel)]="institucionForm.periodoAdministracion" class="form-control" placeholder="Ej. Administración 2025 - 2027" />
+              <span class="asset-hint">Fondo oficial para Fichas Técnicas, Expediente Unitario y Reportes</span>
+            </div>
+            <div class="membrete-content-layout">
+              <!-- Miniatura Hoja -->
+              <div class="mini-sheet-container" (click)="verVistaPreviaMembrete()" title="Clic para ampliar hoja membretada">
+                <img [src]="institucionSvc.resolveMembreteUrl((institucionSvc.config$ | async)?.membreteUrl) || 'assets/logos/hoja_membretada_oficial.png'" alt="Hoja membretada" class="mini-sheet-preview-img" (error)="$any($event.target).src='assets/logos/hoja_membretada_oficial.png'" />
+                <div class="mini-sheet-zoom-overlay">
+                  <span>🔍 Ver Completa</span>
+                </div>
+              </div>
+
+              <!-- Acciones de Hoja Membretada -->
+              <div class="asset-btns">
+                <button type="button" class="btn btn-sm btn-outline-primary" (click)="verVistaPreviaMembrete()">
+                  👁️ Ver Vista Previa
+                </button>
+                <button type="button" class="btn btn-sm btn-primary" (click)="activarMembreteOficialTlaxiaco()" [disabled]="subiendoMembrete" title="Activa la hoja membretada con los logos y palacio municipal">
+                  ⭐ Activar Membrete Tlaxiaco
+                </button>
+                <input type="file" #membreteFileInput (change)="onMembreteSelected($event)" accept="image/png,image/jpeg,application/pdf" style="display:none;" />
+                <button type="button" class="btn btn-sm btn-outline-warning" (click)="membreteFileInput.click()" [disabled]="subiendoMembrete">
+                  📤 {{ subiendoMembrete ? 'Subiendo...' : 'Subir Otra Hoja' }}
+                </button>
+                @if ((institucionSvc.config$ | async)?.membreteUrl) {
+                  <button type="button" class="btn btn-sm btn-danger-outline" (click)="restablecerMembrete()">
+                    🔄 Usar Membrete Estándar
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fila Inferior: Formulario Completo de Datos Oficiales (Ancho Total) -->
+        <div class="inst-data-form-box">
+          <div class="inst-form-header">
+            <h4 class="inst-form-title">🏛️ Datos Oficiales de la Administración Municipal</h4>
+            <span class="inst-form-hint">Toda la información se muestra completa y se actualiza en tiempo real en los documentos</span>
+          </div>
+
+          <div class="inst-form-stack">
+            <!-- 1. Nombre Municipio -->
+            <div class="inst-field-row">
+              <label class="inst-label">Nombre Oficial del Municipio / Ayuntamiento:</label>
+              <input type="text" [(ngModel)]="institucionForm.nombreMunicipio" class="inst-full-input" placeholder="Ej. H. Ayuntamiento Constitucional de Heroica Ciudad de Tlaxiaco" />
+            </div>
+
+            <!-- 2. Dependencia -->
+            <div class="inst-field-row">
+              <label class="inst-label">Dependencia Encargada de las Obras:</label>
+              <input type="text" [(ngModel)]="institucionForm.dependencia" class="inst-full-input" placeholder="Ej. Dirección de Obras Públicas y Desarrollo Urbano" />
+            </div>
+
+            <!-- 3. Período y Lema en 2 Columnas amplias -->
+            <div class="inst-row-split">
+              <div class="inst-field-row">
+                <label class="inst-label">Período Constitucional de Administración:</label>
+                <input type="text" [(ngModel)]="institucionForm.periodoAdministracion" class="inst-full-input" placeholder="Ej. Administración 2025 - 2027" />
+              </div>
+              <div class="inst-field-row">
+                <label class="inst-label">Lema o Eslogan Oficial:</label>
+                <input type="text" [(ngModel)]="institucionForm.lemaOficial" class="inst-full-input" placeholder="Ej. El poder de servir al pueblo" />
               </div>
             </div>
 
-            <div class="form-row-2">
-              <div class="form-group">
-                <label class="inst-label">🏢 Dependencia Encargada de Obras:</label>
-                <input type="text" [(ngModel)]="institucionForm.dependencia" class="form-control" placeholder="Ej. Dirección de Obras Públicas y Desarrollo Urbano" />
-              </div>
-              <div class="form-group">
-                <label class="inst-label">✨ Lema o Eslogan Oficial:</label>
-                <input type="text" [(ngModel)]="institucionForm.lemaOficial" class="form-control" placeholder="Ej. El poder de servir al pueblo" />
-              </div>
-            </div>
-
-            <div class="form-group" style="margin-top:4px;">
-              <label class="inst-label">📍 Pie de Página Oficial en Reportes y Oficios:</label>
-              <input type="text" [(ngModel)]="institucionForm.piePaginaReporte" class="form-control" placeholder="Ej. Palacio Municipal s/n, Centro, Heroica Ciudad de Tlaxiaco, Oaxaca. | Tel: 953 552 0000" />
+            <!-- 4. Pie de página en textarea amplio para ver todo el domicilio y teléfono -->
+            <div class="inst-field-row">
+              <label class="inst-label">Pie de Página Oficial en Reportes, Fichas y Oficios (Domicilio y Contacto):</label>
+              <textarea [(ngModel)]="institucionForm.piePaginaReporte" rows="2" class="inst-full-textarea" placeholder="Ej. Parque Porfirio Díaz S/N, Colonia Centro, Heroica Ciudad de Tlaxiaco, Oax. C. P. 69800 | Tel: (953) 55 20 723"></textarea>
             </div>
           </div>
         </div>
@@ -330,6 +343,21 @@ import jsPDF from 'jspdf';
         (close)="closeModal()">
       </app-user-form-modal>
     }
+
+    @if (showLogoCropper && tempLogoFile) {
+      <app-logo-cropper-modal
+        [imageFile]="tempLogoFile"
+        (aplicar)="onLogoCropApplied($event)"
+        (cancelar)="showLogoCropper = false; tempLogoFile = null">
+      </app-logo-cropper-modal>
+    }
+
+    @if (showMembreteModal) {
+      <app-membrete-preview-modal
+        [imagenUrl]="institucionSvc.resolveMembreteUrl((institucionSvc.config$ | async)?.membreteUrl) || 'assets/logos/hoja_membretada_oficial.png'"
+        (cerrar)="showMembreteModal = false">
+      </app-membrete-preview-modal>
+    }
   `,
   styles: [`
     .admin-page { display: flex; flex-direction: column; gap: 24px; }
@@ -445,29 +473,71 @@ import jsPDF from 'jspdf';
       background: linear-gradient(180deg, rgba(59, 130, 246, 0.04) 0%, var(--bg-surface) 100%);
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 18px;
     }
     .inst-actions-top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .institucion-grid { display: grid; grid-template-columns: 1fr 1.3fr; gap: 20px; }
-    @media (max-width: 992px) { .institucion-grid { grid-template-columns: 1fr; } }
-    .inst-assets-col { display: flex; flex-direction: column; gap: 12px; }
-    .asset-box { background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
-    .asset-title-row { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
-    .asset-title { font-size: 0.88rem; font-weight: 700; color: var(--text-primary); }
-    .asset-hint { font-size: 0.73rem; color: var(--text-muted); }
+    .inst-top-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    @media (max-width: 900px) { .inst-top-grid { grid-template-columns: 1fr; } }
+    .asset-box { background: var(--bg-dark); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .asset-title-row { display: flex; flex-direction: column; gap: 2px; }
+    .asset-title { font-size: 0.9rem; font-weight: 700; color: var(--text-primary); }
+    .asset-hint { font-size: 0.74rem; color: var(--text-muted); }
     .asset-preview-wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-    .logo-preview-box { width: 85px; height: 85px; border-radius: 10px; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 1px solid rgba(0,0,0,0.08); flex-shrink: 0; }
+    .logo-preview-box { width: 95px; height: 95px; border-radius: 12px; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); border: 1px solid rgba(0,0,0,0.08); flex-shrink: 0; }
     .preview-logo-img { max-width: 100%; max-height: 100%; object-fit: contain; }
     .asset-btns { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 170px; }
-    .membrete-status-box { flex: 1; min-width: 180px; }
-    .membrete-active-pill, .membrete-default-pill { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); }
-    .membrete-active-pill { border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.06); }
-    .inst-fields-col { display: flex; flex-direction: column; gap: 12px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
-    .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    @media (max-width: 640px) { .form-row-2 { grid-template-columns: 1fr; } }
-    .inst-label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; display: block; }
+    .membrete-content-layout { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .mini-sheet-container {
+      width: 80px; height: 110px; background: #ffffff; border-radius: 6px;
+      overflow: hidden; border: 1px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      position: relative; cursor: pointer; flex-shrink: 0; transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .mini-sheet-container:hover { transform: scale(1.04); box-shadow: 0 6px 18px rgba(0,0,0,0.45); }
+    .mini-sheet-preview-img { width: 100%; height: 100%; object-fit: cover; }
+    .mini-sheet-zoom-overlay {
+      position: absolute; inset: 0; background: rgba(15,23,42,0.65);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .mini-sheet-zoom-overlay span { color: #fff; font-size: 0.65rem; font-weight: 700; text-align: center; }
+    .mini-sheet-container:hover .mini-sheet-zoom-overlay { opacity: 1; }
+
+    /* Formulario amplio */
+    .inst-data-form-box {
+      background: var(--bg-dark); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;
+    }
+    .inst-form-header { display: flex; flex-direction: column; gap: 2px; }
+    .inst-form-title { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+    .inst-form-hint { font-size: 0.75rem; color: var(--text-muted); }
+    .inst-form-stack { display: flex; flex-direction: column; gap: 14px; }
+    .inst-field-row { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+    .inst-row-split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 680px) { .inst-row-split { grid-template-columns: 1fr; } }
+    .inst-label { font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); }
+    .inst-full-input {
+      width: 100%; padding: 10px 14px; font-size: 0.92rem; font-weight: 500;
+      border-radius: 8px; border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03); color: var(--text-primary);
+      outline: none; box-sizing: border-box; transition: all 0.2s;
+    }
+    .inst-full-input:focus {
+      border-color: var(--primary); background: rgba(59,130,246,0.05);
+      box-shadow: 0 0 0 2px rgba(59,130,246,0.25);
+    }
+    .inst-full-textarea {
+      width: 100%; padding: 10px 14px; font-size: 0.92rem; font-weight: 500;
+      border-radius: 8px; border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03); color: var(--text-primary);
+      outline: none; box-sizing: border-box; resize: vertical; line-height: 1.4;
+      transition: all 0.2s;
+    }
+    .inst-full-textarea:focus {
+      border-color: var(--primary); background: rgba(59,130,246,0.05);
+      box-shadow: 0 0 0 2px rgba(59,130,246,0.25);
+    }
     .btn-outline-primary { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
-    .btn-outline-primary:hover { background: rgba(59,130,246,0.1); }
+    .btn-outline-primary:hover { background: rgba(59,130,246,0.12); }
     .btn-outline-warning { background: transparent; border: 1px solid #f59e0b; color: #fbbf24; }
     .btn-outline-warning:hover { background: rgba(245,158,11,0.15); }
     .status-dot.online { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,0.6); }
@@ -496,6 +566,10 @@ export class AdminComponent implements OnInit {
   subiendoLogo = false;
   subiendoMembrete = false;
   guardandoInstitucion = false;
+
+  showLogoCropper = false;
+  tempLogoFile: File | null = null;
+  showMembreteModal = false;
 
   permisos = [
     { nombre: 'Crear obras públicas', admin: true, supervisor: true, contratista: false, auditor: false },
@@ -837,30 +911,63 @@ export class AdminComponent implements OnInit {
     });
   }
 
-  onLogoSelected(event: any) {
+  onLogoFilePicked(event: any) {
     const file: File = event.target?.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       this.toastSvc.show('El archivo debe ser una imagen (PNG, JPG, SVG, WebP)', 'warning');
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      this.toastSvc.show('El logotipo no debe superar los 10 MB', 'warning');
+    if (file.size > 15 * 1024 * 1024) {
+      this.toastSvc.show('La imagen no debe superar los 15 MB', 'warning');
       return;
     }
+    this.tempLogoFile = file;
+    this.showLogoCropper = true;
+    event.target.value = '';
+  }
+
+  onLogoCropApplied(adjustedFile: File) {
+    this.showLogoCropper = false;
+    this.tempLogoFile = null;
     this.subiendoLogo = true;
-    this.institucionSvc.subirLogo(file).subscribe({
+    this.institucionSvc.subirLogo(adjustedFile).subscribe({
       next: () => {
         this.subiendoLogo = false;
-        this.toastSvc.show('✅ Logotipo institucional actualizado con éxito.', 'success');
-        event.target.value = '';
+        this.toastSvc.show('✅ Logotipo ajustado y guardado correctamente.', 'success');
       },
       error: (err) => {
         this.subiendoLogo = false;
         this.toastSvc.show(err.error?.message || 'Error al subir el logotipo.', 'error');
-        event.target.value = '';
       }
     });
+  }
+
+  verVistaPreviaMembrete() {
+    this.showMembreteModal = true;
+  }
+
+  activarMembreteOficialTlaxiaco() {
+    this.subiendoMembrete = true;
+    fetch('assets/logos/hoja_membretada_oficial.png')
+      .then(res => res.blob())
+      .then(blob => {
+        const file = new File([blob], 'hoja_membretada_tlaxiaco_2025_2027.png', { type: 'image/png' });
+        this.institucionSvc.subirMembrete(file).subscribe({
+          next: () => {
+            this.subiendoMembrete = false;
+            this.toastSvc.show('✅ Hoja membretada oficial de Tlaxiaco activada con éxito.', 'success');
+          },
+          error: (err) => {
+            this.subiendoMembrete = false;
+            this.toastSvc.show('Error activando la hoja oficial: ' + (err.error?.message || err.message), 'error');
+          }
+        });
+      })
+      .catch(() => {
+        this.subiendoMembrete = false;
+        this.toastSvc.show('No se pudo cargar el archivo local de la hoja oficial.', 'error');
+      });
   }
 
   onMembreteSelected(event: any) {
