@@ -277,47 +277,48 @@ import jsPDF from 'jspdf';
             </div>
           </div>
 
-          <!-- Columna B: Hoja Membretada con Miniatura en Vivo -->
+          <!-- Columna B: Hoja Membretada para Reportes (PDF) -->
           <div class="asset-box">
             <div class="asset-title-row">
               <div style="display:flex; justify-content:space-between; align-items:center;">
                 <span class="asset-title" style="display:flex; align-items:center; gap:6px;">
                   <app-icon name="file-text" [size]="16" color="#94a3b8"></app-icon> Hoja Membretada para Reportes (PDF)
                 </span>
-                @if ((institucionSvc.config$ | async)?.membreteUrl) {
-                  <span class="badge badge-success" style="font-size:0.7rem;">Activa</span>
-                } @else {
-                  <span class="badge badge-info" style="font-size:0.7rem;">Estándar</span>
-                }
+                <span class="badge badge-success" style="font-size:0.7rem; padding: 2px 8px;">
+                  {{ (institucionSvc.config$ | async)?.membreteUrl ? 'Personalizada' : 'Oficial Tlaxiaco' }}
+                </span>
               </div>
-              <span class="asset-hint">Fondo oficial para Fichas Técnicas, Expediente Unitario y Reportes</span>
+              <span class="asset-hint">Fondo oficial para Fichas Técnicas, Expediente Unitario y Reportes PDF</span>
             </div>
-            <div class="membrete-content-layout">
+
+            <div class="asset-preview-wrap">
               <!-- Miniatura Hoja -->
-              <div class="mini-sheet-container" (click)="verVistaPreviaMembrete()" title="Clic para ampliar hoja membretada">
-                <img [src]="institucionSvc.resolveMembreteUrl((institucionSvc.config$ | async)?.membreteUrl) || 'assets/logos/hoja_membretada_oficial.png'" alt="Hoja membretada" class="mini-sheet-preview-img" (error)="$any($event.target).src='assets/logos/hoja_membretada_oficial.png'" />
+              <div class="mini-sheet-container" (click)="verVistaPreviaMembrete()" title="Clic para ampliar y ver hoja completa">
+                <img
+                  [src]="institucionSvc.resolveMembreteUrl((institucionSvc.config$ | async)?.membreteUrl) || 'assets/logos/hoja_membretada_oficial.png'"
+                  alt="Hoja membretada oficial"
+                  class="mini-sheet-preview-img"
+                  (error)="$any($event.target).src='assets/logos/hoja_membretada_oficial.png'" />
                 <div class="mini-sheet-zoom-overlay">
-                  <span><app-icon name="eye" [size]="13" color="#ffffff"></app-icon> Ver Completa</span>
+                  <span><app-icon name="maximize" [size]="14"></app-icon><br>Ver Completa</span>
                 </div>
               </div>
 
-              <!-- Acciones de Hoja Membretada -->
+              <!-- Acciones Claras y Directas -->
               <div class="asset-btns">
-                <button type="button" class="btn btn-preview-sheet" (click)="verVistaPreviaMembrete()">
-                  <app-icon name="eye" [size]="15"></app-icon> Ver Vista Previa
-                </button>
-                <button type="button" class="btn btn-activate-official" (click)="activarMembreteOficialTlaxiaco()" [disabled]="subiendoMembrete" title="Activa la hoja membretada con los logos y palacio municipal">
-                  <app-icon name="star" [size]="15"></app-icon> Activar Membrete Tlaxiaco
-                </button>
-                <input type="file" #membreteFileInput (change)="onMembreteSelected($event)" accept="image/png,image/jpeg,image/webp,application/pdf" style="display:none;" />
+                <input type="file" #membreteFileInput (change)="onMembreteSelected($event)" accept="image/png,image/jpeg,image/webp" style="display:none;" />
+                
                 <button type="button" class="btn btn-upload-sheet" (click)="membreteFileInput.click()" [disabled]="subiendoMembrete">
-                  <app-icon name="upload" [size]="15"></app-icon> {{ subiendoMembrete ? 'Subiendo...' : 'Subir Otra Hoja' }}
+                  <app-icon name="upload" [size]="15"></app-icon> {{ subiendoMembrete ? 'Subiendo...' : 'Cambiar Hoja Membretada' }}
                 </button>
-                @if ((institucionSvc.config$ | async)?.membreteUrl) {
-                  <button type="button" class="btn btn-reset-subtle" (click)="restablecerMembrete()">
-                    <app-icon name="refresh" [size]="13"></app-icon> Usar Membrete Estándar
-                  </button>
-                }
+
+                <button type="button" class="btn btn-preview-sheet" (click)="verVistaPreviaMembrete()">
+                  <app-icon name="eye" [size]="15"></app-icon> Ver Hoja Completa
+                </button>
+
+                <button type="button" class="btn btn-reset-subtle" (click)="restablecerMembreteOriginalTlaxiaco()" [disabled]="subiendoMembrete" title="Vuelve a colocar el diseño original oficial de Tlaxiaco 2025-2027">
+                  <app-icon name="refresh" [size]="13"></app-icon> Restablecer Predeterminada
+                </button>
               </div>
             </div>
           </div>
@@ -1273,11 +1274,11 @@ export class AdminComponent implements OnInit {
         this.institucionSvc.subirMembrete(file).subscribe({
           next: () => {
             this.subiendoMembrete = false;
-            this.toastSvc.show('⭐ Hoja membretada oficial de Tlaxiaco 2025-2027 activada con éxito.', 'success');
+            this.toastSvc.show('✅ Hoja membretada oficial de Tlaxiaco 2025-2027 restablecida con éxito.', 'success');
           },
           error: (err) => {
             this.subiendoMembrete = false;
-            this.toastSvc.show('Error activando la hoja oficial: ' + (err.error?.message || err.message), 'error');
+            this.toastSvc.show('Error al restablecer la hoja oficial: ' + (err.error?.message || err.message), 'error');
           }
         });
       })
@@ -1285,6 +1286,30 @@ export class AdminComponent implements OnInit {
         this.subiendoMembrete = false;
         this.toastSvc.show('No se pudo cargar el archivo local de la hoja oficial.', 'error');
       });
+  }
+
+  restablecerMembreteOriginalTlaxiaco() {
+    Swal.fire({
+      title: '🏛️ Restablecer Hoja Oficial',
+      html: `
+        <div style="text-align: left; font-size: 0.88rem; line-height: 1.5; color: #cbd5e1;">
+          <p>¿Deseas volver a utilizar la <strong>Hoja Membretada Oficial de Tlaxiaco 2025-2027</strong>?</p>
+          <p style="color: #94a3b8; font-size: 0.82rem;">Esta plantilla incluye los escudos oficiales en el encabezado y el Palacio Municipal en el pie de página para todos los reportes PDF.</p>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, restablecer oficial',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#2563eb',
+      cancelButtonColor: '#4b5563',
+      background: '#1e293b',
+      color: '#f8fafc'
+    }).then((res) => {
+      if (res.isConfirmed) {
+        this.activarMembreteOficialTlaxiaco();
+      }
+    });
   }
 
   onMembreteSelected(event: any) {
