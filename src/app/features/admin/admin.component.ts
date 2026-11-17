@@ -62,61 +62,77 @@ import jsPDF from 'jspdf';
         </div>
       </div>
 
-      <!-- Cierre de Ejercicio Fiscal -->
-      <div class="card fiscal-close-card">
-        <div class="fiscal-header">
-          <div class="fiscal-header-info">
-            <div class="fiscal-title-row">
-              <span class="fiscal-badge-icon">
-                <app-icon name="archive" [size]="20" color="#f59e0b"></app-icon>
-              </span>
-              <h3 class="sec-title" style="margin:0;">Cierre de Ejercicio Fiscal Anual</h3>
-              <span class="badge badge-warning">Exclusivo Administrador</span>
-            </div>
-            <p class="fiscal-desc">
-              Al finalizar el año, este proceso archiva de forma segura las obras del ejercicio en curso para que el padrón del nuevo año arranque <strong>completamente limpio (0 obras)</strong>. Las obras incompletas se concluyen administrativamente y las obras eliminadas/canceladas conservan su estado en el archivo. Puedes consultar el histórico en <strong>Historial General &gt; Archivo Fiscal</strong>.
-            </p>
-          </div>
-          <div class="fiscal-controls">
-            <div class="fiscal-select-box">
-              <label class="fiscal-lbl">EJERCICIO A CERRAR:</label>
-              <select class="fiscal-select" [(ngModel)]="ejercicioCierre" (change)="cargarResumenCierre()">
-                <option [value]="anioActual">{{ anioActual }} (Año en curso)</option>
-                <option [value]="anioActual - 1">{{ anioActual - 1 }}</option>
-                <option [value]="anioActual + 1">{{ anioActual + 1 }}</option>
-              </select>
-            </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <button class="btn btn-warning fiscal-btn" (click)="confirmarCierreFiscal()" [disabled]="cargandoCierre">
-                <app-icon name="lock" [size]="16" style="margin-right: 4px;"></app-icon> Realizar Cierre Fiscal {{ ejercicioCierre }}
-              </button>
-              <button class="btn fiscal-btn" (click)="confirmarReversionCierreFiscal()" [disabled]="cargandoCierre" style="background: rgba(59,130,246,0.15); border: 1px solid #3b82f6; color: #93c5fd;" title="Devolver obras archivadas nuevamente al padrón activo">
-                <app-icon name="refresh" [size]="16" style="margin-right: 4px;"></app-icon> Revertir Cierre Fiscal {{ ejercicioCierre }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="fiscal-stats-row">
-          <div class="fiscal-stat-pill">
-            <span class="f-pill-dot" style="background:var(--accent)"></span>
-            <span class="f-pill-label">Obras pendientes de archivar:</span>
-            <strong class="f-pill-val">{{ obrasPendientesCierre }} obras</strong>
-          </div>
-          <div class="fiscal-stat-pill">
-            <span class="f-pill-dot" style="background:var(--success)"></span>
-            <span class="f-pill-label">Obras en proceso/planificadas:</span>
-            <span class="f-pill-val">Pasan a Concluidas por Cierre</span>
-          </div>
-          <div class="fiscal-stat-pill">
-            <span class="f-pill-dot" style="background:var(--danger)"></span>
-            <span class="f-pill-label">Obras eliminadas / canceladas:</span>
-            <span class="f-pill-val">Se archivan intactas con su etiqueta</span>
-          </div>
+      <!-- 1. Users Table (Usuarios del Sistema) -->
+      <div class="card">
+        <h3 class="sec-title" style="display:flex; align-items:center; gap:8px;">
+          <app-icon name="users" [size]="18" color="var(--accent)"></app-icon> Usuarios del Sistema
+        </h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Email</th>
+                <th>Rol</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (u of usuarios; track u.id) {
+                <tr>
+                  <td>
+                    <div class="user-cell">
+                      <div class="user-ava" [style.background]="getAvaColor(u.roles[0] || '')">{{ getInitials(u.firstName, u.lastName) }}</div>
+                      <span>{{ u.firstName }} {{ u.lastName }}</span>
+                      <small style="color:var(--text-muted); display:block; font-size:0.75rem;">@{{ u.username }}</small>
+                    </div>
+                  </td>
+                  <td style="color:var(--text-muted)">{{ u.email }}</td>
+                  <td><span class="badge" [class]="'badge-' + (u.roles[0] || '').toLowerCase()">{{ u.roles[0] || 'Sin Rol' }}</span></td>
+                  <td>
+                    @if(u.active) {
+                      <span style="color:var(--success); display:inline-flex; align-items:center; gap:4px;">
+                        <app-icon name="check-circle" [size]="14" color="var(--success)"></app-icon> Activo
+                      </span>
+                    } @else {
+                      <span style="color:var(--danger); display:inline-flex; align-items:center; gap:4px;">
+                        <app-icon name="x" [size]="14" color="var(--danger)"></app-icon> Inactivo
+                      </span>
+                    }
+                  </td>
+                  <td>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                      <button class="btn btn-secondary btn-sm" (click)="openUserModal(u)" style="display:inline-flex; align-items:center; gap:4px;">
+                        <app-icon name="pencil" [size]="13"></app-icon> Editar
+                      </button>
+                      @if(u.active) {
+                        <button class="btn btn-warning btn-sm" (click)="deactivateUser(u.id)" [disabled]="u.roles.includes('ADMINISTRADOR') && activeAdminsCount() <= 1" style="display:inline-flex; align-items:center; gap:4px;">
+                          <app-icon name="lock" [size]="13"></app-icon> Desactivar
+                        </button>
+                      } @else {
+                        <button class="btn btn-primary btn-sm" (click)="reactivateUser(u.id)" style="display:inline-flex; align-items:center; gap:4px;">
+                          <app-icon name="refresh" [size]="13"></app-icon> Reactivar
+                        </button>
+                      }
+                      <button
+                        class="btn btn-danger-outline btn-sm"
+                        (click)="deleteUserPermanently(u)"
+                        [disabled]="u.username === auth.usuario()?.username || (u.roles.includes('ADMINISTRADOR') && activeAdminsCount() <= 1)"
+                        title="Eliminar usuario permanentemente"
+                        style="display:inline-flex; align-items:center; gap:4px;">
+                        <app-icon name="trash" [size]="13"></app-icon> Eliminar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <!-- Identidad Institucional y Hoja Membretada -->
+      <!-- 2. Identidad Institucional y Hoja Membretada Dinámica -->
       <div class="card institucion-card">
         <div class="fiscal-header">
           <div class="fiscal-header-info">
@@ -256,77 +272,7 @@ import jsPDF from 'jspdf';
         </div>
       </div>
 
-      <!-- Users Table -->
-      <div class="card">
-        <h3 class="sec-title" style="display:flex; align-items:center; gap:8px;">
-          <app-icon name="users" [size]="18" color="var(--accent)"></app-icon> Usuarios del Sistema
-        </h3>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Usuario</th>
-                <th>Email</th>
-                <th>Rol</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (u of usuarios; track u.id) {
-                <tr>
-                  <td>
-                    <div class="user-cell">
-                      <div class="user-ava" [style.background]="getAvaColor(u.roles[0] || '')">{{ getInitials(u.firstName, u.lastName) }}</div>
-                      <span>{{ u.firstName }} {{ u.lastName }}</span>
-                      <small style="color:var(--text-muted); display:block; font-size:0.75rem;">@{{ u.username }}</small>
-                    </div>
-                  </td>
-                  <td style="color:var(--text-muted)">{{ u.email }}</td>
-                  <td><span class="badge" [class]="'badge-' + (u.roles[0] || '').toLowerCase()">{{ u.roles[0] || 'Sin Rol' }}</span></td>
-                  <td>
-                    @if(u.active) {
-                      <span style="color:var(--success); display:inline-flex; align-items:center; gap:4px;">
-                        <app-icon name="check-circle" [size]="14" color="var(--success)"></app-icon> Activo
-                      </span>
-                    } @else {
-                      <span style="color:var(--danger); display:inline-flex; align-items:center; gap:4px;">
-                        <app-icon name="x" [size]="14" color="var(--danger)"></app-icon> Inactivo
-                      </span>
-                    }
-                  </td>
-                  <td>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                      <button class="btn btn-secondary btn-sm" (click)="openUserModal(u)" style="display:inline-flex; align-items:center; gap:4px;">
-                        <app-icon name="pencil" [size]="13"></app-icon> Editar
-                      </button>
-                      @if(u.active) {
-                        <button class="btn btn-warning btn-sm" (click)="deactivateUser(u.id)" [disabled]="u.roles.includes('ADMINISTRADOR') && activeAdminsCount() <= 1" style="display:inline-flex; align-items:center; gap:4px;">
-                          <app-icon name="lock" [size]="13"></app-icon> Desactivar
-                        </button>
-                      } @else {
-                        <button class="btn btn-primary btn-sm" (click)="reactivateUser(u.id)" style="display:inline-flex; align-items:center; gap:4px;">
-                          <app-icon name="refresh" [size]="13"></app-icon> Reactivar
-                        </button>
-                      }
-                      <button
-                        class="btn btn-danger-outline btn-sm"
-                        (click)="deleteUserPermanently(u)"
-                        [disabled]="u.username === auth.usuario()?.username || (u.roles.includes('ADMINISTRADOR') && activeAdminsCount() <= 1)"
-                        title="Eliminar usuario permanentemente"
-                        style="display:inline-flex; align-items:center; gap:4px;">
-                        <app-icon name="trash" [size]="13"></app-icon> Eliminar
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Config -->
+      <!-- 3. Config (Reglas del Sistema y Roles y Permisos) -->
       <div class="admin-config-grid">
         <div class="card">
           <h3 class="sec-title" style="display:flex; align-items:center; gap:8px;">
@@ -382,6 +328,60 @@ import jsPDF from 'jspdf';
                 <span><app-icon [name]="p.auditor ? 'check' : 'x'" [size]="15" [color]="p.auditor ? 'var(--success)' : 'var(--danger)'"></app-icon></span>
               </div>
             }
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Cierre de Ejercicio Fiscal (Al último) -->
+      <div class="card fiscal-close-card">
+        <div class="fiscal-header">
+          <div class="fiscal-header-info">
+            <div class="fiscal-title-row">
+              <span class="fiscal-badge-icon">
+                <app-icon name="archive" [size]="20" color="#f59e0b"></app-icon>
+              </span>
+              <h3 class="sec-title" style="margin:0;">Cierre de Ejercicio Fiscal Anual</h3>
+              <span class="badge badge-warning">Exclusivo Administrador</span>
+            </div>
+            <p class="fiscal-desc">
+              Al finalizar el año, este proceso archiva de forma segura las obras del ejercicio en curso para que el padrón del nuevo año arranque <strong>completamente limpio (0 obras)</strong>. Las obras incompletas se concluyen administrativamente y las obras eliminadas/canceladas conservan su estado en el archivo. Puedes consultar el histórico en <strong>Historial General &gt; Archivo Fiscal</strong>.
+            </p>
+          </div>
+          <div class="fiscal-controls">
+            <div class="fiscal-select-box">
+              <label class="fiscal-lbl">EJERCICIO A CERRAR:</label>
+              <select class="fiscal-select" [(ngModel)]="ejercicioCierre" (change)="cargarResumenCierre()">
+                <option [value]="anioActual">{{ anioActual }} (Año en curso)</option>
+                <option [value]="anioActual - 1">{{ anioActual - 1 }}</option>
+                <option [value]="anioActual + 1">{{ anioActual + 1 }}</option>
+              </select>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn btn-warning fiscal-btn" (click)="confirmarCierreFiscal()" [disabled]="cargandoCierre">
+                <app-icon name="lock" [size]="16" style="margin-right: 4px;"></app-icon> Realizar Cierre Fiscal {{ ejercicioCierre }}
+              </button>
+              <button class="btn fiscal-btn" (click)="confirmarReversionCierreFiscal()" [disabled]="cargandoCierre" style="background: rgba(59,130,246,0.15); border: 1px solid #3b82f6; color: #93c5fd;" title="Devolver obras archivadas nuevamente al padrón activo">
+                <app-icon name="refresh" [size]="16" style="margin-right: 4px;"></app-icon> Revertir Cierre Fiscal {{ ejercicioCierre }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="fiscal-stats-row">
+          <div class="fiscal-stat-pill">
+            <span class="f-pill-dot" style="background:var(--accent)"></span>
+            <span class="f-pill-label">Obras pendientes de archivar:</span>
+            <strong class="f-pill-val">{{ obrasPendientesCierre }} obras</strong>
+          </div>
+          <div class="fiscal-stat-pill">
+            <span class="f-pill-dot" style="background:var(--success)"></span>
+            <span class="f-pill-label">Obras en proceso/planificadas:</span>
+            <span class="f-pill-val">Pasan a Concluidas por Cierre</span>
+          </div>
+          <div class="fiscal-stat-pill">
+            <span class="f-pill-dot" style="background:var(--danger)"></span>
+            <span class="f-pill-label">Obras eliminadas / canceladas:</span>
+            <span class="f-pill-val">Se archivan intactas con su etiqueta</span>
           </div>
         </div>
       </div>
