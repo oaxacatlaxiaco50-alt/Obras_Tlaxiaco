@@ -1741,6 +1741,7 @@ export class ExpedienteComponent implements OnInit {
 
   getEjercicioFiscal(): number {
     const o = this.obra();
+    if (o?.ejercicioFiscal) return o.ejercicioFiscal;
     if (o?.fechaInicio) {
       const year = new Date(o.fechaInicio).getFullYear();
       if (!isNaN(year) && year > 2000) return year;
