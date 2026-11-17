@@ -132,7 +132,101 @@ import jsPDF from 'jspdf';
         </div>
       </div>
 
-      <!-- 2. Identidad Institucional y Hoja Membretada Dinámica -->
+      <!-- 2. Reglas del Sistema y Matriz de Roles y Permisos (Directo después de Usuarios) -->
+      <div class="admin-config-grid">
+        <div class="card">
+          <h3 class="sec-title" style="display:flex; align-items:center; gap:8px;">
+            <app-icon name="shield-check" [size]="18" color="var(--accent)"></app-icon> Reglas del Sistema
+          </h3>
+          <div class="rule-list">
+            <div class="rule-item">
+              <span class="rule-icon" style="display:flex; align-items:center; justify-content:center;">
+                <app-icon name="lock" [size]="20" color="var(--warning)"></app-icon>
+              </span>
+              <div>
+                <div class="rule-name">Bloqueo automático de edición</div>
+                <div class="rule-desc">Las obras se bloquean tras <strong>15 días</strong> sin actualización</div>
+              </div>
+              <span class="badge badge-warning">Activo</span>
+            </div>
+            <div class="rule-item">
+              <span class="rule-icon" style="display:flex; align-items:center; justify-content:center;">
+                <app-icon name="folder" [size]="20" color="var(--success)"></app-icon>
+              </span>
+              <div>
+                <div class="rule-name">URLs únicas por proyecto</div>
+                <div class="rule-desc">Cada obra tiene una URL permanente e irrepetible</div>
+              </div>
+              <span class="badge badge-success">Activo</span>
+            </div>
+            <div class="rule-item">
+              <span class="rule-icon" style="display:flex; align-items:center; justify-content:center;">
+                <app-icon name="file-text" [size]="20" color="#3b82f6"></app-icon>
+              </span>
+              <div>
+                <div class="rule-name">Límite de archivos</div>
+                <div class="rule-desc">Máximo <strong>30 MB</strong> por archivo subido</div>
+              </div>
+              <span class="badge badge-success">Activo</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:4px;">
+            <h3 class="sec-title" style="display:flex; align-items:center; gap:8px; margin:0;">
+              <app-icon name="lock" [size]="18" color="var(--accent)"></app-icon> Roles y Permisos del Sistema
+            </h3>
+            <span class="badge badge-info" style="font-size:0.7rem;">Matriz de Acceso</span>
+          </div>
+          <p style="font-size:0.77rem; color:var(--text-muted); margin:0 0 10px 0;">
+            Privilegios y operaciones asignadas a cada perfil de usuario en la plataforma.
+          </p>
+
+          <div class="perms-table-container">
+            <table class="perms-matrix">
+              <thead>
+                <tr>
+                  <th style="text-align: left;">Acción / Permiso</th>
+                  <th class="th-role">Admin</th>
+                  <th class="th-role">Supervisor</th>
+                  <th class="th-role">Contratista</th>
+                  <th class="th-role">Auditor</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of permisos; track p.nombre) {
+                  <tr class="perm-tr">
+                    <td class="td-action">{{ p.nombre }}</td>
+                    <td class="td-role">
+                      <span class="perm-badge" [class.allowed]="p.admin" [class.denied]="!p.admin" [title]="p.admin ? 'Permitido' : 'No permitido'">
+                        <app-icon [name]="p.admin ? 'check' : 'x'" [size]="13" [color]="p.admin ? '#10b981' : '#64748b'"></app-icon>
+                      </span>
+                    </td>
+                    <td class="td-role">
+                      <span class="perm-badge" [class.allowed]="p.supervisor" [class.denied]="!p.supervisor" [title]="p.supervisor ? 'Permitido' : 'No permitido'">
+                        <app-icon [name]="p.supervisor ? 'check' : 'x'" [size]="13" [color]="p.supervisor ? '#10b981' : '#64748b'"></app-icon>
+                      </span>
+                    </td>
+                    <td class="td-role">
+                      <span class="perm-badge" [class.allowed]="p.contratista" [class.denied]="!p.contratista" [title]="p.contratista ? 'Permitido' : 'No permitido'">
+                        <app-icon [name]="p.contratista ? 'check' : 'x'" [size]="13" [color]="p.contratista ? '#10b981' : '#64748b'"></app-icon>
+                      </span>
+                    </td>
+                    <td class="td-role">
+                      <span class="perm-badge" [class.allowed]="p.auditor" [class.denied]="!p.auditor" [title]="p.auditor ? 'Permitido' : 'No permitido'">
+                        <app-icon [name]="p.auditor ? 'check' : 'x'" [size]="13" [color]="p.auditor ? '#10b981' : '#64748b'"></app-icon>
+                      </span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Identidad Institucional y Hoja Membretada (Logos y Membretes) -->
       <div class="card institucion-card">
         <div class="fiscal-header">
           <div class="fiscal-header-info">
@@ -272,66 +366,6 @@ import jsPDF from 'jspdf';
         </div>
       </div>
 
-      <!-- 3. Config (Reglas del Sistema y Roles y Permisos) -->
-      <div class="admin-config-grid">
-        <div class="card">
-          <h3 class="sec-title" style="display:flex; align-items:center; gap:8px;">
-            <app-icon name="shield-check" [size]="18" color="var(--accent)"></app-icon> Reglas del Sistema
-          </h3>
-          <div class="rule-list">
-            <div class="rule-item">
-              <span class="rule-icon" style="display:flex; align-items:center; justify-content:center;">
-                <app-icon name="lock" [size]="20" color="var(--warning)"></app-icon>
-              </span>
-              <div>
-                <div class="rule-name">Bloqueo automático de edición</div>
-                <div class="rule-desc">Las obras se bloquean tras <strong>15 días</strong> sin actualización</div>
-              </div>
-              <span class="badge badge-warning">Activo</span>
-            </div>
-            <div class="rule-item">
-              <span class="rule-icon" style="display:flex; align-items:center; justify-content:center;">
-                <app-icon name="folder" [size]="20" color="var(--success)"></app-icon>
-              </span>
-              <div>
-                <div class="rule-name">URLs únicas por proyecto</div>
-                <div class="rule-desc">Cada obra tiene una URL permanente e irrepetible</div>
-              </div>
-              <span class="badge badge-success">Activo</span>
-            </div>
-            <div class="rule-item">
-              <span class="rule-icon" style="display:flex; align-items:center; justify-content:center;">
-                <app-icon name="file-text" [size]="20" color="#3b82f6"></app-icon>
-              </span>
-              <div>
-                <div class="rule-name">Límite de archivos</div>
-                <div class="rule-desc">Máximo <strong>30 MB</strong> por archivo subido</div>
-              </div>
-              <span class="badge badge-success">Activo</span>
-            </div>
-          </div>
-        </div>
-        <div class="card">
-          <h3 class="sec-title" style="display:flex; align-items:center; gap:8px;">
-            <app-icon name="lock" [size]="18" color="var(--accent)"></app-icon> Roles y Permisos del Sistema
-          </h3>
-          <div class="perms-table">
-            <div class="perm-row header">
-              <span>Acción / Permiso</span><span>Admin</span><span>Supervisor</span><span>Contratista</span><span>Auditor</span>
-            </div>
-            @for (p of permisos; track p.nombre) {
-              <div class="perm-row">
-                <span>{{ p.nombre }}</span>
-                <span><app-icon [name]="p.admin ? 'check' : 'x'" [size]="15" [color]="p.admin ? 'var(--success)' : 'var(--danger)'"></app-icon></span>
-                <span><app-icon [name]="p.supervisor ? 'check' : 'x'" [size]="15" [color]="p.supervisor ? 'var(--success)' : 'var(--danger)'"></app-icon></span>
-                <span><app-icon [name]="p.contratista ? 'check' : 'x'" [size]="15" [color]="p.contratista ? 'var(--success)' : 'var(--danger)'"></app-icon></span>
-                <span><app-icon [name]="p.auditor ? 'check' : 'x'" [size]="15" [color]="p.auditor ? 'var(--success)' : 'var(--danger)'"></app-icon></span>
-              </div>
-            }
-          </div>
-        </div>
-      </div>
-
       <!-- 4. Cierre de Ejercicio Fiscal (Al último) -->
       <div class="card fiscal-close-card">
         <div class="fiscal-header">
@@ -452,7 +486,73 @@ import jsPDF from 'jspdf';
     .rule-icon { font-size: 1.3rem; flex-shrink: 0; }
     .rule-name { font-size: 0.87rem; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
     .rule-desc { font-size: 0.78rem; color: var(--text-muted); }
-    .perms-table { display: flex; flex-direction: column; gap: 2px; }
+    .perms-table-container {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      overflow-x: auto;
+      background: var(--bg-dark);
+    }
+    .perms-matrix {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    .perms-matrix thead tr {
+      background: rgba(255, 255, 255, 0.04);
+      border-bottom: 1px solid var(--border);
+    }
+    .perms-matrix th {
+      padding: 10px 14px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+    .perms-matrix th.th-role {
+      text-align: center;
+      width: 76px;
+    }
+    .perms-matrix .perm-tr {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      transition: background 0.15s;
+    }
+    .perms-matrix .perm-tr:last-child {
+      border-bottom: none;
+    }
+    .perms-matrix .perm-tr:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .perms-matrix td.td-action {
+      padding: 9px 14px;
+      font-size: 0.83rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .perms-matrix td.td-role {
+      padding: 8px 10px;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .perm-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+    }
+    .perm-badge.allowed {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+    .perm-badge.denied {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      opacity: 0.5;
+    }
 
     /* Cierre Fiscal Styles */
     .fiscal-close-card {
