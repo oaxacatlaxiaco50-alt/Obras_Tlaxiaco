@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { BitacoraService } from '../../core/services/bitacora.service';
 import { ObrasService } from '../../core/services/obras.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -12,7 +13,7 @@ import Swal from 'sweetalert2';
 @Component({
   selector: 'app-historial-general',
   standalone: true,
-  imports: [CommonModule, FormsModule, CurrencyPipe, DatePipe, IconComponent],
+  imports: [CommonModule, FormsModule, CurrencyPipe, DatePipe, IconComponent, RouterLink],
   template: `
     <div class="hg-wrapper animate-fade-in">
       <!-- Header con Tabs -->
@@ -166,7 +167,7 @@ import Swal from 'sweetalert2';
             </p>
           </div>
           <div class="archivo-count-badge">
-            <span class="count-num">{{ obrasArchivadas().length }}</span>
+            <span class="count-num">{{ filtroEjercicio() ? obrasArchivadas().length : '—' }}</span>
             <span class="count-lbl">Obras en Archivo</span>
           </div>
         </div>
@@ -179,11 +180,13 @@ import Swal from 'sweetalert2';
             </label>
             <select
               class="filter-input"
+              style="border-color: var(--accent); font-weight: 600;"
               [ngModel]="filtroEjercicio()"
-              (ngModelChange)="filtroEjercicio.set($event); filtrarArchivo()">
-              <option [ngValue]="null">Todos los ejercicios</option>
+              (ngModelChange)="onCambiarEjercicio($event)">
+              <option value="" disabled selected>— Seleccionar Ejercicio Fiscal —</option>
+              <option value="TODOS">Todos los ejercicios</option>
               @for (anio of ejerciciosDisponibles(); track anio) {
-                <option [ngValue]="anio">Año {{ anio }}</option>
+                <option [value]="anio">Año {{ anio }}</option>
               }
             </select>
           </div>
@@ -197,13 +200,12 @@ import Swal from 'sweetalert2';
               [ngModel]="filtroCategoria()"
               (ngModelChange)="filtroCategoria.set($event); filtrarArchivo()">
               <option value="">Todas las categorías</option>
-              <option value="Pavimentación">Pavimentación</option>
-              <option value="Agua Potable">Agua Potable</option>
-              <option value="Drenaje">Drenaje</option>
-              <option value="Electrificación">Electrificación</option>
-              <option value="Educación">Educación</option>
-              <option value="Salud">Salud</option>
-              <option value="Infraestructura">Infraestructura</option>
+              <option value="Pavimentación y Vialidades">Pavimentación y Vialidades</option>
+              <option value="Agua Potable y Drenaje">Agua Potable y Drenaje</option>
+              <option value="Electrificación y Alumbrado">Electrificación y Alumbrado</option>
+              <option value="Educación y Escuelas">Educación y Escuelas</option>
+              <option value="Salud y Espacios Públicos">Salud y Espacios Públicos</option>
+              <option value="Infraestructura General">Infraestructura General</option>
             </select>
           </div>
 
@@ -263,90 +265,104 @@ import Swal from 'sweetalert2';
           <button class="btn-limpiar" (click)="limpiarFiltrosArchivo()">✕ Limpiar</button>
         </div>
 
-        <!-- Tabla Archivo Fiscal -->
-        <div class="hg-table-wrap">
-          <table class="hg-table">
-            <thead>
-              <tr>
-                <th>Código / Ejercicio</th>
-                <th>Nombre de la Obra</th>
-                <th>Categoría</th>
-                <th>Monto Contratado</th>
-                <th>Contratista</th>
-                <th>Estatus al Cierre</th>
-                <th>Nota Fiscal</th>
-                <th>Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (ob of obrasArchivadas(); track ob.id) {
-                <tr class="hg-row">
-                  <td>
-                    <div style="display:flex; flex-direction:column; gap:2px;">
-                      <strong style="color:var(--text-primary); font-family:monospace; font-size:0.85rem;">{{ ob.codigo }}</strong>
-                      <span class="badge badge-ejercicio">Año {{ ob.ejercicioFiscal || '—' }}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div style="font-weight:600; color:var(--text-primary); max-width:240px; line-height:1.3;">
-                      {{ ob.nombre }}
-                    </div>
-                    <small style="color:var(--text-muted); font-size:0.75rem;">
-                      Inicio: {{ ob.fechaInicio | date:'dd/MM/yyyy' }} · Fin: {{ ob.fechaFin | date:'dd/MM/yyyy' }}
-                    </small>
-                  </td>
-                  <td>
-                    <span class="badge" style="background:rgba(59,130,246,0.12); color:#60a5fa;">
-                      {{ ob.categoria || 'Sin categoría' }}
-                    </span>
-                  </td>
-                  <td style="font-weight:700; color:var(--accent);">
-                    {{ ob.monto | currency:'MXN':'symbol-narrow':'1.0-2' }}
-                  </td>
-                  <td style="color:var(--text-secondary); font-size:0.82rem;">
-                    {{ ob.contratista || 'No especificado' }}
-                  </td>
-                  <td>
-                    @if (ob.estatus === 'COMPLETADA' || ob.estatus === 'FINALIZADA') {
-                      <span class="badge badge-completada" style="display: inline-flex; align-items: center; gap: 4px;">
-                        <app-icon name="check-circle" [size]="12"></app-icon> Completada
-                      </span>
-                    } @else if (ob.estatus === 'CANCELADA') {
-                      <span class="badge badge-cancelada" style="display: inline-flex; align-items: center; gap: 4px;">
-                        <app-icon name="x" [size]="12"></app-icon> Cancelada
-                      </span>
-                    } @else if (ob.estatus === 'ELIMINADA') {
-                      <span class="badge badge-eliminada" style="display: inline-flex; align-items: center; gap: 4px;">
-                        <app-icon name="trash" [size]="12"></app-icon> Eliminada
-                      </span>
-                    } @else {
-                      <span class="badge badge-ejercicio">{{ ob.estatus }}</span>
-                    }
-                  </td>
-                  <td>
-                    <small style="color:var(--text-muted); font-style:italic; font-size:0.75rem; max-width:200px; display:block;">
-                      {{ ob.notaCierreFiscal || 'Cierre fiscal de ejercicio' }}
-                    </small>
-                  </td>
-                  <td>
-                    <button class="btn-ver-obra" (click)="verDetalleHistorico(ob)" style="display: inline-flex; align-items: center; gap: 4px;">
-                      <app-icon name="eye" [size]="13"></app-icon> Ficha Histórica
-                    </button>
-                  </td>
-                </tr>
-              }
-              @if (obrasArchivadas().length === 0) {
+        @if (!filtroEjercicio()) {
+          <div class="card" style="padding: 48px 24px; text-align: center; border: 1px dashed var(--border); border-radius: 16px; margin-top: 20px; background: rgba(0,0,0,0.18);">
+            <div style="width: 58px; height: 58px; margin: 0 auto 16px; border-radius: 50%; background: rgba(232, 160, 32, 0.12); display: flex; align-items: center; justify-content: center;">
+              <app-icon name="landmark" [size]="28" color="var(--accent)"></app-icon>
+            </div>
+            <h3 style="color: var(--text-primary); font-size: 1.15rem; font-weight: 700; margin-bottom: 8px;">
+              Selecciona un Ejercicio Fiscal para consultar
+            </h3>
+            <p style="color: var(--text-muted); font-size: 0.88rem; max-width: 520px; margin: 0 auto; line-height: 1.5;">
+              Por favor elige <strong>"Todos los ejercicios"</strong> o un <strong>año específico</strong> en el selector superior para desplegar el padrón de obras archivadas correspondiente.
+            </p>
+          </div>
+        } @else {
+          <!-- Tabla Archivo Fiscal -->
+          <div class="hg-table-wrap">
+            <table class="hg-table">
+              <thead>
                 <tr>
-                  <td colspan="8" class="hg-empty">
-                    <app-icon name="landmark" [size]="20" color="var(--accent)" style="margin-right: 6px;"></app-icon>
-                    No hay obras archivadas que coincidan con los filtros seleccionados.<br>
-                    <small style="color:var(--text-muted)">Realiza un Cierre Fiscal desde <strong>Administración</strong> para archivar obras de un año específico.</small>
-                  </td>
+                  <th>Código / Ejercicio</th>
+                  <th>Nombre de la Obra</th>
+                  <th>Categoría</th>
+                  <th>Monto Contratado</th>
+                  <th>Contratista</th>
+                  <th>Estatus al Cierre</th>
+                  <th>Nota Fiscal</th>
+                  <th>Acción</th>
                 </tr>
-              }
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                @for (ob of obrasArchivadas(); track ob.id) {
+                  <tr class="hg-row">
+                    <td>
+                      <div style="display:flex; flex-direction:column; gap:2px;">
+                        <strong style="color:var(--text-primary); font-family:monospace; font-size:0.85rem;">{{ ob.codigo }}</strong>
+                        <span class="badge badge-ejercicio">Año {{ ob.ejercicioFiscal || '—' }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div style="font-weight:600; color:var(--text-primary); max-width:240px; line-height:1.3;">
+                        {{ ob.nombre }}
+                      </div>
+                      <small style="color:var(--text-muted); font-size:0.75rem;">
+                        Inicio: {{ ob.fechaInicio | date:'dd/MM/yyyy' }} · Fin: {{ ob.fechaFin | date:'dd/MM/yyyy' }}
+                      </small>
+                    </td>
+                    <td>
+                      <span class="badge" style="background:rgba(59,130,246,0.12); color:#60a5fa;">
+                        {{ ob.categoria || 'Sin categoría' }}
+                      </span>
+                    </td>
+                    <td style="font-weight:700; color:var(--accent);">
+                      {{ ob.monto | currency:'MXN':'symbol-narrow':'1.0-2' }}
+                    </td>
+                    <td style="color:var(--text-secondary); font-size:0.82rem;">
+                      {{ ob.contratista || 'No especificado' }}
+                    </td>
+                    <td>
+                      @if (ob.estatus === 'COMPLETADA' || ob.estatus === 'FINALIZADA') {
+                        <span class="badge badge-completada" style="display: inline-flex; align-items: center; gap: 4px;">
+                          <app-icon name="check-circle" [size]="12"></app-icon> Completada
+                        </span>
+                      } @else if (ob.estatus === 'CANCELADA') {
+                        <span class="badge badge-cancelada" style="display: inline-flex; align-items: center; gap: 4px;">
+                          <app-icon name="x" [size]="12"></app-icon> Cancelada
+                        </span>
+                      } @else if (ob.estatus === 'ELIMINADA') {
+                        <span class="badge badge-eliminada" style="display: inline-flex; align-items: center; gap: 4px;">
+                          <app-icon name="trash" [size]="12"></app-icon> Eliminada
+                        </span>
+                      } @else {
+                        <span class="badge badge-ejercicio">{{ ob.estatus }}</span>
+                      }
+                    </td>
+                    <td>
+                      <small style="color:var(--text-muted); font-style:italic; font-size:0.75rem; max-width:200px; display:block;">
+                        {{ ob.notaCierreFiscal || 'Cierre fiscal de ejercicio' }}
+                      </small>
+                    </td>
+                    <td>
+                      <button class="btn-ver-obra" (click)="verDetalleHistorico(ob)" style="display: inline-flex; align-items: center; gap: 4px;">
+                        <app-icon name="eye" [size]="13"></app-icon> Ficha Histórica
+                      </button>
+                    </td>
+                  </tr>
+                }
+                @if (obrasArchivadas().length === 0) {
+                  <tr>
+                    <td colspan="8" class="hg-empty">
+                      <app-icon name="landmark" [size]="20" color="var(--accent)" style="margin-right: 6px;"></app-icon>
+                      No hay obras archivadas que coincidan con los filtros seleccionados.<br>
+                      <small style="color:var(--text-muted)">Realiza un Cierre Fiscal desde <strong>Administración</strong> para archivar obras de un año específico.</small>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
       }
 
       <!-- Modal de Consulta Histórica (Solo Lectura) -->
@@ -423,11 +439,17 @@ import Swal from 'sweetalert2';
               </div>
             </div>
 
-            <div class="modal-footer">
+            <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
               <span style="font-size:0.78rem; color:var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
-                <app-icon name="lock" [size]="13"></app-icon> Registro histórico de sólo lectura. Los expedientes no pueden ser alterados.
+                <app-icon name="lock" [size]="13"></app-icon> Registro histórico de sólo lectura.
               </span>
-              <button class="btn-modal-close" (click)="cerrarModalHistorico()">Cerrar Ficha</button>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <a [routerLink]="['/obras', obraSeleccionadaModal.id]" (click)="cerrarModalHistorico()" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 7px 14px; font-size: 0.85rem; cursor: pointer;">
+                  <app-icon name="folder-open" [size]="15"></app-icon>
+                  <span>Ver Expediente y Documentos</span>
+                </a>
+                <button class="btn-modal-close" (click)="cerrarModalHistorico()">Cerrar Ficha</button>
+              </div>
             </div>
           </div>
         </div>
@@ -648,7 +670,7 @@ export class HistorialGeneralComponent implements OnInit {
   private _todas = signal<EntradaBitacora[]>([]);
 
   // Archivo Fiscal state
-  filtroEjercicio = signal<number | null>(null);
+  filtroEjercicio = signal<string>('');
   filtroCategoria = signal<string>('');
   filtroMes = signal<number | null>(null);
   filtroEstatus = signal<string>('');
@@ -761,6 +783,7 @@ export class HistorialGeneralComponent implements OnInit {
           color: '#f8fafc'
         });
         this.cargarEjerciciosDisponibles();
+        this.filtroEjercicio.set(String(ejercicio));
         this.filtrarArchivo();
       },
       error: (err) => {
@@ -786,8 +809,16 @@ export class HistorialGeneralComponent implements OnInit {
   cambiarTab(tab: 'bitacora' | 'archivoFiscal') {
     this.tabActiva.set(tab);
     if (tab === 'archivoFiscal') {
-      this.filtrarArchivo();
+      this.cargarEjerciciosDisponibles();
+      if (this.filtroEjercicio()) {
+        this.filtrarArchivo();
+      }
     }
+  }
+
+  onCambiarEjercicio(val: string) {
+    this.filtroEjercicio.set(val);
+    this.filtrarArchivo();
   }
 
   cargarBitacora() {
@@ -807,8 +838,14 @@ export class HistorialGeneralComponent implements OnInit {
   }
 
   filtrarArchivo() {
+    const ej = this.filtroEjercicio();
+    if (!ej) {
+      this.obrasArchivadas.set([]);
+      return;
+    }
+    const ejercicioNum = (ej === 'TODOS') ? undefined : Number(ej);
     this.obrasService.getArchivoFiscal({
-      ejercicio: this.filtroEjercicio() ?? undefined,
+      ejercicio: ejercicioNum,
       categoria: this.filtroCategoria() || undefined,
       mes: this.filtroMes() ?? undefined,
       estatus: this.filtroEstatus() || undefined,
@@ -820,12 +857,12 @@ export class HistorialGeneralComponent implements OnInit {
   }
 
   limpiarFiltrosArchivo() {
-    this.filtroEjercicio.set(null);
+    this.filtroEjercicio.set('');
     this.filtroCategoria.set('');
     this.filtroMes.set(null);
     this.filtroEstatus.set('');
     this.filtroBusqueda.set('');
-    this.filtrarArchivo();
+    this.obrasArchivadas.set([]);
   }
 
   verDetalleHistorico(obra: ObraResponse) {
