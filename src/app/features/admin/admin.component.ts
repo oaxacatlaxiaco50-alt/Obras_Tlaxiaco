@@ -86,9 +86,14 @@ import jsPDF from 'jspdf';
                 <option [value]="anioActual + 1">{{ anioActual + 1 }}</option>
               </select>
             </div>
-            <button class="btn btn-warning fiscal-btn" (click)="confirmarCierreFiscal()" [disabled]="cargandoCierre">
-              <app-icon name="lock" [size]="16" style="margin-right: 4px;"></app-icon> Realizar Cierre Fiscal {{ ejercicioCierre }}
-            </button>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn btn-warning fiscal-btn" (click)="confirmarCierreFiscal()" [disabled]="cargandoCierre">
+                <app-icon name="lock" [size]="16" style="margin-right: 4px;"></app-icon> Realizar Cierre Fiscal {{ ejercicioCierre }}
+              </button>
+              <button class="btn fiscal-btn" (click)="confirmarReversionCierreFiscal()" [disabled]="cargandoCierre" style="background: rgba(59,130,246,0.15); border: 1px solid #3b82f6; color: #93c5fd;" title="Devolver obras archivadas nuevamente al padrón activo">
+                <app-icon name="refresh" [size]="16" style="margin-right: 4px;"></app-icon> Revertir Cierre Fiscal {{ ejercicioCierre }}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -879,6 +884,72 @@ export class AdminComponent implements OnInit {
         this.cargandoCierre = false;
         const msg = err?.error?.message || 'Error al ejecutar el cierre fiscal.';
         this.toastSvc.show(msg, 'error');
+      }
+    });
+  }
+
+  confirmarReversionCierreFiscal() {
+    Swal.fire({
+      title: `🔄 Revertir Cierre Fiscal Ejercicio ${this.ejercicioCierre}`,
+      html: `
+        <div style="text-align: left; font-size: 0.88rem; line-height: 1.5; color: #cbd5e1;">
+          <p>Esta acción restaurará todas las obras archivadas del ejercicio <strong>${this.ejercicioCierre}</strong> devolviéndolas al <strong>padrón activo</strong>.</p>
+          <ul style="padding-left: 18px; margin: 8px 0; display: flex; flex-direction: column; gap: 6px;">
+            <li>Las obras archivadas volverán a mostrarse en el listado activo y en el Dashboard.</li>
+            <li>Aquellas que fueron concluidas automáticamente por el cierre volverán a su estado en proceso.</li>
+          </ul>
+          <p style="margin-top: 10px; color: #60a5fa;">Escribe la palabra de seguridad: <strong style="color:#fff;">REVERTIR-${this.ejercicioCierre}</strong></p>
+        </div>
+      `,
+      input: 'text',
+      inputPlaceholder: `REVERTIR-${this.ejercicioCierre}`,
+      showCancelButton: true,
+      confirmButtonText: '🔄 Revertir y Restaurar Obras',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#2563eb',
+      cancelButtonColor: '#4b5563',
+      background: '#1e293b',
+      color: '#f8fafc',
+      preConfirm: (value) => {
+        if (value !== `REVERTIR-${this.ejercicioCierre}`) {
+          Swal.showValidationMessage(`Debes escribir exactamente REVERTIR-${this.ejercicioCierre}`);
+          return false;
+        }
+        return true;
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.ejecutarReversion();
+      }
+    });
+  }
+
+  ejecutarReversion() {
+    this.cargandoCierre = true;
+    this.svc.revertirCierreFiscal(this.ejercicioCierre).subscribe({
+      next: (res) => {
+        this.cargandoCierre = false;
+        this.toastSvc.show(`🔄 Cierre Fiscal ${this.ejercicioCierre} revertido: ${res.obrasRestauradas} obras restauradas.`, 'success');
+        Swal.fire({
+          title: '✅ Obras Restauradas al Padrón Activo',
+          text: `Se han restaurado ${res.obrasRestauradas} obras del ejercicio ${this.ejercicioCierre} nuevamente al padrón activo.`,
+          icon: 'success',
+          confirmButtonColor: '#10b981',
+          background: '#1e293b',
+          color: '#f8fafc'
+        });
+        this.cargarResumenCierre();
+      },
+      error: (err) => {
+        this.cargandoCierre = false;
+        Swal.fire({
+          title: 'Error',
+          text: err?.error?.message || 'No fue posible revertir el cierre fiscal.',
+          icon: 'error',
+          confirmButtonColor: '#ef4444',
+          background: '#1e293b',
+          color: '#f8fafc'
+        });
       }
     });
   }

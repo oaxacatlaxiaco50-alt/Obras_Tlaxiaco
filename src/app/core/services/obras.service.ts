@@ -90,6 +90,14 @@ export class ObrasService {
     );
   }
 
+  /** Revertir Cierre Fiscal Anual y devolver obras al padrón activo (Solo Administrador) */
+  revertirCierreFiscal(ejercicio?: number): Observable<{ mensaje: string; ejercicio: number; obrasRestauradas: number }> {
+    return this.http.post<{ mensaje: string; ejercicio: number; obrasRestauradas: number }>(
+      `${API}/obras/revertir-cierre-fiscal`,
+      { ejercicio }
+    );
+  }
+
   /** Consultar Archivo Histórico Fiscal */
   getArchivoFiscal(params?: {
     ejercicio?: number;

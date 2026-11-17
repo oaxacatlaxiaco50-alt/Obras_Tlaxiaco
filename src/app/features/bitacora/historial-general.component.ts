@@ -155,7 +155,7 @@ import Swal from 'sweetalert2';
       <!-- TAB 2: ARCHIVO DE EJERCICIOS FISCALES     -->
       <!-- ========================================== -->
       @if (tabActiva() === 'archivoFiscal') {
-        <div class="archivo-banner">
+          <div class="archivo-banner">
           <div>
             <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0 0 4px 0; color: var(--text-primary); display:flex; align-items:center; gap:8px;">
               <app-icon name="landmark" [size]="18" color="var(--accent)"></app-icon>
@@ -166,9 +166,21 @@ import Swal from 'sweetalert2';
               Consulta histórica permanente de obras concluidas, canceladas o eliminadas de años anteriores. Toda la información y expedientes se conservan intactos para auditoría gubernamental.
             </p>
           </div>
-          <div class="archivo-count-badge">
-            <span class="count-num">{{ filtroEjercicio() ? obrasArchivadas().length : '—' }}</span>
-            <span class="count-lbl">Obras en Archivo</span>
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            @if (esAdmin()) {
+              <button
+                class="btn btn-sm"
+                style="background: rgba(59,130,246,0.15); border: 1px solid #3b82f6; color: #93c5fd; padding: 7px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;"
+                (click)="iniciarReversionDesdeHistorial()"
+                title="Revertir el cierre fiscal y devolver obras al padrón activo">
+                <app-icon name="refresh" [size]="14"></app-icon>
+                <span>Revertir Cierre Fiscal</span>
+              </button>
+            }
+            <div class="archivo-count-badge">
+              <span class="count-num">{{ filtroEjercicio() ? obrasArchivadas().length : '—' }}</span>
+              <span class="count-lbl">Obras en Archivo</span>
+            </div>
           </div>
         </div>
 
@@ -790,6 +802,75 @@ export class HistorialGeneralComponent implements OnInit {
         Swal.fire({
           title: 'Error en Cierre',
           text: err.error?.message || 'No fue posible ejecutar el cierre fiscal.',
+          icon: 'error',
+          confirmButtonColor: '#ef4444',
+          background: '#1e293b',
+          color: '#f8fafc'
+        });
+      }
+    });
+  }
+
+  iniciarReversionDesdeHistorial() {
+    const anioActual = new Date().getFullYear();
+    const ejercicioSeleccionado = this.filtroEjercicio();
+    const ejercicioObjetivo = (ejercicioSeleccionado && ejercicioSeleccionado !== 'TODOS')
+      ? Number(ejercicioSeleccionado)
+      : anioActual;
+
+    Swal.fire({
+      title: `🔄 Revertir Cierre Fiscal ${ejercicioObjetivo}`,
+      html: `
+        <div style="text-align: left; font-size: 0.88rem; line-height: 1.5; color: #cbd5e1;">
+          <p>⚠️ <strong>Atención Administrador:</strong> Esta acción reactivará las obras archivadas del ejercicio <strong>${ejercicioObjetivo}</strong> y las devolverá al <strong>padrón activo</strong>.</p>
+          <ul style="padding-left: 18px; margin: 8px 0; display:flex; flex-direction:column; gap:4px;">
+            <li>Las obras volverán a estar visibles en el Padrón Activo y Dashboard.</li>
+            <li>Aquellas que fueron concluidas por el cierre regresarán a su estado en proceso.</li>
+          </ul>
+          <p style="margin-top: 10px; color: #60a5fa;">Escribe la palabra de seguridad: <strong style="color:#fff;">REVERTIR-${ejercicioObjetivo}</strong></p>
+        </div>
+      `,
+      input: 'text',
+      inputPlaceholder: `REVERTIR-${ejercicioObjetivo}`,
+      showCancelButton: true,
+      confirmButtonText: '🔄 Revertir y Restaurar Obras',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#2563eb',
+      cancelButtonColor: '#4b5563',
+      background: '#1e293b',
+      color: '#f8fafc',
+      preConfirm: (val) => {
+        if (val !== `REVERTIR-${ejercicioObjetivo}`) {
+          Swal.showValidationMessage(`Debes escribir exactamente REVERTIR-${ejercicioObjetivo}`);
+          return false;
+        }
+        return true;
+      }
+    }).then((res) => {
+      if (res.isConfirmed) {
+        this.ejecutarReversionConfirmada(ejercicioObjetivo);
+      }
+    });
+  }
+
+  private ejecutarReversionConfirmada(ejercicio: number) {
+    this.obrasService.revertirCierreFiscal(ejercicio).subscribe({
+      next: (res) => {
+        Swal.fire({
+          title: '✅ Obras Restauradas al Padrón Activo',
+          html: `Se han restaurado <strong>${res.obrasRestauradas} obras</strong> del ejercicio <strong>${ejercicio}</strong> nuevamente al padrón activo.<br><br>Ya se encuentran disponibles en el Padrón de Obras y en el Dashboard.`,
+          icon: 'success',
+          confirmButtonColor: '#10b981',
+          background: '#1e293b',
+          color: '#f8fafc'
+        });
+        this.cargarEjerciciosDisponibles();
+        this.filtrarArchivo();
+      },
+      error: (err) => {
+        Swal.fire({
+          title: 'Error al Revertir',
+          text: err.error?.message || 'No fue posible revertir el cierre fiscal.',
           icon: 'error',
           confirmButtonColor: '#ef4444',
           background: '#1e293b',
