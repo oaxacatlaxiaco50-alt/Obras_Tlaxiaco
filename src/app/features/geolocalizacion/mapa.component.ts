@@ -449,7 +449,11 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!container) return;
     if (this.map) return;
 
-    this.map = L.map('leaflet-map', { center: [this.DEFAULT_CENTER.lat, this.DEFAULT_CENTER.lng], zoom: 14 });
+    this.map = L.map('leaflet-map', {
+      center: [this.DEFAULT_CENTER.lat, this.DEFAULT_CENTER.lng],
+      zoom: 14,
+      maxZoom: 19
+    });
     this.aplicarCapaMapa('osm');
 
     this.map.on('click', (e: L.LeafletMouseEvent) => {
@@ -504,16 +508,34 @@ export class MapaComponent implements OnInit, AfterViewInit, OnDestroy {
 
     let url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
     let attrib = '&copy; OpenStreetMap contributors';
+    let maxZoom = 19;
+    let maxNativeZoom = 19;
 
     if (tipo === 'osm') {
       url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
       attrib = '&copy; OpenStreetMap contributors';
+      maxZoom = 19;
+      maxNativeZoom = 19;
     } else if (tipo === 'satellite') {
       url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
       attrib = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community';
+      // Esri World Imagery en Tlaxiaco tiene cobertura satelital nativa de alta resolución hasta zoom 18.
+      // Limitamos maxZoom y maxNativeZoom a 18 para que el mapa nunca solicite zoom 19 (que muestra "Map data not yet available")
+      // y deshabilite automáticamente el botón de zoom al llegar al límite real.
+      maxZoom = 18;
+      maxNativeZoom = 18;
     }
 
-    this.currentTileLayer = L.tileLayer(url, { attribution: attrib, maxZoom: 19 }).addTo(this.map);
+    if (this.map.getZoom() > maxZoom) {
+      this.map.setZoom(maxZoom);
+    }
+    this.map.setMaxZoom(maxZoom);
+
+    this.currentTileLayer = L.tileLayer(url, {
+      attribution: attrib,
+      maxZoom: maxZoom,
+      maxNativeZoom: maxNativeZoom
+    }).addTo(this.map);
   }
 
   togglePantallaCompleta() {
