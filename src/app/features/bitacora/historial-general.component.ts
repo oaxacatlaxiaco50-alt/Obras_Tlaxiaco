@@ -708,42 +708,25 @@ export class HistorialGeneralComponent implements OnInit {
 
     if (!esDiciembre) {
       Swal.fire({
-        title: '📅 Cierre Fiscal Permitido en Diciembre',
+        title: '📅 Cierre Fiscal Permitido Únicamente en Diciembre',
         html: `
           <div style="text-align: left; font-size: 0.9rem; line-height: 1.5; color: #cbd5e1;">
-            <p>Por normativa de la administración pública y contabilidad gubernamental, el <strong>Cierre de Ejercicio Fiscal</strong> únicamente está autorizado a ejecutarse en el último mes del año (<strong>Diciembre</strong>).</p>
-            <p style="color: #f59e0b; margin-top: 8px;">Actualmente nos encontramos en el <strong>Mes ${mesActual}</strong>.</p>
-            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 12px 0;">
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#93c5fd; font-size:0.85rem;">
-              <input type="checkbox" id="chkForzarHistorial" style="cursor:pointer;" />
-              Habilitar Cierre Anticipado (Modo Pruebas / Demostración)
-            </label>
+            <p>Por normativa de la administración pública y contabilidad gubernamental, el <strong>Cierre de Ejercicio Fiscal</strong> únicamente está autorizado a ejecutarse durante el último mes del año (<strong>Diciembre</strong>).</p>
+            <p style="color: #f59e0b; margin-top: 10px;">Actualmente el sistema se encuentra en el <strong>Mes ${mesActual}</strong>.</p>
+            <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 8px;">El cierre anual se habilitará automáticamente en Diciembre para archivar las obras concluidas y preparar el padrón del siguiente ejercicio fiscal.</p>
           </div>
         `,
         icon: 'info',
-        showCancelButton: true,
-        confirmButtonText: 'Continuar Cierre',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#d97706',
-        cancelButtonColor: '#4b5563',
+        showCancelButton: false,
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#3b82f6',
         background: '#1e293b',
-        color: '#f8fafc',
-        preConfirm: () => {
-          const chk = (document.getElementById('chkForzarHistorial') as HTMLInputElement)?.checked;
-          if (!chk) {
-            Swal.showValidationMessage('El cierre está bloqueado hasta Diciembre. Marca la casilla si deseas realizar una prueba anticipada.');
-            return false;
-          }
-          return true;
-        }
-      }).then((result) => {
-        if (result.isConfirmed) {
-          this.solicitarConfirmacionCierre(anioActual, true);
-        }
+        color: '#f8fafc'
       });
-    } else {
-      this.solicitarConfirmacionCierre(anioActual, false);
+      return;
     }
+
+    this.solicitarConfirmacionCierre(anioActual, false);
   }
 
   private solicitarConfirmacionCierre(ejercicio: number, forzar: boolean) {
@@ -819,37 +802,63 @@ export class HistorialGeneralComponent implements OnInit {
       : anioActual;
 
     Swal.fire({
-      title: `🔄 Revertir Cierre Fiscal ${ejercicioObjetivo}`,
+      title: '⚠️ ¿Estás completamente seguro?',
       html: `
-        <div style="text-align: left; font-size: 0.88rem; line-height: 1.5; color: #cbd5e1;">
-          <p>⚠️ <strong>Atención Administrador:</strong> Esta acción reactivará las obras archivadas del ejercicio <strong>${ejercicioObjetivo}</strong> y las devolverá al <strong>padrón activo</strong>.</p>
-          <ul style="padding-left: 18px; margin: 8px 0; display:flex; flex-direction:column; gap:4px;">
-            <li>Las obras volverán a estar visibles en el Padrón Activo y Dashboard.</li>
-            <li>Aquellas que fueron concluidas por el cierre regresarán a su estado en proceso.</li>
-          </ul>
-          <p style="margin-top: 10px; color: #60a5fa;">Escribe la palabra de seguridad: <strong style="color:#fff;">REVERTIR-${ejercicioObjetivo}</strong></p>
+        <div style="text-align: left; font-size: 0.9rem; line-height: 1.5; color: #cbd5e1;">
+          <p style="margin-bottom: 8px;">Estás a punto de <strong>revertir el Cierre Fiscal ${ejercicioObjetivo}</strong>.</p>
+          <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 8px; padding: 12px; margin: 10px 0; color: #fca5a5; font-size: 0.85rem;">
+            <strong>Consecuencias de esta acción:</strong>
+            <ul style="padding-left: 18px; margin: 6px 0 0 0; display: flex; flex-direction: column; gap: 4px;">
+              <li>Todas las obras archivadas volverán a aparecer en el <strong>Padrón Activo</strong> y en el <strong>Dashboard</strong>.</li>
+              <li>Aquellas obras que fueron concluidas automáticamente por el cierre volverán a su estado <strong>En Proceso</strong>.</li>
+              <li>Esta acción quedará registrada permanentemente en la <strong>Bitácora de Auditoría</strong>.</li>
+            </ul>
+          </div>
+          <p style="color: #94a3b8; font-size: 0.82rem; margin: 0;">Utiliza esta opción únicamente si el cierre se ejecutó por error o se requiere registrar modificaciones extemporáneas.</p>
         </div>
       `,
-      input: 'text',
-      inputPlaceholder: `REVERTIR-${ejercicioObjetivo}`,
+      icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: '🔄 Revertir y Restaurar Obras',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#2563eb',
+      confirmButtonText: 'Sí, deseo continuar con la reversión',
+      cancelButtonText: 'Cancelar y conservar archivo',
+      confirmButtonColor: '#dc2626',
       cancelButtonColor: '#4b5563',
       background: '#1e293b',
-      color: '#f8fafc',
-      preConfirm: (val) => {
-        if (val !== `REVERTIR-${ejercicioObjetivo}`) {
-          Swal.showValidationMessage(`Debes escribir exactamente REVERTIR-${ejercicioObjetivo}`);
-          return false;
+      color: '#f8fafc'
+    }).then((primerPaso) => {
+      if (!primerPaso.isConfirmed) return;
+
+      Swal.fire({
+        title: `🔐 Confirmación Final de Seguridad`,
+        html: `
+          <div style="text-align: left; font-size: 0.88rem; line-height: 1.5; color: #cbd5e1;">
+            <p>Para autorizar formalmente la reactivación de las obras del ejercicio <strong>${ejercicioObjetivo}</strong>, escribe exactamente la clave de confirmación:</p>
+            <div style="text-align: center; background: rgba(37, 99, 235, 0.15); border: 1px solid rgba(37, 99, 235, 0.4); border-radius: 6px; padding: 10px; margin: 12px 0; font-family: monospace; font-size: 1.15rem; font-weight: bold; color: #60a5fa; letter-spacing: 2px;">
+              REVERTIR-${ejercicioObjetivo}
+            </div>
+          </div>
+        `,
+        input: 'text',
+        inputPlaceholder: `REVERTIR-${ejercicioObjetivo}`,
+        showCancelButton: true,
+        confirmButtonText: '🔄 Confirmar y Restaurar Obras',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#2563eb',
+        cancelButtonColor: '#4b5563',
+        background: '#1e293b',
+        color: '#f8fafc',
+        preConfirm: (val) => {
+          if (val !== `REVERTIR-${ejercicioObjetivo}`) {
+            Swal.showValidationMessage(`Debes escribir exactamente REVERTIR-${ejercicioObjetivo}`);
+            return false;
+          }
+          return true;
         }
-        return true;
-      }
-    }).then((res) => {
-      if (res.isConfirmed) {
-        this.ejecutarReversionConfirmada(ejercicioObjetivo);
-      }
+      }).then((res) => {
+        if (res.isConfirmed) {
+          this.ejecutarReversionConfirmada(ejercicioObjetivo);
+        }
+      });
     });
   }
 
