@@ -33,7 +33,7 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(232, 160, 32, 0.15);
+  --shadow-glow: none;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
@@ -76,7 +76,7 @@ body.theme-emerald {
   --text-muted: #6EE7B7;
   --border: rgba(16, 185, 129, 0.1);
   --border-light: rgba(16, 185, 129, 0.2);
-  --shadow-glow: 0 0 20px rgba(16, 185, 129, 0.25);
+  --shadow-glow: none;
 }
 
 body.theme-cyberpunk {
@@ -95,7 +95,7 @@ body.theme-cyberpunk {
   --text-muted: #9E00FF;
   --border: rgba(255, 0, 255, 0.15);
   --border-light: rgba(0, 255, 204, 0.25);
-  --shadow-glow: 0 0 20px rgba(0, 255, 204, 0.3);
+  --shadow-glow: none;
 }
 
 body.theme-sunset {
@@ -114,7 +114,7 @@ body.theme-sunset {
   --text-muted: #FB7185;
   --border: rgba(249, 115, 22, 0.1);
   --border-light: rgba(249, 115, 22, 0.2);
-  --shadow-glow: 0 0 20px rgba(249, 115, 22, 0.25);
+  --shadow-glow: none;
 }
 
 body.theme-silver {
@@ -133,7 +133,7 @@ body.theme-silver {
   --text-muted: #64748B;
   --border: rgba(0, 0, 0, 0.1);
   --border-light: rgba(0, 0, 0, 0.15);
-  --shadow-glow: 0 0 20px rgba(0, 0, 0, 0.05);
+  --shadow-glow: none;
 }
 
 body.theme-guinda {
@@ -152,7 +152,7 @@ body.theme-guinda {
   --text-muted: #B38692;
   --border: rgba(157, 36, 73, 0.2);
   --border-light: rgba(157, 36, 73, 0.35);
-  --shadow-glow: 0 0 20px rgba(157, 36, 73, 0.15);
+  --shadow-glow: none;
 }
 
 body.theme-pastel-blue {
@@ -171,7 +171,7 @@ body.theme-pastel-blue {
   --text-muted: #1D4ED8;
   --border: rgba(96, 165, 250, 0.2);
   --border-light: rgba(96, 165, 250, 0.3);
-  --shadow-glow: 0 0 20px rgba(96, 165, 250, 0.15);
+  --shadow-glow: none;
 }
 
 body.theme-pastel-mint {
@@ -190,7 +190,7 @@ body.theme-pastel-mint {
   --text-muted: #047857;
   --border: rgba(52, 211, 153, 0.2);
   --border-light: rgba(52, 211, 153, 0.3);
-  --shadow-glow: 0 0 20px rgba(52, 211, 153, 0.15);
+  --shadow-glow: none;
 }
 
 /* === Smooth Theme Transition === */

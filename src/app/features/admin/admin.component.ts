@@ -693,97 +693,90 @@ import jsPDF from 'jspdf';
     }
     .btn-pdf-sample {
       display: inline-flex; align-items: center; gap: 8px;
-      background: rgba(59, 130, 246, 0.12);
-      border: 1px solid rgba(59, 130, 246, 0.35);
-      color: #93c5fd;
+      background: #1e293b;
+      border: 1px solid #475569;
+      color: #cbd5e1;
       font-weight: 600; font-size: 0.85rem;
       padding: 9px 16px; border-radius: 8px;
       cursor: pointer; transition: all 0.2s;
     }
     .btn-pdf-sample:hover {
-      background: rgba(59, 130, 246, 0.24);
-      border-color: #60a5fa; color: #ffffff;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+      background: #334155;
+      border-color: #64748b; color: #ffffff;
     }
     .btn-save-identidad {
       display: inline-flex; align-items: center; gap: 8px;
-      background: linear-gradient(135deg, #2563eb, #1d4ed8);
-      border: 1px solid #3b82f6;
+      background: #1e40af;
+      border: 1px solid #1e3a8a;
       color: #ffffff;
-      font-weight: 700; font-size: 0.85rem;
+      font-weight: 600; font-size: 0.85rem;
       padding: 9px 20px; border-radius: 8px;
-      cursor: pointer; transition: all 0.2s;
-      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+      cursor: pointer; transition: background 0.2s;
     }
     .btn-save-identidad:hover:not([disabled]) {
-      background: linear-gradient(135deg, #3b82f6, #2563eb);
-      transform: translateY(-1px);
-      box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+      background: #1d4ed8;
     }
     .btn-logo-crop {
       display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      background: rgba(147, 51, 234, 0.12);
-      border: 1px solid rgba(168, 85, 247, 0.4);
-      color: #d8b4fe;
-      font-weight: 600; font-size: 0.82rem;
+      background: #1e293b;
+      border: 1px solid #475569;
+      color: #e2e8f0;
+      font-weight: 500; font-size: 0.82rem;
       padding: 8px 14px; border-radius: 8px;
       cursor: pointer; transition: all 0.2s;
     }
     .btn-logo-crop:hover:not([disabled]) {
-      background: rgba(147, 51, 234, 0.25); color: #ffffff; border-color: #c084fc;
+      background: #334155; color: #ffffff; border-color: #64748b;
     }
     .btn-preview-sheet {
       display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      background: rgba(59, 130, 246, 0.12);
-      border: 1px solid rgba(59, 130, 246, 0.35);
-      color: #93c5fd;
-      font-weight: 600; font-size: 0.82rem;
+      background: #1e293b;
+      border: 1px solid #475569;
+      color: #e2e8f0;
+      font-weight: 500; font-size: 0.82rem;
       padding: 8px 14px; border-radius: 8px;
       cursor: pointer; transition: all 0.2s;
     }
     .btn-preview-sheet:hover {
-      background: rgba(59, 130, 246, 0.22); color: #ffffff; border-color: #60a5fa;
+      background: #334155; color: #ffffff; border-color: #64748b;
     }
     .btn-activate-official {
       display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(217, 119, 6, 0.24));
-      border: 1px solid rgba(245, 158, 11, 0.45);
-      color: #fcd34d;
-      font-weight: 700; font-size: 0.82rem;
-      padding: 8px 14px; border-radius: 8px;
-      cursor: pointer; transition: all 0.2s;
-    }
-    .btn-activate-official:hover:not([disabled]) {
-      background: linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(217, 119, 6, 0.38));
-      border-color: #fbbf24; color: #ffffff;
-      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
-    }
-    .btn-upload-sheet {
-      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      color: #e2e8f0;
+      background: #1e293b;
+      border: 1px solid #475569;
+      color: #fbbf24;
       font-weight: 600; font-size: 0.82rem;
       padding: 8px 14px; border-radius: 8px;
       cursor: pointer; transition: all 0.2s;
     }
+    .btn-activate-official:hover:not([disabled]) {
+      background: #334155; border-color: #64748b; color: #fde68a;
+    }
+    .btn-upload-sheet {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: #1e293b;
+      border: 1px solid #475569;
+      color: #e2e8f0;
+      font-weight: 500; font-size: 0.82rem;
+      padding: 8px 14px; border-radius: 8px;
+      cursor: pointer; transition: all 0.2s;
+    }
     .btn-upload-sheet:hover:not([disabled]) {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.35); color: #ffffff;
+      background: #334155;
+      border-color: #64748b; color: #ffffff;
     }
     .btn-reset-subtle {
       display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-      background: rgba(239, 68, 68, 0.08);
-      border: 1px solid rgba(239, 68, 68, 0.25);
-      color: #fca5a5;
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #94a3b8;
       font-weight: 500; font-size: 0.78rem;
       padding: 6px 12px; border-radius: 7px;
       cursor: pointer; transition: all 0.2s;
     }
     .btn-reset-subtle:hover {
-      background: rgba(239, 68, 68, 0.18); color: #fee2e2;
-      border-color: rgba(239, 68, 68, 0.45);
+      background: #1e293b; color: #f87171;
+      border-color: #ef4444;
     }
     .status-dot.online { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,0.6); }
   `]
